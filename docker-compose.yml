@@ -1,11 +1,63 @@
 services:
+  backend:
+    build:
+      context: .
+      dockerfile: src/backend/Dockerfile
+    container_name: resume-matching-backend
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      OPENAI_AGENT_MODEL: ${OPENAI_AGENT_MODEL:-gpt-4.1-mini}
+      OPENAI_AGENT_LIVE_MODE: ${OPENAI_AGENT_LIVE_MODE:-false}
+      MONGODB_URI: ${DOCKER_MONGODB_URI:-mongodb://admin:admin123@mongodb:27017/resume_matching?authSource=admin}
+      MONGODB_DB: ${MONGODB_DB:-resume_matching}
+      MILVUS_URI: ${DOCKER_MILVUS_URI:-http://milvus:19530}
+      MILVUS_USER: ${MILVUS_USER:-}
+      MILVUS_PASSWORD: ${MILVUS_PASSWORD:-}
+      MILVUS_COLLECTION: ${MILVUS_COLLECTION:-candidate_embeddings}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-resume-matching}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      mongodb:
+        condition: service_started
+      milvus:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from urllib.request import urlopen; import sys; sys.exit(0 if urlopen('http://127.0.0.1:8000/api/health').status == 200 else 1)",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    container_name: resume-matching-frontend
+    environment:
+      BACKEND_UPSTREAM: ${FRONTEND_BACKEND_UPSTREAM:-http://backend:8000}
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "80:80"
+
   mongodb:
     image: mongo:7.0
     container_name: resume-matching-mongodb
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-admin123}
-      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-genai_product_discovery}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-resume_matching}
     ports:
       - "27017:27017"
     volumes:

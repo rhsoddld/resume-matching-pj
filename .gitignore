@@ -44,3 +44,16 @@ dist/
 
 # Local datasets
 data/
+
+# Node / Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vite
+*.tsbuildinfo

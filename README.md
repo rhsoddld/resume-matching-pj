@@ -56,10 +56,30 @@ IngestionService   MatchingService
 # .env 파일을 생성/수정하고 OPENAI_API_KEY, MONGODB_URI, MILVUS_URI 등을 설정합니다
 ```
 
-### 2. 인프라 기동 (MongoDB + Milvus)
+### 2. Docker Compose로 전체 기동 (Frontend + Backend + Infra)
 
 ```bash
-docker-compose up -d mongodb milvus
+docker compose up -d --build
+```
+
+- Frontend: http://localhost
+- Backend API: http://localhost:8000/docs
+
+컨테이너 내부 연결은 서비스 DNS를 사용합니다.
+
+- MongoDB: `DOCKER_MONGODB_URI` (default: `mongodb://admin:admin123@mongodb:27017/resume_matching?authSource=admin`)
+- Milvus: `DOCKER_MILVUS_URI` (default: `http://milvus:19530`)
+
+로컬 실행용 `.env`에 `MONGODB_URI=...localhost...`, `MILVUS_URI=...localhost...`가 있어도,
+`docker compose`에서는 위 `DOCKER_*` 값이 우선 적용됩니다.
+
+기본 Compose 설정은 응답 속도를 위해 `OPENAI_AGENT_LIVE_MODE=false`입니다.
+LLM 실호출 기반 agent scoring을 쓰려면 `.env`에 `OPENAI_AGENT_LIVE_MODE=true`를 지정하세요.
+
+필요 시 인프라만 먼저 기동하려면:
+
+```bash
+docker compose up -d mongodb etcd minio milvus
 ```
 
 ### 3. Python 환경 설정
@@ -119,7 +139,7 @@ PYTHONPATH=src python src/backend/services/ingest_resumes.py \
   --force-mongo-upsert --force-reembed
 ```
 
-### 5. API 서버 기동
+### 5. API 서버 로컬 기동(선택)
 
 ```bash
 PYTHONPATH=src uvicorn backend.main:app --reload --port 8000

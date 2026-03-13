@@ -20,15 +20,25 @@ export default function MatchForm({ onSubmit, isLoading }: Props) {
   const [minExp, setMinExp] = useState("");
   const [topK, setTopK] = useState(10);
   const [charCount, setCharCount] = useState(0);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!jobDescription.trim()) return;
+    const normalizedDescription = jobDescription.trim();
+    if (normalizedDescription.length < 20) {
+      setValidationError("Job description must be at least 20 characters.");
+      return;
+    }
+    setValidationError(null);
+    const normalizedTopK = Number.isFinite(topK) ? Math.min(50, Math.max(1, Math.trunc(topK))) : 10;
+    const parsedMinExp = minExp !== "" ? parseFloat(minExp) : undefined;
+    const normalizedMinExp =
+      parsedMinExp !== undefined && Number.isFinite(parsedMinExp) ? parsedMinExp : undefined;
     const request: JobMatchRequest = {
-      job_description: jobDescription,
-      top_k: topK,
+      job_description: normalizedDescription,
+      top_k: normalizedTopK,
       category: category || undefined,
-      min_experience_years: minExp !== "" ? parseFloat(minExp) : undefined,
+      min_experience_years: normalizedMinExp,
     };
     onSubmit(request);
   }
@@ -48,10 +58,16 @@ export default function MatchForm({ onSubmit, isLoading }: Props) {
           onChange={handleDescChange}
           placeholder="Paste a job description here… e.g. 'Looking for a Senior Machine Learning Engineer with 5+ years experience in Python, PyTorch, and MLOps pipelines...'"
           rows={8}
+          minLength={20}
           maxLength={10000}
           required
         />
         <span className="char-count">{charCount.toLocaleString()} / 10,000</span>
+        {validationError && (
+          <span className="char-count" role="alert">
+            {validationError}
+          </span>
+        )}
       </div>
 
       <div className="form-row">
@@ -86,12 +102,23 @@ export default function MatchForm({ onSubmit, isLoading }: Props) {
             min={1}
             max={50}
             value={topK}
-            onChange={(e) => setTopK(Number(e.target.value))}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (next === "") {
+                setTopK(10);
+                return;
+              }
+              setTopK(Number(next));
+            }}
           />
         </div>
       </div>
 
-      <button type="submit" className="submit-btn" disabled={isLoading || !jobDescription.trim()}>
+      <button
+        type="submit"
+        className="submit-btn"
+        disabled={isLoading}
+      >
         {isLoading ? (
           <>
             <span className="spinner" />

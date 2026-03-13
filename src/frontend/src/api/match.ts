@@ -13,7 +13,19 @@ export async function matchCandidates(request: JobMatchRequest): Promise<JobMatc
     let message = `HTTP ${response.status}`;
     try {
       const data = await response.json();
-      if (data?.detail) message = String(data.detail);
+      const detail = data?.detail;
+      if (typeof detail === "string") {
+        message = detail;
+      } else if (Array.isArray(detail)) {
+        // FastAPI validation errors are usually an array of {loc, msg, type}
+        const first = detail[0];
+        if (first?.loc && first?.msg) {
+          const fieldPath = Array.isArray(first.loc) ? first.loc.join(".") : String(first.loc);
+          message = `${fieldPath}: ${first.msg}`;
+        } else {
+          message = JSON.stringify(detail);
+        }
+      }
     } catch {
       // Ignore parse errors
     }
