@@ -74,7 +74,7 @@ isProject: false
   - `/docs/data-flow`
     - `ingestion-flow.md`.
   - `/docs/governance`
-    - `AGENT.md`, `PLAN.md`, `TRACEABILITY.md`, `DESIGN_DOCTRINE.md`, `DESIGN_DECISION_MATRIX.md`.
+    - `AGENT.md`, `PLAN.md`, `TRACEABILITY.md`, `ENGINEERING_DOCTRINE.md`, `REPO_STRUCTURE_RULES.md`, `CODING_STYLE_GUIDE.md`, `DESIGN_DOCTRINE.md`, `DESIGN_DECISION_MATRIX.md`.
   - `/docs/adr`
     - `DECISIONS.md`.
   - `/docs/ontology`
@@ -341,6 +341,6 @@ flowchart LR
 - **Eval Doctrine**: DeepEval + LLM-as-Judge 중심. LangSmith로 run/dataset/experiment를 관리해 재현성과 회귀 분석을 확보. IR metrics는 시간 허용 시 추가.
 - **Reliability/Fallback Doctrine**: 주요 의존성(OpenAI, Milvus, LangSmith, 프론트엔드) 장애 시에도 API 수준에서는 기능이 유지되도록 rules-based/embedding-only/Mongo-only/단순 score breakdown 등 단계별 graceful degradation 경로를 사전에 정의.
 - **Observability Doctrine**: 단순 설명이 아니라, 구조화 JSON logging, request/trace id, health/ready, ingestion/matching/eval 메트릭을 코드 레벨에서 구현하여 운영 가능한 상태로 마무리.
-- **Docs Doctrine**: AGENT.md, TRACEABILITY, ADR, Eval docs를 canonical source로 사용하고, README/PPT는 이를 요약.
+- **Docs Doctrine**: AGENT.md, TRACEABILITY, ADR, Eval docs를 canonical source로 사용하고, README/PPT는 이를 요약한다. 또한 작업/리뷰 시 `ENGINEERING_DOCTRINE.md` -> `REPO_STRUCTURE_RULES.md` -> `CODING_STYLE_GUIDE.md` 순서의 체크를 필수 게이트로 적용한다.
 
 이 계획을 승인해주시면, 위 구조를 기준으로 실제 레포 초기화, 계약 문서(AGENT.md 등)와 최소 코드 스캐폴딩부터 차례대로 진행하겠습니다.

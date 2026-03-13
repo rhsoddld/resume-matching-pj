@@ -17,6 +17,18 @@ AI-powered Resume Intelligence & Candidate Matching 시스템을 **Python + Fast
 | 아키텍처/기술 선택, 대안 비교, trade-off | `docs/adr/DECISIONS.md` |
 | 현재 작업 우선순위, 다음 액션, 발표 준비 TODO | `docs/governance/PLAN.md` |
 | 프로젝트 개요, 실행 방법, 폴더 구조, 심사용 문서 진입점 | `README.md` |
+| 엔지니어링 개발 순서, 설계 원칙, 신뢰성 기준 | `docs/governance/ENGINEERING_DOCTRINE.md` |
+| 레포 구조, 계층 책임, 문서 배치 규칙 | `docs/governance/REPO_STRUCTURE_RULES.md` |
+| 코드 스타일, 네이밍, 로깅, 타입 힌트 규칙 | `docs/governance/CODING_STYLE_GUIDE.md` |
+
+## Governance References
+
+- Canonical entry: `docs/governance/AGENT.md`
+- 행동 기준 문서:
+  - `docs/governance/ENGINEERING_DOCTRINE.md` (개발 순서/설계 원칙)
+  - `docs/governance/REPO_STRUCTURE_RULES.md` (폴더/레이어 구조 규칙)
+  - `docs/governance/CODING_STYLE_GUIDE.md` (코드 작성 규칙)
+- 우선순위 규칙: 실행 우선순위와 일정은 `docs/governance/PLAN.md`, 엔지니어링 규범은 각 Doctrine/Rules 문서를 따른다.
 
 ### 반드시 남길 Key Decision 포인트
 
