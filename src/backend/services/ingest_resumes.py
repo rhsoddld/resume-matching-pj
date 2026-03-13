@@ -40,8 +40,8 @@ DEFAULT_CSV_CHUNK_SIZE = 2000
 EMBEDDING_TEXT_CHAR_LIMIT = 4000
 PARSING_VERSION_TEMPLATE = "v4-{parser_mode}-ontology"
 PARSING_VERSION_STRUCTURED = "v4-structured-ontology"
-NORMALIZATION_VERSION = "norm-v3-ontology"
-TAXONOMY_VERSION = "taxonomy-v2-refined"
+NORMALIZATION_VERSION = "norm-v6-substring"
+TAXONOMY_VERSION = "taxonomy-v5-suri"
 EMBEDDING_TEXT_VERSION = "emb-v2-core-skill"
 EXPERIENCE_YEARS_METHOD = "month-union-v1"
 
@@ -77,6 +77,35 @@ SEASON_MONTH_MAP = {
     "fall": 9,
     "autumn": 9,
     "winter": 12,
+}
+
+# Sneha category → taxonomy canonical skill 매핑
+# Candidate 생성 시 core_skills에 inject 됨
+SNEHA_CATEGORY_SKILL_MAP: dict[str, str] = {
+    "INFORMATION-TECHNOLOGY": "information technology",
+    "ACCOUNTANT": "accounting",
+    "ENGINEERING": "engineering",
+    "HR": "human resources",
+    "BANKING": "banking",
+    "FINANCE": "finance",
+    "CONSULTANT": "consulting",
+    "DIGITAL-MEDIA": "digital media",
+    "DESIGNER": "design",
+    "HEALTHCARE": "healthcare",
+    "BUSINESS-DEVELOPMENT": "business development",
+    "SALES": "sales",
+    "PUBLIC-RELATIONS": "public relations",
+    "TEACHER": "teaching",
+    "ADVOCATE": "legal",
+    "AVIATION": "aviation",
+    "FITNESS": "fitness",
+    "CHEF": "culinary",
+    "CONSTRUCTION": "construction",
+    "ARTS": "arts",
+    "APPAREL": "apparel",
+    "BPO": "bpo",
+    "AGRICULTURE": "agriculture",
+    "AUTOMOBILE": "automotive",
 }
 
 
@@ -664,6 +693,21 @@ def iter_sneha(
                 education=education_items,
                 experience_items=experience_items,
             )
+
+            # Sneha category → domain skill inject
+            # taxonomy에 등록된 canonical form을 core_skills 앞에 삽입
+            if category:
+                cat_skill = SNEHA_CATEGORY_SKILL_MAP.get(category.upper())
+                if cat_skill:
+                    if cat_skill not in parsed.core_skills:
+                        parsed.core_skills = [cat_skill, *parsed.core_skills]
+                    if cat_skill not in parsed.canonical_skills:
+                        parsed.canonical_skills = [cat_skill, *parsed.canonical_skills]
+                    if cat_skill not in parsed.expanded_skills:
+                        # taxonomy parent등 추가
+                        parents = ONTOLOGY.core_taxonomy.get(cat_skill, {}).get("parents", [])
+                        parsed.expanded_skills = [cat_skill, *parents, *parsed.expanded_skills]
+                        parsed.expanded_skills = _dedupe_preserve(parsed.expanded_skills)
             experience_titles = _dedupe_preserve([item.title for item in experience_items if item.title])
 
             embedding_text = _build_embedding_text(

@@ -107,11 +107,30 @@ AI-powered Resume Intelligence & Candidate Matching 시스템을 **Python + Fast
 
 **Legend**: ✅ Done · 🔄 In Progress · ⬜ Pending
 
+### Phase 1 세부 현황 (2026-03-13)
+
+| 항목 | 상태 | 증거 |
+|------|------|------|
+| MongoDB Ingestion (5,484건) | ✅ 완료 | `ingest_resumes.py` |
+| Normalization v6 (norm-v6-substring) | ✅ 완료 | `core_skills empty 0.5% (25건)` |
+| Skill Taxonomy v5 (260+항목) | ✅ 완료 | `config/skill_taxonomy.yml` |
+| Skill Alias 확장 (11개 canonical merge) | ✅ 완료 | `config/skill_aliases.yml` |
+| Sneha category → core_skills inject | ✅ 완료 | Sneha empty 0.0% |
+| Substring matching (ex. `sql server 2012`→`sql server`) | ✅ 완료 | `skill_ontology.py` |
+| Milvus 벡터 적재 | 🔴 미실행 | `embedding_hash null (5,484건)` |
+| 기본 매칭 API (`POST /api/jobs/match`) | 🔄 구조 완료, E2E 테스트 대기 | `matching_service.py` |
+| Deterministic scoring | ✅ 완료 | `scoring_service.py` |
+| 5/5 유닛 테스트 | ✅ Pass | `tests/test_skill_overlap_scoring.py` |
+
+> **Milvus 미적재 = 매칭 API 실질적 연동 불가**: `search_embeddings()` 0건 반환 상태.
+
 ---
 
 ## Next Slice
 
-- Kaggle dataset 기준으로 `candidates`/`jobs` 스키마와 Milvus 인덱스 스키마를 코드 레벨에서 정의하고, ingestion happy path 스캐폴딩 작성.
+1. **Milvus 적재 실행** (`--target milvus --milvus-from-mongo --force-reembed`) — Phase 1 활성화 블로컨
+2. 매칭 API end-to-end smoke test (`POST /api/jobs/match`)
+3. Phase 2 Multi-Agent 시작 판단
 
 ---
 

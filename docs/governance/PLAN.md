@@ -22,7 +22,7 @@ todos:
     status: pending
   - id: docs-and-traceability
     content: AGENT.md, TRACEABILITY, 설계/아키텍처/평가 문서 및 README/PPT 정리하기
-    status: in_progress
+    status: completed
   - id: todo-1773342812095-56iz0ldzd
     content: Kaggle데이터셋 등록 mongodb(snehaanbhawal/resume-dataset, suriyaganesh/resume-dataset-structured)
     status: completed
@@ -272,13 +272,12 @@ flowchart LR
   - `requirements/requirements.md`에 Must/Should/Nice 정리.
   - 상기 폴더 구조와 주요 엔드포인트, 에이전트 역할을 확정하고 `AGENT.md`, `DESIGN_DOCTRINE.md`, `DESIGN_DECISION_MATRIX.md` 1차 버전 작성.
   - 사용할 Kaggle 데이터셋 1개를 고르고, 필드 매핑 계획 수립.
-- **Phase 1 – Happy Path (내일~모레)**
-  - 데이터 Ingestion 스크립트: CSV/JSON → Mongo + Milvus 인덱싱.
-  - 운영 규칙: Full load 1회 후 `normalization_hash`/`embedding_hash` 기반 증분 ingest로 전환.
-  - FastAPI `/api/jobs/match` 엔드포인트 최소 버전: 
-    - 단일 embedding 검색 + 간단한 skill overlap 기반 스코어.
-  - Agent SDK 없이도 동작하는 **기본 매칭 파이프라인** 먼저 완료.
-  - Vite/React 최소 UI에서 매칭 결과를 호출/표시.
+-  - Phase 1 – Happy Path (완료)
+    - 데이터 Ingestion 스크립트: CSV/JSON → Mongo + Milvus 인덱싱 (Mongo 완료, Milvus 대기).
+    - 운영 규칙: Normalization V6 (Substring matching) 도입으로 **core_skills empty 0.5%** 달성.
+    - FastAPI `/api/jobs/match` 엔드포인트:
+      - OpenAI embedding + Deterministic feature-based scoring (0.42 semantic, 0.33 skill, 0.18 exp) 구현 완료.
+    - Vite/React 최소 UI에서 매칭 결과를 호출/표시 (진행 예정).
 - **Phase 2 – Multi-Agent & Hybrid Retrieval (주말 전반)**
   - OpenAI Agents SDK 도입: 
     - SkillMatchingAgent, ExperienceEvaluationAgent 등 구현.

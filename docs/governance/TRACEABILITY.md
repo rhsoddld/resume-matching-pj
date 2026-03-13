@@ -11,9 +11,9 @@
 |--------|-------------|----------|-------------|---------|--------|
 | R1.1 | Resume 텍스트 임베딩 생성 및 Milvus 인덱싱 | Must | IngestionService, Milvus | `src/backend/services/ingestion_service.py` | ✅ Done |
 | R1.2 | Job description 임베딩 → Milvus Top-K 검색 | Must | MatchingService, Milvus | `src/backend/services/matching_service.py` | ✅ Done |
-| R1.3 | 기본 매칭 점수 계산 (skill overlap, category, 연차) | Must | ScoringService | `src/backend/services/scoring_service.py` | 🔄 In Progress |
+| R1.3 | 기본 매칭 점수 계산 (skill overlap, category, 연차) | Must | ScoringService | `src/backend/services/scoring_service.py` | ✅ Done |
 | R1.4 | Category / 경력 연차 메타 필터 지원 | Must | MatchingService, Milvus | `src/backend/repositories/milvus_repo.py` | ✅ Done |
-| R1.5 | 매칭 결과에 category / skills 요약 / 총점 포함 | Must | Schemas, MatchingService | `src/backend/schemas/match_schema.py` | 🔄 In Progress |
+| R1.5 | 매칭 결과에 category / skills 요약 / 총점 포함 | Must | Schemas, MatchingService | `src/backend/services/matching_service.py` | ✅ Done |
 | R1.6 | FastAPI REST 엔드포인트 제공 | Must | API Layer | `src/backend/api/` | ✅ Done |
 | R2.1 | Multi-Agent 파이프라인 (Skill/Exp/Technical/Culture 점수 분리) | Should | Agent Layer | `src/agents/` | ⬜ Pending |
 | R2.2 | RankingAgent 가중 합산 + 설명 생성 | Should | RankingAgent | `src/agents/ranking_agent.py` | ⬜ Pending |
@@ -45,7 +45,7 @@
 | Deterministic scoring 고정: feature extraction + explainable Top 10 | R1.3, R1.5 | `docs/governance/DESIGN_DECISION_MATRIX.md`, `docs/architecture/system-architecture.md` | 🔄 In Progress |
 | Rerank/설명 모델 고정: `gpt-4o-mini` (Top 10 → Top 5 refinement) | R2.2 | `docs/governance/DESIGN_DECISION_MATRIX.md`, `docs/architecture/system-architecture.md` | 🔄 In Progress |
 | 모델 선택 근거(비용/속도/단순성)와 확장 경로 문서화 | R5.2, R5.3 | `docs/governance/DESIGN_DECISION_MATRIX.md`, 본 문서 | 🔄 In Progress |
-| Mongo 데이터 품질 기반 feature 우선순위(core/conditional) 문서화 | R1.3, R5.3 | `docs/governance/DESIGN_DECISION_MATRIX.md`, `docs/eval/mongo-scoring-assessment-2026-03-13.md` | 🔄 In Progress |
+| Mongo 데이터 품질 기반 feature 우선순위(core/conditional) 문서화 | R1.3, R5.3 | `docs/governance/DESIGN_DECISION_MATRIX.md`, `docs/ingestion_normalization_design.md` | ✅ Done |
 
 ---
 
@@ -97,7 +97,7 @@
 
 | 카테고리 | 체크 항목 | 기준 | Status | 비고 |
 |---------|---------|------|--------|------|
-| **Architecture** | Layered architecture 적용 | api→service→repo→model 계층 분리 | 🔄 | `src/backend/` 구조 설계 완료, 코드 구현 진행 중 |
+| **Architecture** | Layered architecture 적용 | api→service→repo→model 계층 분리 | ✅ | `src/backend/` 구조 구축 완료 |
 | **Architecture** | 도메인 모델 명확성 | Pydantic 스키마로 도메인 모델 문서화 | ⬜ | `src/backend/schemas/` 작성 예정 |
 | **Reliability** | Graceful degradation 전략 | 3단계 fallback (LLM→embedding-only→rules) | ⬜ | HybridRetriever 및 ScoringService에 구현 예정 |
 | **Reliability** | 입력 검증 | Pydantic validation + 길이 제한 | ⬜ | `src/backend/schemas/` |
@@ -111,7 +111,7 @@
 | **Docs** | README 완성도 | 설치/실행/ingestion/예시 포함 | ⬜ | `README.md` |
 | **Docs** | 아키텍처 다이어그램 | Mermaid 기반 다이어그램 포함 | 🔄 | `docs/architecture/system-architecture.md` 초안 작성됨 |
 | **Docs** | TRACEABILITY 매트릭스 | 요구사항 ↔ 코드 ↔ 평가 연결 | 🔄 | 이 문서 |
-| **Testing** | 단위 테스트 | 핵심 서비스 함수 단위 테스트 | ⬜ | `tests/` |
+| **Testing** | 단위 테스트 | 핵심 서비스 함수 단위 테스트 | ✅ | `tests/test_skill_overlap_scoring.py` 5/5 Pass |
 | **Testing** | 통합 테스트 | API 엔드투엔드 테스트 | ⬜ | `tests/test_api_*.py` |
 
 **Legend**: ✅ Done · 🔄 In Progress · ⬜ Pending · ❌ Blocked

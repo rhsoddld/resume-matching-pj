@@ -18,12 +18,13 @@ Date: 2026-03-13
 
 ## Output Summary
 
-- Slim core taxonomy entries: **66**
+- Slim core taxonomy entries: **260+** (V6 expanded)
 - Role-like candidates: **15**
 - Versioned skills: **32**
 - Capability phrases: **80**
 - Review-required (refined): **69**
 - Canonical merge candidates: **11**
+- **core_skills coverage (Suri): 99.2%**
 
 ## Representative Moves
 

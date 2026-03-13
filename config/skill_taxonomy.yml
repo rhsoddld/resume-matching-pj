@@ -1,382 +1,1171 @@
+# ── Core Skill Taxonomy ──────────────────────────────────────────────
+# taxonomy-v4-domain (2026-03-13)
+# Domain → Family 계층 + parents (expanded_skills 생성용)
+
+# ── Database / SQL ───────────────────────────────────────────────────
 sql:
   domain: language
   family: database
   parents:
-  - programming
-  - database
+    - programming
+    - database
 sql server:
   domain: database
   family: relational
   parents:
-  - database
-  - sql
+    - database
+    - sql
 oracle:
   domain: database
   family: relational
   parents:
-  - database
-  - sql
-excel:
-  domain: data
-  family: analytics
-  parents:
-  - data
-rman:
-  domain: database
-  family: database_tooling
-  parents:
-  - database
-  - oracle
-linux:
-  domain: os_platform
-  family: os
-  parents:
-  - platform
+    - database
+    - sql
 mysql:
   domain: database
   family: relational
   parents:
-  - database
-  - sql
-pl/sql:
-  domain: language
-  family: database
-  parents:
-  - programming
-  - database
-  - sql
-ssis:
-  domain: data
-  family: data_integration
-  parents:
-  - data
-  - sql server
-etl:
-  domain: data
-  family: data_integration
-  parents:
-  - data
-data guard:
-  domain: database
-  family: high_availability
-  parents:
-  - database
-  - oracle
-rac:
-  domain: database
-  family: high_availability
-  parents:
-  - database
-  - oracle
-unix:
-  domain: os_platform
-  family: os
-  parents:
-  - platform
-t-sql:
-  domain: language
-  family: database
-  parents:
-  - programming
-  - database
-  - sql
-windows:
-  domain: os_platform
-  family: os
-  parents:
-  - platform
-javascript:
-  domain: language
-  family: backend_frontend
-  parents:
-  - programming
-  - backend
-  - frontend
-html:
-  domain: frontend_framework
-  family: frontend
-  parents:
-  - frontend
-security:
-  domain: security
-  family: application_security
-  parents:
-  - security
-shell scripting:
-  domain: devops
-  family: scripting
-  parents:
-  - devops
-  - platform
-oem:
-  domain: database
-  family: database_tooling
-  parents:
-  - database
-  - oracle
-toad:
-  domain: database
-  family: database_tooling
-  parents:
-  - database
-sql server reporting services:
-  domain: database
-  family: sql_server
-  parents:
-  - sql server
-  - database
-  - sql
-ssrs:
-  domain: data
-  family: reporting
-  parents:
-  - data
-  - sql server
-java:
-  domain: language
-  family: backend
-  parents:
-  - programming
-  - backend
-python:
-  domain: language
-  family: backend
-  parents:
-  - programming
-  - backend
-awr:
-  domain: database
-  family: database_tooling
-  parents:
-  - database
-  - oracle
-aws:
-  domain: cloud
-  family: public_cloud
-  parents:
-  - cloud
-golden gate:
-  domain: database
-  family: replication
-  parents:
-  - database
-  - oracle
-css:
-  domain: frontend_framework
-  family: frontend
-  parents:
-  - frontend
-tableau:
-  domain: data
-  family: bi
-  parents:
-  - data
-  - bi
-c#:
-  domain: language
-  family: backend
-  parents:
-  - programming
-  - backend
-php:
-  domain: language
-  family: backend
-  parents:
-  - programming
-  - backend
+    - database
+    - sql
 postgresql:
   domain: database
   family: relational
   parents:
-  - database
-  - sql
-powershell:
-  domain: devops
-  family: scripting
-  parents:
-  - devops
-  - platform
+    - database
+    - sql
 mongodb:
   domain: database
   family: nosql
   parents:
-  - database
-  - nosql
-sql loader:
+    - database
+    - nosql
+redis:
   domain: database
-  family: database_tooling
+  family: nosql
   parents:
-  - database
-  - sql
-sql profiler:
+    - database
+    - nosql
+cassandra:
   domain: database
-  family: database_tooling
+  family: nosql
   parents:
-  - database
-  - sql
-c++:
+    - database
+    - nosql
+    - big_data
+elasticsearch:
+  domain: database
+  family: nosql
+  parents:
+    - database
+    - nosql
+sqlite:
+  domain: database
+  family: relational
+  parents:
+    - database
+    - sql
+pl/sql:
   domain: language
-  family: systems
+  family: database
   parents:
-  - programming
-  - systems
-windows server:
-  domain: os_platform
-  family: os
+    - programming
+    - database
+    - sql
+t-sql:
+  domain: language
+  family: database
   parents:
-  - platform
+    - programming
+    - database
+    - sql
+
+# ── Oracle Tooling ───────────────────────────────────────────────────
+rman:
+  domain: database
+  family: database_tooling
+  parents:
+    - database
+    - oracle
+data guard:
+  domain: database
+  family: high_availability
+  parents:
+    - database
+    - oracle
+rac:
+  domain: database
+  family: high_availability
+  parents:
+    - database
+    - oracle
+golden gate:
+  domain: database
+  family: replication
+  parents:
+    - database
+    - oracle
+oem:
+  domain: database
+  family: database_tooling
+  parents:
+    - database
+    - oracle
+awr:
+  domain: database
+  family: database_tooling
+  parents:
+    - database
+    - oracle
 oracle streams:
   domain: database
   family: oracle
   parents:
-  - oracle
-  - database
-  - sql
-red hat linux:
-  domain: os_platform
-  family: os
-  parents:
-  - platform
-azure:
-  domain: cloud
-  family: public_cloud
-  parents:
-  - cloud
-power bi:
-  domain: data
-  family: bi
-  parents:
-  - data
-  - bi
-data security:
-  domain: security
-  family: application_security
-  parents:
-  - security
-git:
-  domain: tool
-  family: version_control
-  parents:
-  - tools
-  - version_control
-hadoop:
-  domain: data
-  family: big_data
-  parents:
-  - data
-  - big_data
-html5:
-  domain: frontend_framework
-  family: frontend
-  parents:
-  - frontend
-network security:
-  domain: security
-  family: application_security
-  parents:
-  - security
+    - oracle
+    - database
+    - sql
 oracle exadata:
   domain: database
   family: oracle
   parents:
-  - oracle
-  - database
-  - sql
-jenkins:
-  domain: devops
-  family: ci_cd
-  parents:
-  - devops
-  - ci_cd
-sql server integration services:
-  domain: database
-  family: sql_server
-  parents:
-  - sql server
-  - database
-  - sql
-ansible:
-  domain: devops
-  family: configuration
-  parents:
-  - devops
-information security:
-  domain: security
-  family: application_security
-  parents:
-  - security
+    - oracle
+    - database
+    - sql
 oracle databases:
   domain: database
   family: oracle
   parents:
-  - oracle
-  - database
-  - sql
-github:
-  domain: tool
-  family: version_control
-  parents:
-  - tools
-  - version_control
-nodejs:
-  domain: framework
-  family: backend_runtime
-  parents:
-  - backend
-hp-unix:
-  domain: os_platform
-  family: os
-  parents:
-  - platform
-ruby:
-  domain: language
-  family: backend
-  parents:
-  - programming
-  - backend
-sql server management studio:
-  domain: database
-  family: sql_server
-  parents:
-  - sql server
-  - database
-  - sql
-docker:
-  domain: devops
-  family: container
-  parents:
-  - devops
-  - containerization
-angularjs:
-  domain: frontend_framework
-  family: frontend
-  parents:
-  - frontend
-aws rds:
-  domain: cloud
-  family: aws_service
-  parents:
-  - aws
-  - cloud
-cyber security:
-  domain: security
-  family: application_security
-  parents:
-  - security
-css3:
-  domain: frontend_framework
-  family: frontend
-  parents:
-  - frontend
+    - oracle
+    - database
+    - sql
 oracle asm:
   domain: database
   family: oracle
   parents:
-  - oracle
-  - database
-  - sql
+    - oracle
+    - database
+    - sql
+
+# ── SQL Server Tooling ───────────────────────────────────────────────
+ssis:
+  domain: data
+  family: data_integration
+  parents:
+    - data
+    - sql server
+ssrs:
+  domain: data
+  family: reporting
+  parents:
+    - data
+    - sql server
+sql server reporting services:
+  domain: database
+  family: sql_server
+  parents:
+    - sql server
+    - database
+    - sql
+sql server integration services:
+  domain: database
+  family: sql_server
+  parents:
+    - sql server
+    - database
+    - sql
+sql server management studio:
+  domain: database
+  family: sql_server
+  parents:
+    - sql server
+    - database
+    - sql
+toad:
+  domain: database
+  family: database_tooling
+  parents:
+    - database
+sql loader:
+  domain: database
+  family: database_tooling
+  parents:
+    - database
+    - sql
+sql profiler:
+  domain: database
+  family: database_tooling
+  parents:
+    - database
+    - sql
+etl:
+  domain: data
+  family: data_integration
+  parents:
+    - data
+
+# ── Programming Languages ────────────────────────────────────────────
+python:
+  domain: language
+  family: backend
+  parents:
+    - programming
+    - backend
+java:
+  domain: language
+  family: backend
+  parents:
+    - programming
+    - backend
+javascript:
+  domain: language
+  family: backend_frontend
+  parents:
+    - programming
+    - backend
+    - frontend
+typescript:
+  domain: language
+  family: backend_frontend
+  parents:
+    - programming
+    - backend
+    - frontend
+c#:
+  domain: language
+  family: backend
+  parents:
+    - programming
+    - backend
+c++:
+  domain: language
+  family: systems
+  parents:
+    - programming
+    - systems
+php:
+  domain: language
+  family: backend
+  parents:
+    - programming
+    - backend
+ruby:
+  domain: language
+  family: backend
+  parents:
+    - programming
+    - backend
+scala:
+  domain: language
+  family: backend
+  parents:
+    - programming
+    - backend
+    - big_data
+go:
+  domain: language
+  family: backend
+  parents:
+    - programming
+    - backend
+kotlin:
+  domain: language
+  family: backend
+  parents:
+    - programming
+    - backend
+swift:
+  domain: language
+  family: mobile
+  parents:
+    - programming
+    - mobile
+r:
+  domain: language
+  family: data_science
+  parents:
+    - programming
+    - data
+    - statistics
+
+# ── Frontend / Web ───────────────────────────────────────────────────
+html:
+  domain: frontend_framework
+  family: frontend
+  parents:
+    - frontend
+html5:
+  domain: frontend_framework
+  family: frontend
+  parents:
+    - frontend
+css:
+  domain: frontend_framework
+  family: frontend
+  parents:
+    - frontend
+css3:
+  domain: frontend_framework
+  family: frontend
+  parents:
+    - frontend
+react:
+  domain: frontend_framework
+  family: frontend
+  parents:
+    - frontend
+    - javascript
+angularjs:
+  domain: frontend_framework
+  family: frontend
+  parents:
+    - frontend
+    - javascript
+vue:
+  domain: frontend_framework
+  family: frontend
+  parents:
+    - frontend
+    - javascript
+
+# ── Backend Frameworks ───────────────────────────────────────────────
+nodejs:
+  domain: framework
+  family: backend_runtime
+  parents:
+    - backend
+spring:
+  domain: framework
+  family: backend
+  parents:
+    - backend
+    - java
+django:
+  domain: framework
+  family: backend
+  parents:
+    - backend
+    - python
+flask:
+  domain: framework
+  family: backend
+  parents:
+    - backend
+    - python
+
+# ── Cloud ────────────────────────────────────────────────────────────
+aws:
+  domain: cloud
+  family: public_cloud
+  parents:
+    - cloud
+aws rds:
+  domain: cloud
+  family: aws_service
+  parents:
+    - aws
+    - cloud
+azure:
+  domain: cloud
+  family: public_cloud
+  parents:
+    - cloud
+gcp:
+  domain: cloud
+  family: public_cloud
+  parents:
+    - cloud
+
+# ── DevOps / OS ──────────────────────────────────────────────────────
+linux:
+  domain: os_platform
+  family: os
+  parents:
+    - platform
+unix:
+  domain: os_platform
+  family: os
+  parents:
+    - platform
+windows:
+  domain: os_platform
+  family: os
+  parents:
+    - platform
+windows server:
+  domain: os_platform
+  family: os
+  parents:
+    - platform
+red hat linux:
+  domain: os_platform
+  family: os
+  parents:
+    - platform
+hp-unix:
+  domain: os_platform
+  family: os
+  parents:
+    - platform
+shell scripting:
+  domain: devops
+  family: scripting
+  parents:
+    - devops
+    - platform
+powershell:
+  domain: devops
+  family: scripting
+  parents:
+    - devops
+    - platform
+git:
+  domain: tool
+  family: version_control
+  parents:
+    - tools
+    - version_control
+github:
+  domain: tool
+  family: version_control
+  parents:
+    - tools
+    - version_control
+docker:
+  domain: devops
+  family: container
+  parents:
+    - devops
+    - containerization
+kubernetes:
+  domain: devops
+  family: container
+  parents:
+    - devops
+    - containerization
+ansible:
+  domain: devops
+  family: configuration
+  parents:
+    - devops
+jenkins:
+  domain: devops
+  family: ci_cd
+  parents:
+    - devops
+    - ci_cd
+terraform:
+  domain: devops
+  family: infrastructure
+  parents:
+    - devops
+
+# ── Data / Analytics / BI ────────────────────────────────────────────
+excel:
+  domain: data
+  family: analytics
+  parents:
+    - data
+powerpoint:
+  domain: tool
+  family: productivity
+  parents:
+    - tools
+    - productivity
+word:
+  domain: tool
+  family: productivity
+  parents:
+    - tools
+    - productivity
+microsoft office:
+  domain: tool
+  family: productivity
+  parents:
+    - tools
+    - productivity
+tableau:
+  domain: data
+  family: bi
+  parents:
+    - data
+    - bi
+power bi:
+  domain: data
+  family: bi
+  parents:
+    - data
+    - bi
+hadoop:
+  domain: data
+  family: big_data
+  parents:
+    - data
+    - big_data
+machine learning:
+  domain: data
+  family: data_science
+  parents:
+    - data
+    - data_science
+    - statistics
+data analysis:
+  domain: data
+  family: analytics
+  parents:
+    - data
+statistics:
+  domain: data
+  family: data_science
+  parents:
+    - data
+sas:
+  domain: data
+  family: analytics
+  parents:
+    - data
+    - statistics
+spss:
+  domain: data
+  family: analytics
+  parents:
+    - data
+    - statistics
+
+# ── Security ─────────────────────────────────────────────────────────
+security:
+  domain: security
+  family: application_security
+  parents:
+    - security
+data security:
+  domain: security
+  family: application_security
+  parents:
+    - security
+network security:
+  domain: security
+  family: application_security
+  parents:
+    - security
+information security:
+  domain: security
+  family: application_security
+  parents:
+    - security
+cyber security:
+  domain: security
+  family: application_security
+  parents:
+    - security
 system security:
   domain: security
   family: application_security
   parents:
-  - security
+    - security
+penetration testing:
+  domain: security
+  family: offensive_security
+  parents:
+    - security
+ethical hacking:
+  domain: security
+  family: offensive_security
+  parents:
+    - security
+    - penetration testing
+
+# ── Business / Finance / Management ─────────────────────────────────
+accounting:
+  domain: business
+  family: finance
+  parents:
+    - business
+    - finance
+finance:
+  domain: business
+  family: finance
+  parents:
+    - business
+financial analysis:
+  domain: business
+  family: finance
+  parents:
+    - business
+    - finance
+    - accounting
+audit:
+  domain: business
+  family: finance
+  parents:
+    - business
+    - finance
+tax:
+  domain: business
+  family: finance
+  parents:
+    - business
+    - finance
+    - accounting
+risk management:
+  domain: business
+  family: management
+  parents:
+    - business
+investment:
+  domain: business
+  family: finance
+  parents:
+    - business
+    - finance
+banking:
+  domain: business
+  family: finance
+  parents:
+    - business
+    - finance
+business development:
+  domain: business
+  family: management
+  parents:
+    - business
+sales:
+  domain: business
+  family: sales_marketing
+  parents:
+    - business
+consulting:
+  domain: business
+  family: management
+  parents:
+    - business
+marketing:
+  domain: business
+  family: sales_marketing
+  parents:
+    - business
+customer service:
+  domain: business
+  family: operations
+  parents:
+    - business
+public relations:
+  domain: business
+  family: sales_marketing
+  parents:
+    - business
+    - marketing
+supply chain:
+  domain: business
+  family: operations
+  parents:
+    - business
+bpo:
+  domain: business
+  family: operations
+  parents:
+    - business
+
+# ── Human Resources ──────────────────────────────────────────────────
+human resources:
+  domain: hr
+  family: hr_core
+  parents:
+    - business
+recruiting:
+  domain: hr
+  family: talent_acquisition
+  parents:
+    - human resources
+talent acquisition:
+  domain: hr
+  family: talent_acquisition
+  parents:
+    - human resources
+    - recruiting
+payroll:
+  domain: hr
+  family: hr_operations
+  parents:
+    - human resources
+compensation:
+  domain: hr
+  family: hr_operations
+  parents:
+    - human resources
+    - payroll
+employee relations:
+  domain: hr
+  family: hr_operations
+  parents:
+    - human resources
+benefits:
+  domain: hr
+  family: hr_operations
+  parents:
+    - human resources
+
+# ── Healthcare / Medical ──────────────────────────────────────────────
+healthcare:
+  domain: healthcare
+  family: healthcare_core
+  parents:
+    - healthcare
+nursing:
+  domain: healthcare
+  family: clinical
+  parents:
+    - healthcare
+    - clinical
+clinical:
+  domain: healthcare
+  family: clinical
+  parents:
+    - healthcare
+patient care:
+  domain: healthcare
+  family: clinical
+  parents:
+    - healthcare
+    - clinical
+
+# ── Legal ────────────────────────────────────────────────────────────
+legal:
+  domain: legal
+  family: legal_core
+  parents:
+    - legal
+litigation:
+  domain: legal
+  family: legal_practice
+  parents:
+    - legal
+compliance:
+  domain: legal
+  family: legal_practice
+  parents:
+    - legal
+
+# ── Education ────────────────────────────────────────────────────────
+teaching:
+  domain: education
+  family: education_core
+  parents:
+    - education
+curriculum:
+  domain: education
+  family: education_content
+  parents:
+    - education
+    - teaching
+training:
+  domain: education
+  family: education_core
+  parents:
+    - education
+
+# ── Design / Media / Creative ────────────────────────────────────────
+design:
+  domain: creative
+  family: design_core
+  parents:
+    - creative
+graphic design:
+  domain: creative
+  family: design_visual
+  parents:
+    - design
+    - creative
+digital media:
+  domain: creative
+  family: media
+  parents:
+    - creative
+    - media
+photography:
+  domain: creative
+  family: media
+  parents:
+    - creative
+    - digital media
+video editing:
+  domain: creative
+  family: media
+  parents:
+    - creative
+    - digital media
+arts:
+  domain: creative
+  family: arts_core
+  parents:
+    - creative
+
+# ── Engineering / Trades / Industry ─────────────────────────────────
+engineering:
+  domain: engineering
+  family: engineering_core
+  parents:
+    - engineering
+construction:
+  domain: engineering
+  family: civil
+  parents:
+    - engineering
+manufacturing:
+  domain: engineering
+  family: industrial
+  parents:
+    - engineering
+automotive:
+  domain: engineering
+  family: automotive
+  parents:
+    - engineering
+aviation:
+  domain: engineering
+  family: aviation
+  parents:
+    - engineering
+agriculture:
+  domain: industry
+  family: agriculture
+  parents:
+    - industry
+apparel:
+  domain: industry
+  family: fashion
+  parents:
+    - industry
+
+# ── Health / Wellness / Culinary ────────────────────────────────────
+fitness:
+  domain: wellness
+  family: fitness_core
+  parents:
+    - wellness
+culinary:
+  domain: wellness
+  family: food_service
+  parents:
+    - wellness
+
+# ── Information Technology (domain-level) ────────────────────────────
+information technology:
+  domain: technology
+  family: it_general
+  parents:
+    - technology
+    - programming
+
+# ── Database Administration ──────────────────────────────────────────
+database administration:
+  domain: database
+  family: dba_core
+  parents:
+    - database
+database management:
+  domain: database
+  family: dba_core
+  parents:
+    - database
+    - database administration
+performance tuning:
+  domain: database
+  family: dba_ops
+  parents:
+    - database
+    - database administration
+disaster recovery:
+  domain: database
+  family: dba_ops
+  parents:
+    - database
+backup and recovery:
+  domain: database
+  family: dba_ops
+  parents:
+    - database
+high availability:
+  domain: database
+  family: dba_ops
+  parents:
+    - database
+capacity planning:
+  domain: database
+  family: dba_ops
+  parents:
+    - database
+query optimization:
+  domain: database
+  family: dba_ops
+  parents:
+    - database
+    - sql
+database design:
+  domain: database
+  family: dba_core
+  parents:
+    - database
+database monitoring:
+  domain: database
+  family: dba_ops
+  parents:
+    - database
+replication:
+  domain: database
+  family: dba_ops
+  parents:
+    - database
+clustering:
+  domain: database
+  family: high_availability
+  parents:
+    - database
+database security:
+  domain: database
+  family: dba_ops
+  parents:
+    - database
+    - security
+data modeling:
+  domain: data
+  family: data_architecture
+  parents:
+    - data
+    - database
+
+# ── Additional Database Platforms ────────────────────────────────────
+db2:
+  domain: database
+  family: relational
+  parents:
+    - database
+    - sql
+sybase:
+  domain: database
+  family: relational
+  parents:
+    - database
+    - sql
+teradata:
+  domain: database
+  family: relational
+  parents:
+    - database
+    - sql
+    - big_data
+informix:
+  domain: database
+  family: relational
+  parents:
+    - database
+    - sql
+hbase:
+  domain: database
+  family: nosql
+  parents:
+    - database
+    - nosql
+    - big_data
+
+# ── Agile / Project Management ───────────────────────────────────────
+agile:
+  domain: methodology
+  family: agile_core
+  parents:
+    - methodology
+scrum:
+  domain: methodology
+  family: agile_core
+  parents:
+    - agile
+    - methodology
+kanban:
+  domain: methodology
+  family: agile_core
+  parents:
+    - agile
+    - methodology
+jira:
+  domain: tool
+  family: project_management
+  parents:
+    - tools
+    - agile
+confluence:
+  domain: tool
+  family: collaboration
+  parents:
+    - tools
+    - agile
+project management:
+  domain: methodology
+  family: management_core
+  parents:
+    - methodology
+sdlc:
+  domain: methodology
+  family: management_core
+  parents:
+    - methodology
+itil:
+  domain: methodology
+  family: it_service
+  parents:
+    - methodology
+
+# ── Networking ───────────────────────────────────────────────────────
+network infrastructure:
+  domain: network
+  family: network_core
+  parents:
+    - network
+networking:
+  domain: network
+  family: network_core
+  parents:
+    - network
+tcp/ip:
+  domain: network
+  family: network_protocol
+  parents:
+    - network
+active directory:
+  domain: network
+  family: identity_management
+  parents:
+    - network
+    - windows
+firewall:
+  domain: network
+  family: network_security
+  parents:
+    - network
+    - security
+vpn:
+  domain: network
+  family: network_security
+  parents:
+    - network
+    - security
+
+# ── Monitoring / Ops Tools ───────────────────────────────────────────
+nagios:
+  domain: devops
+  family: monitoring
+  parents:
+    - devops
+splunk:
+  domain: devops
+  family: monitoring
+  parents:
+    - devops
+    - data
+puppet:
+  domain: devops
+  family: configuration
+  parents:
+    - devops
+chef:
+  domain: devops
+  family: configuration
+  parents:
+    - devops
+jboss:
+  domain: middleware
+  family: app_server
+  parents:
+    - middleware
+    - java
+tomcat:
+  domain: middleware
+  family: app_server
+  parents:
+    - middleware
+    - java
+weblogic:
+  domain: middleware
+  family: app_server
+  parents:
+    - middleware
+    - java
+websphere:
+  domain: middleware
+  family: app_server
+  parents:
+    - middleware
+    - java
+
+# ── Data Integration / ETL Tools ────────────────────────────────────
+informatica:
+  domain: data
+  family: data_integration
+  parents:
+    - data
+    - etl
+talend:
+  domain: data
+  family: data_integration
+  parents:
+    - data
+    - etl
+datastage:
+  domain: data
+  family: data_integration
+  parents:
+    - data
+    - etl
+
+# ── Reporting / BI Tools ─────────────────────────────────────────────
+crystal reports:
+  domain: data
+  family: reporting
+  parents:
+    - data
+    - bi
+cognos:
+  domain: data
+  family: bi
+  parents:
+    - data
+    - bi
+obiee:
+  domain: data
+  family: bi
+  parents:
+    - data
+    - bi
+microstrategy:
+  domain: data
+  family: bi
+  parents:
+    - data
+    - bi
+
+# ── General Work Skills ──────────────────────────────────────────────
+data entry:
+  domain: business
+  family: operations
+  parents:
+    - business
+process improvement:
+  domain: business
+  family: management
+  parents:
+    - business
+client support:
+  domain: business
+  family: operations
+  parents:
+    - business
+    - customer service
+technical support:
+  domain: technology
+  family: it_support
+  parents:
+    - technology
+    - information technology
+reporting:
+  domain: business
+  family: analytics
+  parents:
+    - business
+    - data

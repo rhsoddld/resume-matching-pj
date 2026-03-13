@@ -602,3 +602,21 @@ Date: 2026-03-13
 - Semantic alternatives are not merged as aliases.
 - Parent-child hierarchy is stored separately from alias mapping.
 - Ambiguous or low-confidence items are intentionally sent to `review_required`.
+
+---
+
+## V6 Normalization Results (2026-03-13)
+
+V6 (`norm-v6-substring` / `taxonomy-v5-suri`) 기준 최종 결과.
+
+| 지표 | 결과 |
+|------|------|
+| `core_skills` empty | **0.5%** (25/5484) |
+| Sneha empty | **0.0%** |
+| Suri empty | **0.8%** |
+| `taxonomy_applied` | 81.9% |
+
+### 개선 핵심 요인
+1. **Suri DBA/Agile Taxonomy 확장**: `database administration`, `performance tuning` 등 65개 핵심 키워드 추가.
+2. **Substring Matching**: `"sql server 2012" -> "sql server"` 등 버전/서술형 토큰 자동 매핑.
+3. **Category Injection**: Sneha 데이터셋의 category 필드를 `core_skills`로 주입해 인위적 empty 방지.

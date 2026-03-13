@@ -70,15 +70,13 @@ pip install -r requirements.txt
 Kaggle 데이터셋을 `data/` 디렉토리에 배치한 후:
 
 ```bash
-# Step 1: MongoDB에 먼저 적재
+# Step 1: MongoDB에 적재 (full dataset)
 PYTHONPATH=src python src/backend/services/ingest_resumes.py \
-  --source all --target mongo \
-  --sneha-limit 200 --suri-limit 500
+  --source all --target mongo --parser-mode hybrid
 
 # Step 2: Milvus에 임베딩 적재 (MongoDB 데이터 활용)
 PYTHONPATH=src python src/backend/services/ingest_resumes.py \
-  --source all --target milvus --milvus-from-mongo \
-  --sneha-limit 200 --suri-limit 500
+  --source all --target milvus --milvus-from-mongo --force-reembed
 ```
 
 | 옵션 | 설명 |
@@ -173,29 +171,35 @@ curl -X POST http://localhost:8000/api/jobs/match \
 
 ### 예시 응답
 
+> **Note**: 아래는 **현재 구현된 deterministic scoring** 기반의 응답입니다. `Multi-Agent scoring`과 `explanation` 필드는 Phase 2에서 구현 예정입니다.
+
 ```json
-{
-  "job_id": "job-abc123",
-  "candidates": [
-    {
-      "candidate_id": "sneha-16852973",
-      "category": "Data Science",
-      "skills": ["Python", "Machine Learning", "SQL", "AWS"],
-      "experience_years": 6.5,
-      "seniority_level": "senior",
-      "scores": {
-        "skill_score": 0.87,
-        "experience_score": 0.82,
-        "technical_score": 0.79,
-        "culture_score": 0.71,
-        "final_score": 0.81
-      },
-      "explanation": "Strong Python and ML background with 6+ years of data science experience. AWS experience aligns well with the cloud requirement."
+[
+  {
+    "candidate_id": "sneha-16852973",
+    "category": "INFORMATION-TECHNOLOGY",
+    "summary": "Software engineer with 6 years of experience in Python and machine learning.",
+    "skills": ["python", "machine learning", "sql", "aws"],
+    "core_skills": ["information technology", "python", "machine learning", "sql", "aws"],
+    "expanded_skills": ["information technology", "technology", "programming", "python", "backend"],
+    "experience_years": 6.5,
+    "seniority_level": "senior",
+    "score": 0.8240,
+    "vector_score": 0.7812,
+    "skill_overlap": 0.6500,
+    "score_detail": {
+      "semantic_similarity": 0.8812,
+      "experience_fit": 1.0,
+      "seniority_fit": 1.0,
+      "category_fit": 0.0
+    },
+    "skill_overlap_detail": {
+      "core_overlap": 0.6667,
+      "expanded_overlap": 0.5000,
+      "normalized_overlap": 0.6667
     }
-  ],
-  "pipeline_version": "v1",
-  "trace_id": "req-xyz789"
-}
+  }
+]
 ```
 
 ---

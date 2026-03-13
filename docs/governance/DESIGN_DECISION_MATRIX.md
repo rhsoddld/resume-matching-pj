@@ -113,7 +113,7 @@
 | 품질 | 규칙 기반 (결정론적) | LLM 기반 (확률적) | 혼합 |
 | 비용 | 낮음 | 높음 | 가변 |
 | Agent 의존성 | 없음 (정제된 필드 제공) | 높음 | 중간 |
-| **선택 이유** | Ingestion 시 정규화된 필드(skills, experience_years, seniority)를 미리 계산하여 Agent에게 clean context를 제공. Agent는 "판단"에만 집중하고 "파싱"은 하지 않도록 역할 분리 | — | — |
+| **선택 이유** | Ingestion 시 정규화된 필드(skills, experience_years, seniority)를 미리 계산하여 Agent에게 clean context를 제공. **Substring matching** 도입으로 비정형 스킬 매핑 극대화(empty 0.5% 달성), **Category injection**으로 데이터 편중 보완. | — | — |
 
 ---
 

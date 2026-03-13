@@ -10,13 +10,14 @@ import yaml
 from backend.schemas.candidate import VersionedSkill
 
 
-LEGACY_LEXICAL_NORMALIZATION = {
-    "ms excel": "excel",
-    "microsoft excel": "excel",
-    "ms office": "microsoft office",
-    "mongo db": "mongodb",
-    "mongo db-3.2": "mongodb",
-    "ssrs": "sql server reporting services",
+# skill_aliases.yml로 커버되지 않는 소수 케이스에 대한 전수려 파이프라인내 단일 매핑
+# alias_to_canonical 단계에서 처리되지 않는 raw token에만 적용
+LEGACY_LEXICAL_NORMALIZATION: dict[str, str] = {
+    "mongo db": "mongodb",        # 공백 스타일 원본
+    "mongo db-3.2": "mongodb",    # 버전 접미사 변형
+    "ms office": "microsoft office",  # 엄격한 표기를 유지
+    # note: ms excel/microsoft excel 등은 skill_aliases.yml에서 커버
+    # note: ssrs는 skill_aliases.yml로 커버; 더 이상 엄리설 필요 없음
 }
 
 VERSION_PATTERNS = [
@@ -184,7 +185,32 @@ class RuntimeSkillOntology:
             canonical_skills.append(canonical)
         canonical_skills = _dedupe_preserve(canonical_skills)
 
-        core_skills = [t for t in canonical_skills if t in self.core_taxonomy]
+        # 1) exact match
+        core_skills_exact = {t for t in canonical_skills if t in self.core_taxonomy}
+
+        # 2) substring match: taxonomy key가 token 안에 포함된 경우
+        #    예: "sql server 2012" → "sql server" ⊂ token → hit
+        #    단, taxonomy key가 5자 이상인 경우만 적용 (단문자 키 오탐 방지)
+        substring_hits: dict[str, str] = {}  # token → best_tax_key (가장 긴 것)
+        for token in canonical_skills:
+            if token in core_skills_exact:
+                continue
+            best: str | None = None
+            for tax_key in self.core_taxonomy:
+                if len(tax_key) >= 5 and tax_key in token:
+                    if best is None or len(tax_key) > len(best):
+                        best = tax_key
+            if best:
+                substring_hits[token] = best
+
+        core_skills = []
+        for token in canonical_skills:
+            if token in core_skills_exact:
+                core_skills.append(token)
+            elif token in substring_hits:
+                mapped = substring_hits[token]
+                if mapped not in core_skills:
+                    core_skills.append(mapped)
         core_skills = _dedupe_preserve(core_skills)
 
         expanded: list[str] = []

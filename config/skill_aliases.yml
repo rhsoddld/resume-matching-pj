@@ -1,65 +1,115 @@
+# Skill Aliases — canonical key : list of aliases to merge into it
+# canonical_merge_candidates (from skill_review_required.yml) applied here
+
 "angularjs":
   aliases:
     - "angular js"
     - "angular.js"
+    - "angular"
+
+"azure":
+  aliases:
+    - "microsoft azure"
+
+"css3":
+  aliases:
+    - "css 3"
+
 "cyber security":
   aliases:
     - "cybersecurity"
+
+"data guard":
+  aliases:
+    - "oracle data guard"
+    - "oracle dataguard"
+
+"excel":
+  aliases:
+    - "microsoft excel"
+    - "ms excel"
+
+"golden gate":
+  aliases:
+    - "oracle goldengate"
+    - "oracle golden gate"
+
 "hp-unix":
   aliases:
     - "hp unix"
+
 "html5":
   aliases:
     - "html 5"
+
 "javascript":
   aliases:
     - "java script"
+
 "mongodb":
   aliases:
     - "mongo db"
-"ms sql server":
-  aliases:
-    - "mssql server"
-"mssql":
-  aliases:
-    - "ms sql"
+
 "nodejs":
   aliases:
     - "node.js"
+    - "node js"
+
 "oracle 11gr2":
   aliases:
     - "oracle 11g r2"
+
 "oracle 11gr2 rac":
   aliases:
     - "oracle 11g r2 rac"
-"oracle data guard":
-  aliases:
-    - "oracle dataguard"
-"oracle goldengate":
-  aliases:
-    - "oracle golden gate"
+
 "pl/sql":
   aliases:
     - "pl sql"
     - "plsql"
+
+"postgresql":
+  aliases:
+    - "postgres"
+
+"rac":
+  aliases:
+    - "oracle rac"
+
 "red hat linux":
   aliases:
     - "redhat linux"
+    - "rhel"
+    - "red hat"
+
 "sql plus":
   aliases:
     - "sqlplus"
+
 "sql server":
   aliases:
     - "sqlserver"
+    - "ms sql server"
+    - "mssql"
+    - "microsoft sql server"
+    - "sql server database"
+
 "sql trace":
   aliases:
     - "sqltrace"
+
 "t-sql":
   aliases:
     - "tsql"
+
 "transact-sql":
   aliases:
     - "transact sql"
+
 "unix shell scripts":
   aliases:
     - "unix/shell scripts"
+
+"windows":
+  aliases:
+    - "microsoft windows"
