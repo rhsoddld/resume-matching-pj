@@ -38,33 +38,64 @@ isProject: false
 - **기술 목표**: Python + FastAPI + OpenAI Agents SDK + MongoDB + Milvus 기반의 **마이크로서비스형 RAG + Multi-Agent 파이프라인**을 구현하고, **LangSmith(트레이싱/실험/데이터셋)** + **DeepEval(LLM-as-Judge 자동평가)** 기반의 품질 루프와 Senior+ 체크리스트를 만족하는 FDE 스타일 결과물.
 - **범위 목표**: Requirement 1(기본) + Requirement 2(addon)의 핵심 항목을 모두 커버하되, 시간 내에 검증 가능한 수준까지(테스트, 평가, 문서, 아키텍처) 마무리.
 
+## 발표 준비용 Key Decision 관리 규칙
+
+- key decision은 나중에 회고로 몰아서 정리하지 않고, 결정되는 즉시 `docs/adr/DECISIONS.md`에 남긴다.
+- `README.md`, architecture 문서, data flow 문서, ADR 내용은 실제 구현 및 폴더 구조와 동기화한다.
+- panel 질문 가능성이 높은 내용은 아래 5가지 축으로 정리한다.
+  - architecture choice
+  - data flow / data readiness
+  - trade-off and alternatives
+  - validation / guardrails / resilience
+  - evaluation / quality measurement
+
+## 현재까지 확정된 Key Decisions 요약
+
+| 주제 | 현재 결정 | 왜 중요한가 |
+|------|------|------|
+| Backend 구조 | `api → services → repositories → core/schemas` layered architecture | 모듈성, 테스트 용이성, 책임 분리 |
+| 저장소 전략 | MongoDB + Milvus 이중 저장소 | 도메인 데이터와 벡터 검색 역할 분리, fallback 가능 |
+| Ingestion 파싱 | rule-based only, 생성형 LLM 파싱 금지 | 비용/재현성/운영 안정성 확보 |
+| LLM 사용 범위 | RAG scoring/explanation과 embedding에 한정 | LLM 사용 지점을 통제하고 설명 가능성 유지 |
+| Retrieval standard | embedding + Milvus + BM25 + deterministic scoring + rerank | 속도/품질/비용 균형 |
+| Agent 아키텍처 | OpenAI Agents SDK multi-agent with orchestrator | 역할 분리와 설명 가능한 scoring 구조 |
+| Evaluation stack | DeepEval + LangSmith | 품질 측정, 실험 추적, 회귀 분석 |
+| Frontend 범위 | React/Vite 기반 최소 데모 UI | 데모 완성도 확보, 과도한 UI 확장 방지 |
+
 ## 상위 아키텍처 & 폴더 구조 계약
 
-- **루트 구조(체크리스트 정렬)**
-  - `/requirements`: 
-    - `case-study.pdf` (원문), `requirements.md` (요약 및 Must/Should/Nice 분류), `rubric-notes.md`.
-  - `/docs/architecture`: 
-    - `system-architecture.md` (+ JPEG/PDF 다이어그램), `deployment-architecture.md`.
-  - `/docs/data-flow`: 
-    - `ingestion-flow.md`, `retrieval-flow.md`, `agent-pipeline-flow.md` (각각 mermaid 포함).
-  - `/docs/eval`: 
-    - `eval-plan.md`, `eval-rubric.md`, `eval-results.md`.
-    - `langsmith-eval-datasets.md` (평가 데이터셋/실험/런 추적 운영 가이드)
-  - `/docs/governance`: 
-    - `AGENT.md`, `TRACEABILITY.md`, `DESIGN_DOCTRINE.md`, `DESIGN_DECISION_MATRIX.md`.
-    - `TRACEABILITY.md`에는 **Problem statement 요구사항 ID ↔ Checklist 항목 ↔ 설계/코드/평가 증거**를 표 형태로 맵핑하여 Reviewer가 한눈에 확인 가능하게 구성.
-  - `/docs/adr`:
-    - `DECISIONS.md`(ADR 목록).
-  - `/src`:
-    - `backend/` (FastAPI + 서비스 레이어 + 리포지토리 + 도메인 모델).
-    - `agents/` (OpenAI Agents SDK 기반 multi-agent orchestration, tools, prompts).
-    - `eval/` (DeepEval 테스트, golden set 로더, judge 래퍼).
-    - `frontend/` (간단한 React/Vite UI – 검색폼 + 결과 리스트 + 상세 패널).
-    - `ops/` (config, logging, healthcheck, startup 스크립트, LangSmith tracing 설정).
-  - `/tests`:
-    - `test_api_*.py`, `test_retrieval_*.py`, `test_eval_*.py` 등.
-  - 루트 파일:
-    - `README.md`, `docker-compose.yml`, `Dockerfile.api`, `Dockerfile.frontend`, `.env.example`, `requirements.txt` or `pyproject.toml`.
+- **현재 구현 기준 루트 구조**
+  - `/config`
+    - `skill_aliases.yml`, `skill_taxonomy.yml`, `skill_role_candidates.yml`, `versioned_skills.yml` 등 runtime ontology 설정 파일.
+  - `/requirements`
+    - `case-study.pdf`, `requirements.md`.
+  - `/docs/architecture`
+    - `system-architecture.md`.
+  - `/docs/data-flow`
+    - `ingestion-flow.md`.
+  - `/docs/governance`
+    - `AGENT.md`, `PLAN.md`, `TRACEABILITY.md`, `DESIGN_DOCTRINE.md`, `DESIGN_DECISION_MATRIX.md`.
+  - `/docs/adr`
+    - `DECISIONS.md`.
+  - `/docs/ontology`
+    - ontology 분석/정제 초안 및 버전 이력.
+  - `/src/backend`
+    - `api/`, `core/`, `repositories/`, `schemas/`, `services/`.
+  - `/scripts`
+    - ontology 분석/정제 유틸 스크립트.
+  - `/tests`
+    - 현재 `test_skill_overlap_scoring.py` 중심의 pytest 테스트.
+  - 루트 파일
+    - `README.md`, `docker-compose.yml`, `requirements.txt`, `pytest.ini`, `test_api.py`.
+
+- **목표 구조(후속 Phase에서 추가 가능)**
+  - `/src/agents`: OpenAI Agents SDK multi-agent orchestration
+  - `/src/eval`: DeepEval 평가 코드 및 golden set
+  - `/src/frontend`: React/Vite 데모 UI
+  - `/src/ops`: tracing/logging/ops helper
+  - `/docs/eval`: 평가 계획/결과 문서
+
+- `TRACEABILITY.md`에는 **Problem statement 요구사항 ID ↔ Checklist 항목 ↔ 설계/코드/평가 증거**를 표 형태로 맵핑하여 Reviewer가 한눈에 확인 가능하게 구성한다.
 
 ## 도메인 모델 & 데이터 설계
 
@@ -223,6 +254,14 @@ isProject: false
     - 간단한 per-IP 또는 per-API key rate limit 설계 (실구현은 시간 여유 시).
   - LLM 안전 프롬프트:
     - Agent/system prompt에 “개인 정보 노출 최소화, 차별적 표현 금지, 설명 시 근거 중심” 등 안전 가이드를 포함.
+
+## 발표 전 최종 점검 체크
+
+- README의 폴더 구조 설명이 실제 디렉토리와 1:1로 맞는가
+- architecture diagram과 구현 구조가 일치하는가
+- data flow diagram이 ingestion / retrieval / scoring 흐름을 설명하는가
+- 주요 설계 결정마다 이유와 대안 비교가 있는가
+- validation, logging, fallback, evaluation evidence를 문서에서 바로 찾을 수 있는가
 
 ## 프론트엔드 (데모용 최소 UI)
 

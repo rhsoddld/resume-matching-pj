@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # OpenAI / model
     openai_api_key: str = Field(..., env="OPENAI_API_KEY")
     openai_model: str = Field("gpt-4.1-mini", env="OPENAI_MODEL")
-    openai_embedding_model: str = Field("text-embedding-3-large", env="OPENAI_EMBEDDING_MODEL")
+    openai_embedding_model: str = Field("text-embedding-3-small", env="OPENAI_EMBEDDING_MODEL")
 
     # Mongo
     mongodb_uri: str = Field(..., env="MONGODB_URI")

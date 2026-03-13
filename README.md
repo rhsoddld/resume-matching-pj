@@ -33,12 +33,18 @@ IngestionService   MatchingService
 |------|------|
 | Backend | Python 3.11+, FastAPI, Uvicorn |
 | Agent | OpenAI Agents SDK |
-| Embedding | OpenAI `text-embedding-3-small` |
+| Embedding | OpenAI `OPENAI_EMBEDDING_MODEL` (default: `text-embedding-3-small`) |
 | Vector DB | Milvus |
 | Document DB | MongoDB 7 |
 | Evaluation | DeepEval + LangSmith |
 | Frontend | Vite + React + TypeScript |
 | 컨테이너 | Docker Compose |
+
+### Embedding 모델 선택 이유 (`text-embedding-3-small`)
+
+- capstone 범위에서 **비용/응답속도/구현 안정성**을 우선하기 위해 small을 기본값으로 채택했습니다.
+- 현재 파이프라인은 deterministic scoring breakdown을 함께 제공하므로, baseline 품질 대비 운영 효율이 중요했습니다.
+- 정확도 개선이 필요하면 `OPENAI_EMBEDDING_MODEL` 환경변수만 변경해 `text-embedding-3-large`로 확장할 수 있게 설계했습니다.
 
 ---
 
@@ -47,8 +53,7 @@ IngestionService   MatchingService
 ### 1. 환경 변수 설정
 
 ```bash
-cp .env.example .env
-# .env 파일에서 OPENAI_API_KEY, LANGSMITH_API_KEY 등을 설정합니다
+# .env 파일을 생성/수정하고 OPENAI_API_KEY, MONGODB_URI, MILVUS_URI 등을 설정합니다
 ```
 
 ### 2. 인프라 기동 (MongoDB + Milvus)
@@ -60,7 +65,7 @@ docker-compose up -d mongodb milvus
 ### 3. Python 환경 설정
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
@@ -121,6 +126,29 @@ PYTHONPATH=src uvicorn backend.main:app --reload --port 8000
 ```
 
 Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+---
+
+## 발표/심사용 문서
+
+평가자가 먼저 확인할 가능성이 높은 핵심 문서는 아래 기준으로 관리합니다.
+
+| 항목 | 문서 |
+|------|------|
+| README / 실행 방법 / 폴더 구조 | `README.md` |
+| 시스템 아키텍처 | `docs/architecture/system-architecture.md` |
+| 데이터 흐름 | `docs/data-flow/ingestion-flow.md` |
+| 주요 설계 결정 / trade-off / justification | `docs/adr/DECISIONS.md` |
+| 요구사항 추적 / 체크리스트 | `docs/governance/TRACEABILITY.md`, `docs/Reviewer_Checklist.md` |
+
+`docs/adr/DECISIONS.md`에는 구현 중 발생한 핵심 의사결정을 계속 누적 기록합니다.  
+특히 아래 항목은 결정이 생길 때마다 바로 남겨두는 것을 기준으로 합니다.
+
+- 아키텍처 선택과 대안 비교
+- 데이터 처리 방식과 validation 전략
+- 모델/프롬프트/평가 방식 선택 이유
+- 비용, 성능, 운영 복잡도 관련 trade-off
+- guardrail, fallback, resilience 설계
 
 ---
 
@@ -208,30 +236,39 @@ curl -X POST http://localhost:8000/api/jobs/match \
 
 ```
 resume-matching-pj/
-├── src/
-│   ├── backend/
-│   │   ├── api/           # FastAPI 라우터
-│   │   ├── services/      # 도메인 서비스
-│   │   ├── repositories/  # DB/벡터스토어 CRUD
-│   │   ├── schemas/       # Pydantic 모델
-│   │   └── core/          # 설정, 로깅, DB 클라이언트
-│   ├── agents/            # OpenAI Agents SDK Multi-Agent
-│   ├── eval/              # DeepEval 테스트, golden set
-│   ├── frontend/          # Vite + React UI
-│   └── ops/               # LangSmith tracer, 로깅 미들웨어
+├── config/                # Skill taxonomy / alias / runtime normalization 설정
+├── data/                  # Kaggle 데이터셋 원본 및 적재 입력
 ├── docs/
+│   ├── adr/               # Architecture Decision Records
 │   ├── architecture/      # 시스템 아키텍처
-│   ├── data-flow/         # Ingestion / Retrieval / Agent 플로우
-│   ├── eval/              # Eval plan, rubric, results
-│   ├── governance/        # AGENT.md, TRACEABILITY.md, DESIGN_DOCTRINE.md
-│   └── adr/               # Architecture Decision Records
+│   ├── data-flow/         # 현재 구현된 ingestion flow
+│   ├── governance/        # AGENT.md, PLAN.md, TRACEABILITY.md, DESIGN_DOCTRINE.md
+│   ├── ontology/          # Ontology 분석/정제 초안 및 버전 이력
+│   ├── Reviewer_Checklist.md
+│   ├── ingestion_normalization_design.md
+│   └── scoring_design.md
+├── requirements/          # 문제정의 및 요구사항 문서
+├── scripts/               # Ontology 분석/정제 보조 스크립트
+├── src/
+│   └── backend/
+│       ├── api/           # FastAPI 라우터
+│       ├── core/          # 설정, DB 클라이언트, startup, vector store
+│       ├── repositories/  # Mongo 조회 래퍼
+│       ├── schemas/       # Pydantic 모델
+│       └── services/      # ingestion, parsing, matching, scoring, ontology
 ├── tests/                 # pytest 테스트
-├── requirements/          # 요구사항 문서
-├── data/                  # Kaggle 데이터셋 (gitignore)
+├── test_api.py            # API 스모크 테스트 스크립트
 ├── docker-compose.yml
 ├── requirements.txt
-└── .env.example
+├── pytest.ini
+└── README.md
 ```
+
+### 현재 구현 상태 메모
+
+- 위 트리는 **현재 저장소에 실제 존재하는 폴더/파일 기준**입니다.
+- `src/agents/`, `src/eval/`, `src/frontend/`, `src/ops/`, `docs/eval/`, `.env.example`는 아직 생성되지 않았습니다.
+- Multi-Agent, 평가 전용 디렉토리, 프론트엔드 확장은 **Phase 2 이후 목표 범위**로 관리합니다.
 
 ---
 
@@ -245,5 +282,6 @@ resume-matching-pj/
 | Traceability Matrix | [docs/governance/TRACEABILITY.md](docs/governance/TRACEABILITY.md) |
 | Design Doctrine | [docs/governance/DESIGN_DOCTRINE.md](docs/governance/DESIGN_DOCTRINE.md) |
 | Design Decision Matrix | [docs/governance/DESIGN_DECISION_MATRIX.md](docs/governance/DESIGN_DECISION_MATRIX.md) |
+| Known Trade-offs | [docs/governance/KNOWN_TRADEOFFS.md](docs/governance/KNOWN_TRADEOFFS.md) |
 | ADR | [docs/adr/DECISIONS.md](docs/adr/DECISIONS.md) |
 | Agent Guide | [docs/governance/AGENT.md](docs/governance/AGENT.md) |

@@ -84,7 +84,7 @@
 
 ---
 
-## 현재 DB 스냅샷 (2026-03-13, V4 기준)
+## 현재 DB 스냅샷 (2026-03-13, V6 기준)
 
 | 항목 | 값 |
 |-----|-----|
@@ -96,8 +96,8 @@
 | — Suri empty | **25 / 0.8%** (수용) |
 | `taxonomy_applied=True` | 4,489 / 81.9% |
 | `alias_applied=True` | 648 / 11.8% |
-| `embedding_hash` | `null` (Milvus 적재 미실행) |
-| `embedding_upserted_at` | `null` |
+| `embedding_hash` | `null = 0` (Milvus 적재 완료) |
+| `embedding_upserted_at` | `null = 0` |
 
 > **Note**: 잔여 25건은 proprietary tool / 판단 불가 토큰으로, 수용 가능한 노이즈이다.
 

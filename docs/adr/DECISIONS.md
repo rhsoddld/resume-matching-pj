@@ -5,6 +5,50 @@
 
 ---
 
+## 사용 원칙
+
+이 문서는 **나중에 발표 직전에 회고용으로 쓰는 문서가 아니라**, 구현 중간중간 핵심 판단을 바로 남기는 작업 로그로 사용합니다.
+
+- 새로운 기술/구조/운영 방식 중 하나를 **선택했을 때**
+- 두 개 이상의 대안 중 하나를 **포기하거나 채택했을 때**
+- 성능, 비용, 품질, 운영성 사이에서 **trade-off가 생겼을 때**
+- 발표에서 "왜 이렇게 했나요?" 질문이 나올 가능성이 있을 때
+
+짧게라도 먼저 기록하고, 필요하면 나중에 보강합니다.
+
+### 빠른 기록 템플릿
+
+아래 템플릿을 복사해서 새 ADR로 추가합니다.
+
+```md
+## ADR-XXX: [짧은 결정 제목]
+
+### 맥락 (Context)
+- 어떤 문제를 해결하려는가?
+- 어떤 제약이 있었는가?
+- 왜 지금 이 결정이 필요했는가?
+
+### 고려한 대안 (Alternatives Considered)
+- 대안 A:
+- 대안 B:
+- 대안 C:
+
+### 결정 (Decision)
+- 최종 선택:
+- 선택 이유:
+
+### 결과 (Consequences)
+- 긍정:
+- 부정:
+- 완화 방안:
+
+### Demo / Panel에서 강조할 포인트
+- 이 결정이 사용자 가치 또는 시스템 품질에 준 영향
+- 포기한 대안과 비교했을 때의 장점
+```
+
+---
+
 ## ADR 목록
 
 | ID | 제목 | 날짜 | Status |
@@ -14,6 +58,10 @@
 | ADR-003 | Ingestion = Rule-based Only, LLM은 RAG Pipeline에서만 | 2026-03-13 | ✅ Accepted |
 | ADR-004 | OpenAI Agents SDK 기반 Multi-Agent 아키텍처 (ResumeParsingAgent 제외) | 2026-03-13 | ✅ Accepted |
 | ADR-005 | DeepEval + LangSmith 평가 스택 선택 | 2026-03-13 | ✅ Accepted |
+| ADR-006 | Runtime Skill Ontology를 Config 파일로 외부화 | 2026-03-13 | ✅ Accepted |
+| ADR-007 | Deterministic Scoring Baseline을 먼저 구현 | 2026-03-13 | ✅ Accepted |
+| ADR-008 | 현재 제출 기준 문서/폴더 구조는 As-Is 기준으로 동기화 | 2026-03-13 | ✅ Accepted |
+| ADR-009 | Embedding 기본 모델을 `text-embedding-3-small`로 고정 | 2026-03-13 | ✅ Accepted |
 
 ---
 
@@ -155,3 +203,108 @@ RAG + Agent 파이프라인의 품질을 정량적으로 측정하고 변경에 
 ### 결과 (Consequences)
 - **긍정**: 자동화된 품질 루프. 실험 단위 재현 가능. LangSmith로 프롬프트 변경 효과 추적.
 - **부정**: LangSmith API Key 필요. Eval 실행 시 LLM 비용 발생.
+
+---
+
+## ADR-006: Runtime Skill Ontology를 Config 파일로 외부화
+
+### 맥락 (Context)
+스킬 정규화 품질은 taxonomy, alias, capability phrase, review-required 목록에 크게 좌우된다.  
+이 로직을 코드에 하드코딩하면 ontology를 보정할 때마다 코드 수정과 배포가 필요해지고, 데이터 품질 개선 이력이 분리되지 않는다.
+
+### 고려한 대안 (Alternatives Considered)
+- 대안 A: skill mapping을 Python 상수로 코드에 직접 하드코딩
+- 대안 B: MongoDB에 ontology를 저장하고 런타임에 읽기
+- 대안 C: YAML config 파일로 버전 관리하고 런타임에 로드
+
+### 결정 (Decision)
+- `config/skill_aliases.yml`, `config/skill_taxonomy.yml`, `config/skill_role_candidates.yml`, `config/versioned_skills.yml` 등을 **운영 기준 런타임 설정**으로 사용한다.
+- ontology 분석/초안/리뷰 이력은 `docs/ontology/`에 두고, 실제 ingestion/matching은 `config/`만 참조한다.
+- `RuntimeSkillOntology.load_from_config(...)`로 로딩 경로를 단일화한다.
+
+### 결과 (Consequences)
+- **긍정**: ontology 품질 개선과 애플리케이션 코드 변경을 분리할 수 있다. reviewer에게도 "설정 기반 품질 개선" 근거를 보여주기 쉽다.
+- **부정**: config 파일 간 정합성이 깨지면 런타임 오류 가능성이 있다.
+- **완화 방안**: startup/load 시점 검증, quality gate 테스트, 버전 파일 유지로 변경 이력을 남긴다.
+
+### Demo / Panel에서 강조할 포인트
+- 스킬 정규화 정확도 개선을 코드 변경이 아닌 config iteration으로 빠르게 진행할 수 있었다.
+- ontology 연구용 문서와 운영용 설정을 분리해 실험과 배포 경계를 명확히 했다.
+
+---
+
+## ADR-007: Deterministic Scoring Baseline을 먼저 구현
+
+### 맥락 (Context)
+최종 목표는 Multi-Agent scoring이지만, 제출 전 반드시 동작하는 매칭 API와 설명 가능한 점수 구조가 필요하다.  
+초기부터 LLM-only 평가로 가면 비용, 지연, 회귀 검증 난도가 커지고 장애 시 데모 리스크도 높아진다.
+
+### 고려한 대안 (Alternatives Considered)
+- 대안 A: 처음부터 LLM rerank / multi-agent scoring을 필수 경로로 구현
+- 대안 B: 벡터 검색 결과를 그대로 반환
+- 대안 C: deterministic scoring baseline을 먼저 만들고 이후 agent layer를 증분 확장
+
+### 결정 (Decision)
+- 현재 매칭 API의 기본 동작은 **embedding retrieval + deterministic scoring**으로 고정한다.
+- 점수는 semantic similarity, skill overlap, experience fit, seniority fit, category fit으로 분해한다.
+- Multi-Agent scoring과 explanation은 Phase 2 확장 범위로 둔다.
+
+### 결과 (Consequences)
+- **긍정**: 지금 단계에서도 E2E 데모가 가능하고, 점수 breakdown을 명확히 설명할 수 있다. 테스트와 회귀 검증도 단순해진다.
+- **부정**: 정성적 적합도나 nuanced reasoning은 아직 반영이 제한적이다.
+- **완화 방안**: deterministic baseline 위에 rerank/agent 레이어를 추가하는 계층형 구조로 확장한다.
+
+### Demo / Panel에서 강조할 포인트
+- "먼저 동작하고 설명 가능한 baseline"을 확보한 뒤 AI 레이어를 증분 확장하는 전략을 택했다.
+- 단순 벡터 유사도만 반환하지 않고 score breakdown을 제공해 reviewer가 결과 근거를 확인할 수 있게 했다.
+
+---
+
+## ADR-008: 현재 제출 기준 문서/폴더 구조는 As-Is 기준으로 동기화
+
+### 맥락 (Context)
+심사자는 제출 직후 README와 폴더 구조를 먼저 본다.  
+목표 구조를 실제 구현처럼 적어두면 문서 신뢰도가 떨어지고, 발표 전 질문에서 "문서와 저장소가 왜 다르냐"는 리스크가 생긴다.
+
+### 고려한 대안 (Alternatives Considered)
+- 대안 A: 목표 구조를 그대로 유지하고 추후 구현 예정이라고 구두 설명
+- 대안 B: 현재 저장소 구조와 향후 목표 구조를 문서에서 명확히 분리
+
+### 결정 (Decision)
+- `README.md`와 `PLAN.md`의 폴더 구조는 **현재 저장소에 실제 존재하는 파일/디렉토리 기준**으로 우선 맞춘다.
+- 아직 생성되지 않은 `src/agents`, `src/eval`, `src/frontend`, `docs/eval` 등은 **후속 목표 구조**로 별도 표기한다.
+- 심사용 문서는 항상 "현재 구현"과 "향후 확장"을 구분해서 기록한다.
+
+### 결과 (Consequences)
+- **긍정**: 제출물과 문서의 정합성이 올라가고, reviewer가 현재 상태를 빠르게 이해할 수 있다.
+- **부정**: 미래 구조를 한 눈에 보여주는 느낌은 줄어들 수 있다.
+- **완화 방안**: README/PLAN에 목표 구조를 별도 섹션으로 유지해 roadmap은 계속 보여준다.
+
+### Demo / Panel에서 강조할 포인트
+- 문서를 aspirational하게 쓰지 않고, 제출 시점의 실제 구현 상태와 정확히 맞췄다.
+- reviewer가 저장소를 열자마자 현재 구현 범위와 이후 확장 범위를 구분할 수 있게 했다.
+
+---
+
+## ADR-009: Embedding 기본 모델을 `text-embedding-3-small`로 고정
+
+### 맥락 (Context)
+현재 capstone 단계에서는 정확도 상향 실험보다, 반복 실행 가능한 ingestion/retrieval 파이프라인과 안정적인 데모 운영이 더 중요하다.  
+대량 문서 임베딩/재임베딩이 반복되는 상황에서 모델 단가와 지연은 운영 리스크로 직결된다.
+
+### 고려한 대안 (Alternatives Considered)
+- 대안 A: 기본값을 `text-embedding-3-large`로 설정
+- 대안 B: 기본값을 `text-embedding-3-small`로 설정하고 필요 시 large로 전환
+
+### 결정 (Decision)
+- 기본 embedding 모델은 `OPENAI_EMBEDDING_MODEL=text-embedding-3-small`로 고정한다.
+- 품질 실험에서 필요성이 확인되면 환경변수만 변경해 `text-embedding-3-large`로 전환한다.
+
+### 결과 (Consequences)
+- **긍정**: 비용 절감, 빠른 반복 실험, 데모 안정성 확보.
+- **부정**: 일부 semantic edge case에서 large 대비 retrieval 품질 손실 가능.
+- **완화 방안**: golden set 기반 평가에서 품질 임계치 미달 시 large 전환 또는 rerank 강화.
+
+### Demo / Panel에서 강조할 포인트
+- small 선택은 임의가 아니라 capstone의 비용/속도/재현성 제약을 반영한 의도적 결정이다.
+- 모델 선택은 하드코딩이 아니라 환경변수 기반 정책이라 운영 단계에서 쉽게 상향 가능하다.

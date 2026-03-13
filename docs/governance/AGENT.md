@@ -8,6 +8,32 @@ AI-powered Resume Intelligence & Candidate Matching 시스템을 **Python + Fast
 
 ---
 
+## Documentation Discipline
+
+발표 직전에 한 번에 정리하지 않도록, 아래 항목은 작업 중 결정되는 즉시 문서에 반영한다.
+
+| 무엇을 기록할까 | 어디에 기록할까 |
+|------|------|
+| 아키텍처/기술 선택, 대안 비교, trade-off | `docs/adr/DECISIONS.md` |
+| 현재 작업 우선순위, 다음 액션, 발표 준비 TODO | `docs/governance/PLAN.md` |
+| 프로젝트 개요, 실행 방법, 폴더 구조, 심사용 문서 진입점 | `README.md` |
+
+### 반드시 남길 Key Decision 포인트
+
+- 왜 이 구조를 선택했는가
+- 어떤 대안을 검토했고 왜 제외했는가
+- 비용/성능/정확도/운영성 trade-off는 무엇인가
+- fallback, validation, resilience는 어떻게 설계했는가
+- 평가(quality/eval) 방식과 그 이유는 무엇인가
+
+### 작업 원칙
+
+- 구현 중 "이건 나중에 설명해야 할 것 같다" 싶으면 바로 `DECISIONS.md`에 남긴다.
+- 문서 내용은 실제 코드/폴더 구조와 반드시 동기화한다.
+- 발표 필수 아티팩트(README, architecture, data flow, decisions)는 항상 최신 상태로 유지한다.
+
+---
+
 ## Parsing Strategy (핵심 결정)
 
 | 시점 | 파싱 방법 | LLM 사용 |
@@ -25,21 +51,17 @@ AI-powered Resume Intelligence & Candidate Matching 시스템을 **Python + Fast
 ## Current Retrieval Standard (고정안)
 
 `Job Description`  
-→ `OpenAI embedding (text-embedding-3-small)`  
+→ `OpenAI embedding (OPENAI_EMBEDDING_MODEL, default text-embedding-3-small)`  
 → `Milvus vector search`  
-→ `BM25 skill search`  
-→ `Hybrid merge`  
-→ `Top 30`  
-→ `Feature extraction`  
+→ `Mongo batch enrichment`  
 → `Deterministic scoring`  
-→ `Top 10`  
-→ `LLM rerank (gpt-4o-mini)`  
-→ `Top 5 candidates`
+→ `Top-K response`
 
 - 이 고정안은 capstone 범위에서 **비용/속도/구현 단순성**을 우선한 기준이다.
-- 명시적 요청이 없는 한 embedding/rerank 모델 선택은 변경하지 않는다.
-- 정확도 개선이 필요하면 `text-embedding-3-large` 또는 reranker 강화로 확장한다.
-- retrieval / scoring / rerank 역할은 분리하며, deterministic scoring은 explainable ranking의 핵심 레이어로 유지한다.
+- embedding 기본 모델을 `text-embedding-3-small`로 둔 이유는 대량 재임베딩/반복 실험 시 비용과 지연을 안정적으로 관리하기 위해서다.
+- retrieval / enrichment / scoring 역할을 분리하고, deterministic scoring은 explainable ranking의 핵심 레이어로 유지한다.
+- 정확도 상향이 필요하면 `OPENAI_EMBEDDING_MODEL=text-embedding-3-large`로 즉시 전환 가능하다.
+- BM25/hybrid merge/rerank는 후속 Phase 확장 항목으로 관리한다.
 
 ---
 
@@ -117,20 +139,26 @@ AI-powered Resume Intelligence & Candidate Matching 시스템을 **Python + Fast
 | Skill Alias 확장 (11개 canonical merge) | ✅ 완료 | `config/skill_aliases.yml` |
 | Sneha category → core_skills inject | ✅ 완료 | Sneha empty 0.0% |
 | Substring matching (ex. `sql server 2012`→`sql server`) | ✅ 완료 | `skill_ontology.py` |
-| Milvus 벡터 적재 | 🔴 미실행 | `embedding_hash null (5,484건)` |
+| Milvus 벡터 적재 | ✅ 완료 | `ingest_complete: seen=5484, embedded=5484, embed_skipped=0` |
 | 기본 매칭 API (`POST /api/jobs/match`) | 🔄 구조 완료, E2E 테스트 대기 | `matching_service.py` |
 | Deterministic scoring | ✅ 완료 | `scoring_service.py` |
 | 5/5 유닛 테스트 | ✅ Pass | `tests/test_skill_overlap_scoring.py` |
 
-> **Milvus 미적재 = 매칭 API 실질적 연동 불가**: `search_embeddings()` 0건 반환 상태.
+> **Milvus 인덱스 활성화 완료**: 이제 `POST /api/jobs/match` 경로의 실질 E2E 검증 단계로 진행 가능.
 
 ---
 
 ## Next Slice
 
-1. **Milvus 적재 실행** (`--target milvus --milvus-from-mongo --force-reembed`) — Phase 1 활성화 블로컨
-2. 매칭 API end-to-end smoke test (`POST /api/jobs/match`)
+1. 매칭 API end-to-end smoke test (`POST /api/jobs/match`)
+2. retrieval/score 응답 품질 점검(Top-K, score breakdown)
 3. Phase 2 Multi-Agent 시작 판단
+
+### 발표 준비 관점의 병행 체크
+
+4. 새 설계 판단이 생기면 `docs/adr/DECISIONS.md`에 즉시 추가
+5. architecture / data flow / folder structure 문서와 실제 구현의 sync 유지
+6. panel 질문 대비용 trade-off 메모를 누적 정리
 
 ---
 
@@ -148,6 +176,7 @@ AI-powered Resume Intelligence & Candidate Matching 시스템을 **Python + Fast
 | Requirements | `requirements/requirements.md` |
 | Architecture | `docs/architecture/system-architecture.md` |
 | Data Flow | `docs/data-flow/` |
-| Evaluation Plan & Results | `docs/eval/` · `src/eval/` |
+| Evaluation Plan & Results | (목표 구조) `docs/eval/` · `src/eval/` |
 | Traceability Matrix | `docs/governance/TRACEABILITY.md` |
 | ADR (Architecture Decision Records) | `docs/adr/` |
+| Known Trade-offs | `docs/governance/KNOWN_TRADEOFFS.md` |
