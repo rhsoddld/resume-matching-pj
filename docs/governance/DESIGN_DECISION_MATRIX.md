@@ -30,6 +30,43 @@
 
 ---
 
+## 2-1. Retrieval / Rerank Baseline (고정안)
+
+| 항목 | 선택안 ✅ | 대안 | 판단 근거 |
+|------|----------|------|---------|
+| Embedding model | `text-embedding-3-small` | `text-embedding-3-large` | capstone 범위에서 비용/속도/구현 단순성 우선 |
+| Lexical retrieval | BM25 skill search | 벡터 검색 단독 | exact skill 매칭 보완 |
+| Rerank model | `gpt-4o-mini` | 별도 cross-encoder reranker | 설명 생성(explanation)과 연계가 쉬움 |
+
+**Current baseline pipeline (fixed)**  
+`Job Description` → `OpenAI embedding (text-embedding-3-small)` → `Milvus vector search` → `BM25 skill search` → `Hybrid merge` → `Top 30` → `Feature extraction` → `Deterministic scoring` → `Top 10` → `LLM rerank (gpt-4o-mini)` → `Top 5 candidates`
+
+현재 프로젝트는 capstone 범위와 개발 속도를 고려해 `text-embedding-3-small`을 기본 embedding 모델로 사용한다.  
+이 선택은 비용, 속도, 구현 단순성을 우선한 결정이다.  
+정확도 개선이 필요하면 향후 `text-embedding-3-large` 또는 별도 reranker 강화로 확장할 수 있다.
+
+---
+
+## 2-2. Deterministic Scoring Feature Priorities (Mongo 데이터 근거)
+
+| 계층 | Feature | 정책 |
+|------|---------|------|
+| Core (high trust) | `semantic_similarity`, `skill_overlap`, `experience_fit` | 기본 점수의 중심 신호로 사용 |
+| Weak support | `seniority_fit` | label skew를 고려해 낮은 가중치로만 반영 |
+| Conditional bonus | `category_fit` | `JD.category`와 `candidate.category`가 모두 존재할 때만 반영 |
+| Conditional bonus | `education_fit` | JD에 학위 요구가 있을 때만 반영 |
+| Conditional bonus | `recency_fit` | date 기반의 light heuristic만 반영 |
+
+**Current deterministic formula (recommended)**  
+`score = 0.42 * semantic_similarity + 0.33 * skill_overlap + 0.18 * experience_fit + 0.07 * seniority_fit + category_fit_conditional + education_fit_bonus + recency_fit_light`
+
+설계 원칙:
+- Vector similarity + BM25는 recall-oriented retrieval에 사용
+- Deterministic scoring은 explainable initial ranking을 담당
+- LLM rerank는 final ranking refinement + reasoning 생성을 담당
+
+---
+
 ## 3. Document Store
 
 | 항목 | MongoDB ✅ | PostgreSQL | Elasticsearch |

@@ -1,0 +1,74 @@
+oracle dba:
+  frequency: 316
+  suggested_parents:
+  - oracle
+  - database
+  reason: role_like
+database administrator:
+  frequency: 229
+  suggested_parents:
+  - database
+  reason: role_like
+sql developer:
+  frequency: 166
+  suggested_parents:
+  - sql
+  - database
+  reason: role_like
+director:
+  frequency: 104
+  suggested_parents: []
+  reason: role_like
+oracle database administrator:
+  frequency: 70
+  suggested_parents:
+  - database
+  - oracle
+  reason: role_like
+engineer:
+  frequency: 54
+  suggested_parents: []
+  reason: role_like
+system administrator:
+  frequency: 48
+  suggested_parents: []
+  reason: role_like
+sql server dba:
+  frequency: 47
+  suggested_parents:
+  - sql
+  - database
+  reason: role_like
+administrator:
+  frequency: 41
+  suggested_parents: []
+  reason: role_like
+consultant:
+  frequency: 37
+  suggested_parents: []
+  reason: role_like
+oracle sql developer:
+  frequency: 31
+  suggested_parents:
+  - sql
+  - database
+  - oracle
+  reason: role_like
+developer:
+  frequency: 29
+  suggested_parents: []
+  reason: role_like
+sql server database administrator:
+  frequency: 22
+  suggested_parents:
+  - sql
+  - database
+  reason: role_like
+analyst:
+  frequency: 21
+  suggested_parents: []
+  reason: role_like
+project manager:
+  frequency: 21
+  suggested_parents: []
+  reason: role_like

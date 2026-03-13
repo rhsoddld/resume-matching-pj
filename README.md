@@ -89,6 +89,33 @@ PYTHONPATH=src python src/backend/services/ingest_resumes.py \
 | `--sneha-limit` | Sneha 데이터셋 행 수 제한 |
 | `--suri-limit` | Suri 데이터셋 사람 수 제한 |
 
+### Ontology Runtime Config (운영 기준)
+
+Ingestion 런타임은 아래 파일을 최종 기준으로 사용합니다.
+
+- `config/skill_aliases.yml`
+- `config/skill_taxonomy.yml`
+- `config/skill_role_candidates.yml`
+- `config/versioned_skills.yml`
+- `config/skill_capability_phrases.yml`
+- `config/skill_review_required.yml`
+
+초안/이력 파일은 `docs/ontology/`에 보관합니다.
+
+### Clean Rebuild 가이드 (MongoDB + Milvus)
+
+정규화/스키마/임베딩 버전 변경 후에는 clean rebuild를 권장합니다.
+
+```bash
+# 1) Mongo candidates 컬렉션 드롭
+mongosh "mongodb://admin:admin123@localhost:27017/resume_matching?authSource=admin" --eval 'db.candidates.drop()'
+
+# 2) Mongo + Milvus 일괄 재적재
+PYTHONPATH=src python src/backend/services/ingest_resumes.py \
+  --source all --target all \
+  --force-mongo-upsert --force-reembed
+```
+
 ### 5. API 서버 기동
 
 ```bash

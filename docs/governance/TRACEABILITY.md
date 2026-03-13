@@ -9,12 +9,12 @@
 
 | Req ID | 요구사항 요약 | Priority | 관련 컴포넌트 | 구현 위치 | Status |
 |--------|-------------|----------|-------------|---------|--------|
-| R1.1 | Resume 텍스트 임베딩 생성 및 Milvus 인덱싱 | Must | IngestionService, Milvus | `src/backend/services/ingestion_service.py` | 🔄 In Progress |
-| R1.2 | Job description 임베딩 → Milvus Top-K 검색 | Must | MatchingService, Milvus | `src/backend/services/matching_service.py` | 🔄 In Progress |
-| R1.3 | 기본 매칭 점수 계산 (skill overlap, category, 연차) | Must | ScoringService | `src/backend/services/scoring_service.py` | ⬜ Pending |
-| R1.4 | Category / 경력 연차 메타 필터 지원 | Must | MatchingService, Milvus | `src/backend/repositories/milvus_repo.py` | ⬜ Pending |
-| R1.5 | 매칭 결과에 category / skills 요약 / 총점 포함 | Must | Schemas, MatchingService | `src/backend/schemas/match_schema.py` | ⬜ Pending |
-| R1.6 | FastAPI REST 엔드포인트 제공 | Must | API Layer | `src/backend/api/` | 🔄 In Progress |
+| R1.1 | Resume 텍스트 임베딩 생성 및 Milvus 인덱싱 | Must | IngestionService, Milvus | `src/backend/services/ingestion_service.py` | ✅ Done |
+| R1.2 | Job description 임베딩 → Milvus Top-K 검색 | Must | MatchingService, Milvus | `src/backend/services/matching_service.py` | ✅ Done |
+| R1.3 | 기본 매칭 점수 계산 (skill overlap, category, 연차) | Must | ScoringService | `src/backend/services/scoring_service.py` | 🔄 In Progress |
+| R1.4 | Category / 경력 연차 메타 필터 지원 | Must | MatchingService, Milvus | `src/backend/repositories/milvus_repo.py` | ✅ Done |
+| R1.5 | 매칭 결과에 category / skills 요약 / 총점 포함 | Must | Schemas, MatchingService | `src/backend/schemas/match_schema.py` | 🔄 In Progress |
+| R1.6 | FastAPI REST 엔드포인트 제공 | Must | API Layer | `src/backend/api/` | ✅ Done |
 | R2.1 | Multi-Agent 파이프라인 (Skill/Exp/Technical/Culture 점수 분리) | Should | Agent Layer | `src/agents/` | ⬜ Pending |
 | R2.2 | RankingAgent 가중 합산 + 설명 생성 | Should | RankingAgent | `src/agents/ranking_agent.py` | ⬜ Pending |
 | R2.3 | Hybrid retrieval + Milvus 장애 시 Mongo fallback | Should | HybridRetriever | `src/backend/repositories/hybrid_retriever.py` | ⬜ Pending |
@@ -36,14 +36,27 @@
 
 ---
 
+## 1-1. Retrieval/Rerank 고정안 ↔ Requirement ID 연결
+
+| 항목 | 연결 Req IDs | 증거 문서 | 상태 |
+|------|--------------|----------|------|
+| Embedding 모델 고정: `text-embedding-3-small` | R1.1, R1.2 | `docs/governance/DESIGN_DECISION_MATRIX.md`, `docs/governance/AGENT.md` | 🔄 In Progress |
+| Hybrid retrieval 고정: Milvus + BM25 + merge (Top 30) | R2.3 | `docs/architecture/system-architecture.md`, `docs/governance/AGENT.md` | 🔄 In Progress |
+| Deterministic scoring 고정: feature extraction + explainable Top 10 | R1.3, R1.5 | `docs/governance/DESIGN_DECISION_MATRIX.md`, `docs/architecture/system-architecture.md` | 🔄 In Progress |
+| Rerank/설명 모델 고정: `gpt-4o-mini` (Top 10 → Top 5 refinement) | R2.2 | `docs/governance/DESIGN_DECISION_MATRIX.md`, `docs/architecture/system-architecture.md` | 🔄 In Progress |
+| 모델 선택 근거(비용/속도/단순성)와 확장 경로 문서화 | R5.2, R5.3 | `docs/governance/DESIGN_DECISION_MATRIX.md`, 본 문서 | 🔄 In Progress |
+| Mongo 데이터 품질 기반 feature 우선순위(core/conditional) 문서화 | R1.3, R5.3 | `docs/governance/DESIGN_DECISION_MATRIX.md`, `docs/eval/mongo-scoring-assessment-2026-03-13.md` | 🔄 In Progress |
+
+---
+
 ## 2. 구현 컴포넌트 ↔ 설계 결정 ↔ 요구사항 역추적
 
 | 컴포넌트 | 경로 | 커버하는 Req IDs | 관련 ADR / 설계 결정 |
 |---------|------|-----------------|-------------------|
 | FastAPI API Layer | `src/backend/api/` | R1.6, R3.5, R4.3 | Layered Architecture (ADR-001) |
 | IngestionService | `src/backend/services/ingestion_service.py` | R1.1 | Dataset normalization to single schema |
-| MatchingService | `src/backend/services/matching_service.py` | R1.2, R1.3, R1.4, R1.5 | Hybrid retrieval strategy |
-| ScoringService | `src/backend/services/scoring_service.py` | R1.3, R2.1, R2.2 | Agent SDK integration point |
+| MatchingService | `src/backend/services/matching_service.py` | R1.2, R1.3, R1.4, R1.5, R2.3 | Hybrid retrieval (Top 30) + scoring/rerank orchestration |
+| ScoringService | `src/backend/services/scoring_service.py` | R1.3, R1.5 | Deterministic feature-based explainable scoring (Top 10) |
 | HybridRetriever | `src/backend/repositories/hybrid_retriever.py` | R2.3 | Milvus-primary + Mongo fallback |
 | MongoDB Repository | `src/backend/repositories/mongo_repo.py` | R1.3, R1.4, R2.3 | MongoDB as domain data store |
 | Milvus Repository | `src/backend/repositories/milvus_repo.py` | R1.1, R1.2, R1.4 | Milvus as vector store |
@@ -60,6 +73,7 @@
 | Golden Set | `src/eval/golden_set.jsonl` | R3.3 | Ground-truth evaluation set |
 | Frontend (Vite/React) | `src/frontend/` | R4.1, R4.2, R4.3 | Single-page demo UI |
 | Health Endpoints | `src/backend/api/health.py` | R3.5 | `/api/health`, `/api/ready` |
+| Governance Docs (Model Baseline) | `docs/governance/DESIGN_DECISION_MATRIX.md`, `docs/governance/AGENT.md` | R1.1, R1.2, R2.2, R2.3, R5.2, R5.3 | Retrieval/Rerank 모델 고정안 및 선택 근거 |
 
 ---
 
@@ -108,8 +122,8 @@
 
 | Phase | 설명 | 기간 목표 | Status | 완료 기준 |
 |-------|-----|---------|--------|---------|
-| Phase 0 | Scope & Contracts – 요구사항 확정, 아키텍처·폴더 구조 계약 | Day 1–2 | 🔄 In Progress | `AGENT.md`, `requirements.md`, `system-architecture.md` 완성 |
-| Phase 1 | Happy Path – Ingestion + 기본 매칭 API + 최소 UI | Day 2–3 | ⬜ Pending | `/api/jobs/match` 기본 응답, Vite UI에서 호출 성공 |
+| Phase 0 | Scope & Contracts – 요구사항 확정, 아키텍처·폴더 구조 계약 | Day 1–2 | ✅ Done | `AGENT.md`, `requirements.md`, `system-architecture.md` 완성 |
+| Phase 1 | Happy Path – Ingestion + 기본 매칭 API + 최소 UI | Day 2–3 | 🔄 In Progress | `/api/jobs/match` 기본 응답, Vite UI에서 호출 성공 |
 | Phase 2 | Multi-Agent & Hybrid Retrieval – Agent SDK 통합 | Weekend 전반 | ⬜ Pending | 5개 도메인 Agent 동작 + Hybrid retrieval + Fallback |
 | Phase 3 | Evaluation & Observability – DeepEval + LangSmith | Weekend 후반 | ⬜ Pending | golden set 평가 1회 실행, LangSmith run 추적 확인 |
 | Phase 4 | Reviewer Layer & Polish – 문서/다이어그램/Checklist | Day 7 | ⬜ Pending | README, TRACEABILITY, eval-results 완성, self-review 통과 |

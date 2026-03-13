@@ -22,6 +22,27 @@ AI-powered Resume Intelligence & Candidate Matching 시스템을 **Python + Fast
 
 ---
 
+## Current Retrieval Standard (고정안)
+
+`Job Description`  
+→ `OpenAI embedding (text-embedding-3-small)`  
+→ `Milvus vector search`  
+→ `BM25 skill search`  
+→ `Hybrid merge`  
+→ `Top 30`  
+→ `Feature extraction`  
+→ `Deterministic scoring`  
+→ `Top 10`  
+→ `LLM rerank (gpt-4o-mini)`  
+→ `Top 5 candidates`
+
+- 이 고정안은 capstone 범위에서 **비용/속도/구현 단순성**을 우선한 기준이다.
+- 명시적 요청이 없는 한 embedding/rerank 모델 선택은 변경하지 않는다.
+- 정확도 개선이 필요하면 `text-embedding-3-large` 또는 reranker 강화로 확장한다.
+- retrieval / scoring / rerank 역할은 분리하며, deterministic scoring은 explainable ranking의 핵심 레이어로 유지한다.
+
+---
+
 ## Structure Choices
 
 | 레이어 | 선택 | 핵심 이유 |
@@ -78,8 +99,8 @@ AI-powered Resume Intelligence & Candidate Matching 시스템을 **Python + Fast
 
 | Phase | 설명 | Status |
 |-------|------|--------|
-| Phase 0 | Scope & Contracts | 🔄 In Progress |
-| Phase 1 | Happy Path (Ingestion + 기본 매칭 API + 최소 UI) | ⬜ Pending |
+| Phase 0 | Scope & Contracts | ✅ Done |
+| Phase 1 | Happy Path (Ingestion + 기본 매칭 API + 최소 UI) | 🔄 In Progress |
 | Phase 2 | Multi-Agent & Hybrid Retrieval | ⬜ Pending |
 | Phase 3 | Evaluation & Observability | ⬜ Pending |
 | Phase 4 | Reviewer Layer & Polish | ⬜ Pending |

@@ -1,0 +1,419 @@
+database administration:
+  frequency: 1578
+  parents:
+  - database
+  reason: capability_phrase
+database security:
+  frequency: 779
+  parents:
+  - database
+  - security
+  reason: capability_phrase
+database design:
+  frequency: 738
+  parents:
+  - database
+  reason: capability_phrase
+database management:
+  frequency: 641
+  parents:
+  - database
+  reason: capability_phrase
+database migration:
+  frequency: 626
+  parents:
+  - database
+  reason: capability_phrase
+database maintenance:
+  frequency: 492
+  parents:
+  - database
+  reason: capability_phrase
+database monitoring:
+  frequency: 469
+  parents:
+  - database
+  reason: capability_phrase
+database performance tuning:
+  frequency: 424
+  parents:
+  - database
+  reason: capability_phrase
+oracle database administration:
+  frequency: 410
+  parents:
+  - database
+  - oracle
+  reason: capability_phrase
+database development:
+  frequency: 360
+  parents:
+  - database
+  reason: capability_phrase
+database backup and recovery:
+  frequency: 351
+  parents:
+  - database
+  reason: capability_phrase
+database upgrades:
+  frequency: 326
+  parents:
+  - database
+  reason: capability_phrase
+database tuning:
+  frequency: 312
+  parents:
+  - database
+  reason: capability_phrase
+database cloning:
+  frequency: 260
+  parents:
+  - database
+  reason: capability_phrase
+database mirroring:
+  frequency: 259
+  parents:
+  - database
+  reason: capability_phrase
+database creation:
+  frequency: 183
+  parents:
+  - database
+  reason: capability_phrase
+database upgrade:
+  frequency: 179
+  parents:
+  - database
+  reason: capability_phrase
+unix shell scripting:
+  frequency: 171
+  parents:
+  - platform
+  reason: capability_phrase
+database patching:
+  frequency: 167
+  parents:
+  - database
+  reason: capability_phrase
+database optimization:
+  frequency: 164
+  parents:
+  - database
+  reason: capability_phrase
+database replication:
+  frequency: 159
+  parents:
+  - database
+  reason: capability_phrase
+sql server administration:
+  frequency: 159
+  parents:
+  - sql
+  - database
+  reason: capability_phrase
+database troubleshooting:
+  frequency: 157
+  parents:
+  - database
+  reason: capability_phrase
+database installation:
+  frequency: 132
+  parents:
+  - database
+  reason: capability_phrase
+sql server database administration:
+  frequency: 109
+  parents:
+  - sql
+  - database
+  reason: capability_phrase
+database recovery:
+  frequency: 108
+  parents:
+  - database
+  reason: capability_phrase
+database backup:
+  frequency: 103
+  parents:
+  - database
+  reason: capability_phrase
+database configuration:
+  frequency: 101
+  parents:
+  - database
+  reason: capability_phrase
+database backups:
+  frequency: 98
+  parents:
+  - database
+  reason: capability_phrase
+database support:
+  frequency: 96
+  parents:
+  - database
+  reason: capability_phrase
+sql server installation:
+  frequency: 94
+  parents:
+  - sql
+  - database
+  reason: capability_phrase
+database refreshes:
+  frequency: 89
+  parents:
+  - database
+  reason: capability_phrase
+database refresh:
+  frequency: 88
+  parents:
+  - database
+  reason: capability_phrase
+database migrations:
+  frequency: 86
+  parents:
+  - database
+  reason: capability_phrase
+database objects:
+  frequency: 81
+  parents:
+  - database
+  reason: capability_phrase
+sql server migration:
+  frequency: 80
+  parents:
+  - sql
+  - database
+  reason: capability_phrase
+database backup and restore:
+  frequency: 78
+  parents:
+  - database
+  reason: capability_phrase
+sql server security:
+  frequency: 75
+  parents:
+  - sql
+  - database
+  - security
+  reason: capability_phrase
+database implementation:
+  frequency: 72
+  parents:
+  - database
+  reason: capability_phrase
+database performance:
+  frequency: 70
+  parents:
+  - database
+  reason: capability_phrase
+database performance monitoring:
+  frequency: 65
+  parents:
+  - database
+  reason: capability_phrase
+database design and development:
+  frequency: 63
+  parents:
+  - database
+  reason: capability_phrase
+database partitioning:
+  frequency: 63
+  parents:
+  - database
+  reason: capability_phrase
+database modeling:
+  frequency: 60
+  parents:
+  - database
+  reason: capability_phrase
+database integrity:
+  frequency: 58
+  parents:
+  - database
+  reason: capability_phrase
+database monitoring and tuning:
+  frequency: 58
+  parents:
+  - database
+  reason: capability_phrase
+database engine tuning advisor:
+  frequency: 57
+  parents:
+  - database
+  reason: capability_phrase
+database security management:
+  frequency: 56
+  parents:
+  - database
+  - security
+  reason: capability_phrase
+sql server configuration:
+  frequency: 54
+  parents:
+  - sql
+  - database
+  reason: capability_phrase
+sql server replication:
+  frequency: 53
+  parents:
+  - sql
+  - database
+  reason: capability_phrase
+sql server upgrade:
+  frequency: 53
+  parents:
+  - sql
+  - database
+  reason: capability_phrase
+database object creation:
+  frequency: 50
+  parents:
+  - database
+  reason: capability_phrase
+database reporting:
+  frequency: 46
+  parents:
+  - database
+  reason: capability_phrase
+sql server upgrades:
+  frequency: 46
+  parents:
+  - sql
+  - database
+  reason: capability_phrase
+unix scripting:
+  frequency: 46
+  parents:
+  - platform
+  reason: capability_phrase
+database documentation:
+  frequency: 45
+  parents:
+  - database
+  reason: capability_phrase
+sql server performance tuning:
+  frequency: 43
+  parents:
+  - sql
+  - database
+  reason: capability_phrase
+database testing:
+  frequency: 40
+  parents:
+  - database
+  reason: capability_phrase
+database consolidation:
+  frequency: 39
+  parents:
+  - database
+  reason: capability_phrase
+database encryption:
+  frequency: 39
+  parents:
+  - database
+  reason: capability_phrase
+database refreshing:
+  frequency: 38
+  parents:
+  - database
+  reason: capability_phrase
+database triggers:
+  frequency: 38
+  parents:
+  - database
+  reason: capability_phrase
+sql server monitoring:
+  frequency: 38
+  parents:
+  - sql
+  - database
+  reason: capability_phrase
+database deployment:
+  frequency: 37
+  parents:
+  - database
+  reason: capability_phrase
+windows server administration:
+  frequency: 37
+  parents:
+  - platform
+  reason: capability_phrase
+database upgrade and migration:
+  frequency: 36
+  parents:
+  - database
+  reason: capability_phrase
+database monitoring and maintenance:
+  frequency: 35
+  parents:
+  - database
+  reason: capability_phrase
+database upgrading:
+  frequency: 35
+  parents:
+  - database
+  reason: capability_phrase
+database migration and upgrades:
+  frequency: 34
+  parents:
+  - database
+  reason: capability_phrase
+oracle database management:
+  frequency: 34
+  parents:
+  - database
+  - oracle
+  reason: capability_phrase
+database object management:
+  frequency: 32
+  parents:
+  - database
+  reason: capability_phrase
+database objects creation:
+  frequency: 32
+  parents:
+  - database
+  reason: capability_phrase
+sql server mirroring:
+  frequency: 32
+  parents:
+  - sql
+  - database
+  reason: capability_phrase
+oracle support:
+  frequency: 31
+  parents:
+  - oracle
+  - database
+  reason: capability_phrase
+unix administration:
+  frequency: 31
+  parents:
+  - platform
+  reason: capability_phrase
+database design and implementation:
+  frequency: 30
+  parents:
+  - database
+  reason: capability_phrase
+database scripting:
+  frequency: 30
+  parents:
+  - database
+  reason: capability_phrase
+excellent customer service:
+  frequency: 30
+  parents: []
+  reason: capability_phrase
+sql database administration:
+  frequency: 30
+  parents:
+  - sql
+  - database
+  reason: capability_phrase
+sql server development:
+  frequency: 30
+  parents:
+  - sql
+  - database
+  reason: capability_phrase

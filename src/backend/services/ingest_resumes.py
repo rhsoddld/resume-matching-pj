@@ -26,26 +26,24 @@ from pymongo import UpdateOne
 from backend.core.database import get_collection
 from backend.core.settings import settings
 from backend.core.vector_store import CandidateEmbedding, upsert_embeddings
+from backend.services.skill_ontology import RuntimeSkillOntology, SkillNormalizationResult
 from backend.services.resume_parsing import parse_resume_text
 from backend.schemas.candidate import Candidate, ParsedEducation, ParsedExperienceItem, ParsedSection
 
 
 ROOT = Path(__file__).resolve().parents[3]
 DATA_DIR = ROOT / "data"
+CONFIG_DIR = ROOT / "config"
 
 DEFAULT_BATCH_SIZE = 32
 DEFAULT_CSV_CHUNK_SIZE = 2000
 EMBEDDING_TEXT_CHAR_LIMIT = 4000
-HASH_EXCLUDED_INGESTION_FIELDS = {"ingested_at", "normalization_hash", "embedding_hash", "embedding_upserted_at"}
-
-SKILL_NORMALIZATION_MAP = {
-    "ms excel": "excel",
-    "microsoft excel": "excel",
-    "ms office": "microsoft office",
-    "mongo db": "mongodb",
-    "mongo db-3.2": "mongodb",
-    "ssrs": "sql server reporting services",
-}
+PARSING_VERSION_TEMPLATE = "v4-{parser_mode}-ontology"
+PARSING_VERSION_STRUCTURED = "v4-structured-ontology"
+NORMALIZATION_VERSION = "norm-v3-ontology"
+TAXONOMY_VERSION = "taxonomy-v2-refined"
+EMBEDDING_TEXT_VERSION = "emb-v2-core-skill"
+EXPERIENCE_YEARS_METHOD = "month-union-v1"
 
 MONTH_NAME_MAP = {
     "jan": 1,
@@ -84,6 +82,13 @@ SEASON_MONTH_MAP = {
 
 client = OpenAI(api_key=settings.openai_api_key)
 logger = logging.getLogger(__name__)
+
+
+def _load_runtime_ontology() -> RuntimeSkillOntology:
+    return RuntimeSkillOntology.load_from_config(CONFIG_DIR)
+
+
+ONTOLOGY = _load_runtime_ontology()
 
 
 @dataclass
@@ -126,9 +131,24 @@ def _clean_text(value: object) -> str | None:
 
 
 def _normalize_identifier(value: object, prefix: str) -> str:
-    text = _clean_text(value) or "unknown"
-    text = text.replace(".0", "")
-    return f"{prefix}-{text}"
+    if value is None:
+        return f"{prefix}-unknown"
+    try:
+        if pd.isna(value):
+            return f"{prefix}-unknown"
+    except Exception:
+        pass
+
+    if isinstance(value, int) and not isinstance(value, bool):
+        normalized = str(value)
+    elif isinstance(value, float) and value.is_integer():
+        normalized = str(int(value))
+    else:
+        normalized = str(value).strip()
+
+    if not normalized:
+        normalized = "unknown"
+    return f"{prefix}-{normalized}"
 
 
 def _dedupe_preserve(items: Iterable[str]) -> list[str]:
@@ -144,11 +164,14 @@ def _dedupe_preserve(items: Iterable[str]) -> list[str]:
     return out
 
 
+def _stable_sorted(values: Sequence[str]) -> list[str]:
+    return sorted({v for v in values if v})
+
+
 def _normalize_skill(skill: str) -> str:
     token = re.sub(r"\s+", " ", skill.strip().lower())
     token = token.replace("&", " and ")
-    token = re.sub(r"\s+", " ", token).strip()
-    return SKILL_NORMALIZATION_MAP.get(token, token)
+    return re.sub(r"\s+", " ", token).strip(" ,;:/|")
 
 
 def _normalize_skill_list(values: Iterable[object]) -> tuple[list[str], list[str]]:
@@ -287,7 +310,10 @@ def _month_to_datetime(value: str | None, *, default_now: bool) -> datetime | No
 
 
 def _estimate_experience_years(items: Sequence[ParsedExperienceItem]) -> float | None:
-    total_months = 0
+    """
+    Estimate years using month-union over intervals to avoid double-counting overlaps.
+    """
+    intervals: list[tuple[int, int]] = []
     for item in items:
         start = _month_to_datetime(item.start_date, default_now=False)
         end = _month_to_datetime(item.end_date, default_now=True)
@@ -295,9 +321,29 @@ def _estimate_experience_years(items: Sequence[ParsedExperienceItem]) -> float |
             continue
         if end is None:
             end = datetime.utcnow()
-        months = (end.year - start.year) * 12 + (end.month - start.month) + 1
-        if months > 0:
-            total_months += months
+        start_idx = start.year * 12 + (start.month - 1)
+        end_idx = end.year * 12 + (end.month - 1)
+        if end_idx < start_idx:
+            continue
+        intervals.append((start_idx, end_idx))
+
+    if not intervals:
+        return None
+
+    intervals.sort(key=lambda x: (x[0], x[1]))
+    merged: list[list[int]] = []
+    for start_idx, end_idx in intervals:
+        if not merged:
+            merged.append([start_idx, end_idx])
+            continue
+        prev_start, prev_end = merged[-1]
+        if start_idx <= prev_end + 1:
+            if end_idx > prev_end:
+                merged[-1][1] = end_idx
+        else:
+            merged.append([start_idx, end_idx])
+
+    total_months = sum((end - start + 1) for start, end in merged)
     if total_months <= 0:
         return None
     return round(total_months / 12.0, 1)
@@ -337,27 +383,51 @@ def _extract_sneha_skills(resume_text: str) -> tuple[list[str], list[str]]:
     return _normalize_skill_list(tokens[:60])
 
 
+def _apply_skill_normalization(
+    *,
+    raw_skills: Sequence[object],
+    abilities: Sequence[object],
+) -> tuple[list[str], SkillNormalizationResult]:
+    raw, _ = _normalize_skill_list(raw_skills)
+    result = ONTOLOGY.normalize(raw_skills=raw_skills, abilities=abilities)
+    return raw, result
+
+
 def _build_embedding_text(
     *,
     name: str | None,
     category: str | None,
     summary: str | None,
-    skills: Sequence[str],
-    abilities: Sequence[str],
+    core_skills: Sequence[str],
+    canonical_skills: Sequence[str],
+    expanded_skills: Sequence[str],
+    capability_phrases: Sequence[str],
     experience_titles: Sequence[str],
     fallback_text: str | None,
 ) -> str:
     parts: list[str] = []
+    core_set = set(core_skills)
+    capability_set = set(capability_phrases)
+    specialized = [
+        token
+        for token in canonical_skills
+        if token not in core_set and token not in capability_set and len(token.split()) <= 3
+    ]
+
     if name:
         parts.append(f"Name: {name}")
     if category:
         parts.append(f"Category: {category}")
     if summary:
         parts.append(f"Summary: {summary}")
-    if skills:
-        parts.append("Skills: " + "; ".join(skills[:30]))
-    if abilities:
-        parts.append("Abilities: " + "; ".join(abilities[:30]))
+    if core_skills:
+        parts.append("Core skills: " + "; ".join(core_skills[:30]))
+    if specialized:
+        parts.append("Specialized skills: " + "; ".join(specialized[:20]))
+    if expanded_skills:
+        parts.append("Expanded skills: " + "; ".join(expanded_skills[:30]))
+    if capability_phrases:
+        parts.append("Capabilities: " + "; ".join(capability_phrases[:5]))
     if experience_titles:
         parts.append("Experience titles: " + "; ".join(experience_titles[:20]))
     if fallback_text and not parts:
@@ -374,12 +444,44 @@ def _candidate_key(cand: Candidate) -> tuple[str, str]:
 
 
 def _normalization_payload(cand: Candidate) -> dict:
-    payload = cand.model_dump()
-    ingestion = payload.get("ingestion") or {}
-    for key in HASH_EXCLUDED_INGESTION_FIELDS:
-        ingestion.pop(key, None)
-    payload["ingestion"] = ingestion
-    return payload
+    parsed = cand.parsed
+    ingestion = cand.ingestion
+    return {
+        "candidate_id": cand.candidate_id,
+        "source_dataset": cand.source_dataset,
+        "category": cand.category,
+        "parsed": {
+            "summary": parsed.summary,
+            "skills": parsed.skills,
+            "normalized_skills": parsed.normalized_skills,
+            "abilities": parsed.abilities,
+            "canonical_skills": _stable_sorted(parsed.canonical_skills),
+            "core_skills": _stable_sorted(parsed.core_skills),
+            "expanded_skills": _stable_sorted(parsed.expanded_skills),
+            "capability_phrases": _stable_sorted(parsed.capability_phrases),
+            "role_candidates": _stable_sorted(parsed.role_candidates),
+            "review_required_skills": _stable_sorted(parsed.review_required_skills),
+            "versioned_skills": [item.model_dump() for item in parsed.versioned_skills],
+            "experience_years": parsed.experience_years,
+            "seniority_level": parsed.seniority_level,
+            "education": [item.model_dump() for item in parsed.education],
+            "experience_items": [item.model_dump() for item in parsed.experience_items],
+        },
+        "metadata": {
+            "name": cand.metadata.name,
+            "location": cand.metadata.location,
+        },
+        "ingestion": {
+            "parsing_version": ingestion.parsing_version,
+            "normalization_version": ingestion.normalization_version,
+            "taxonomy_version": ingestion.taxonomy_version,
+            "embedding_text_version": ingestion.embedding_text_version,
+            "experience_years_method": ingestion.experience_years_method,
+            "alias_applied": ingestion.alias_applied,
+            "taxonomy_applied": ingestion.taxonomy_applied,
+            "has_structured_enrichment": ingestion.has_structured_enrichment,
+        },
+    }
 
 
 def _compute_normalization_hash(cand: Candidate) -> str:
@@ -388,13 +490,62 @@ def _compute_normalization_hash(cand: Candidate) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _ensure_ingestion_versions(cand: Candidate) -> None:
+    if not cand.ingestion.normalization_version:
+        cand.ingestion.normalization_version = NORMALIZATION_VERSION
+    if not cand.ingestion.taxonomy_version:
+        cand.ingestion.taxonomy_version = TAXONOMY_VERSION
+    if not cand.ingestion.embedding_text_version:
+        cand.ingestion.embedding_text_version = EMBEDDING_TEXT_VERSION
+    if not cand.ingestion.experience_years_method:
+        cand.ingestion.experience_years_method = EXPERIENCE_YEARS_METHOD
+
+
 def _ensure_normalization_hash(cand: Candidate) -> str:
+    had_version_triplet = bool(
+        cand.ingestion.normalization_version
+        and cand.ingestion.taxonomy_version
+        and cand.ingestion.experience_years_method
+    )
+    _ensure_ingestion_versions(cand)
     norm_hash = cand.ingestion.normalization_hash
-    if norm_hash:
+    if (
+        norm_hash
+        and had_version_triplet
+        and cand.ingestion.normalization_version == NORMALIZATION_VERSION
+        and cand.ingestion.taxonomy_version == TAXONOMY_VERSION
+        and cand.ingestion.experience_years_method == EXPERIENCE_YEARS_METHOD
+    ):
         return norm_hash
     norm_hash = _compute_normalization_hash(cand)
     cand.ingestion.normalization_hash = norm_hash
     return norm_hash
+
+
+def _compute_embedding_hash(cand: Candidate) -> str:
+    norm_hash = _ensure_normalization_hash(cand)
+    payload = {
+        "candidate_id": cand.candidate_id,
+        "source_dataset": cand.source_dataset,
+        "embedding_text": _prepare_embedding_text(cand.embedding_text or ""),
+        "embedding_text_version": cand.ingestion.embedding_text_version,
+        "normalization_version": cand.ingestion.normalization_version,
+        "taxonomy_version": cand.ingestion.taxonomy_version,
+        "normalization_hash": norm_hash,
+    }
+    raw = json.dumps(payload, ensure_ascii=True, sort_keys=True, default=str)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _ensure_embedding_hash(cand: Candidate) -> str:
+    had_text_version = bool(cand.ingestion.embedding_text_version)
+    _ensure_ingestion_versions(cand)
+    emb_hash = cand.ingestion.embedding_hash
+    if emb_hash and had_text_version and cand.ingestion.embedding_text_version == EMBEDDING_TEXT_VERSION:
+        return emb_hash
+    emb_hash = _compute_embedding_hash(cand)
+    cand.ingestion.embedding_hash = emb_hash
+    return emb_hash
 
 
 def _to_parsed_education(records: Sequence) -> list[ParsedEducation]:
@@ -428,6 +579,47 @@ def _to_parsed_experience(records: Sequence) -> list[ParsedExperienceItem]:
     return items
 
 
+def _upgrade_candidate_to_v2(cand: Candidate) -> Candidate:
+    raw_skill_source: Sequence[object] = cand.parsed.skills or cand.parsed.normalized_skills
+    raw_skills, skill_norm = _apply_skill_normalization(raw_skills=raw_skill_source, abilities=cand.parsed.abilities)
+    cand.parsed.skills = raw_skills
+    cand.parsed.normalized_skills = skill_norm.normalized_skills
+    cand.parsed.canonical_skills = skill_norm.canonical_skills
+    cand.parsed.core_skills = skill_norm.core_skills
+    cand.parsed.expanded_skills = skill_norm.expanded_skills
+    cand.parsed.capability_phrases = skill_norm.capability_phrases
+    cand.parsed.role_candidates = skill_norm.role_candidates
+    cand.parsed.review_required_skills = skill_norm.review_required_skills
+    cand.parsed.versioned_skills = skill_norm.versioned_skills
+
+    if cand.parsed.experience_items:
+        cand.parsed.experience_years = _estimate_experience_years(cand.parsed.experience_items)
+        cand.parsed.seniority_level = _infer_seniority_level(cand.parsed.experience_years)
+
+    experience_titles = _dedupe_preserve([item.title for item in cand.parsed.experience_items if item.title])
+    fallback_text = cand.raw.get("resume_text") if isinstance(cand.raw, dict) else None
+    cand.embedding_text = _build_embedding_text(
+        name=cand.metadata.name,
+        category=cand.category,
+        summary=cand.parsed.summary,
+        core_skills=cand.parsed.core_skills,
+        canonical_skills=cand.parsed.canonical_skills,
+        expanded_skills=cand.parsed.expanded_skills,
+        capability_phrases=cand.parsed.capability_phrases,
+        experience_titles=experience_titles,
+        fallback_text=fallback_text,
+    )
+
+    _ensure_ingestion_versions(cand)
+    if not cand.ingestion.parsing_version:
+        cand.ingestion.parsing_version = (
+            PARSING_VERSION_STRUCTURED if cand.source_dataset == "suriyaganesh" else PARSING_VERSION_TEMPLATE.format(parser_mode="hybrid")
+        )
+    cand.ingestion.alias_applied = skill_norm.alias_applied
+    cand.ingestion.taxonomy_applied = skill_norm.taxonomy_applied
+    return cand
+
+
 def iter_sneha(
     limit: int | None = None,
     *,
@@ -447,7 +639,7 @@ def iter_sneha(
             extracted = parse_resume_text(resume_text, parser_mode=parser_mode)
             fallback_skills, _ = _extract_sneha_skills(resume_text)
             source_skills = extracted.skills if extracted.skills else fallback_skills
-            skills, normalized_skills = _normalize_skill_list(source_skills)
+            raw_skills, skill_norm = _apply_skill_normalization(raw_skills=source_skills, abilities=[])
 
             education_items = _to_parsed_education(extracted.education)
             experience_items = _to_parsed_experience(extracted.experience)
@@ -457,9 +649,16 @@ def iter_sneha(
 
             parsed = ParsedSection(
                 summary=summary,
-                skills=skills,
-                normalized_skills=normalized_skills,
+                skills=raw_skills,
+                normalized_skills=skill_norm.normalized_skills,
                 abilities=[],
+                canonical_skills=skill_norm.canonical_skills,
+                core_skills=skill_norm.core_skills,
+                expanded_skills=skill_norm.expanded_skills,
+                capability_phrases=skill_norm.capability_phrases,
+                role_candidates=skill_norm.role_candidates,
+                review_required_skills=skill_norm.review_required_skills,
+                versioned_skills=skill_norm.versioned_skills,
                 experience_years=experience_years,
                 seniority_level=seniority,
                 education=education_items,
@@ -471,8 +670,10 @@ def iter_sneha(
                 name=extracted.name,
                 category=category,
                 summary=summary,
-                skills=normalized_skills,
-                abilities=[],
+                core_skills=parsed.core_skills,
+                canonical_skills=parsed.canonical_skills,
+                expanded_skills=parsed.expanded_skills,
+                capability_phrases=parsed.capability_phrases,
                 experience_titles=experience_titles,
                 fallback_text=resume_text,
             )
@@ -492,7 +693,13 @@ def iter_sneha(
                 embedding_text=embedding_text,
                 ingestion={
                     "ingested_at": None,
-                    "parsing_version": f"v3-{parser_mode}-normalized",
+                    "parsing_version": PARSING_VERSION_TEMPLATE.format(parser_mode=parser_mode),
+                    "normalization_version": NORMALIZATION_VERSION,
+                    "taxonomy_version": TAXONOMY_VERSION,
+                    "embedding_text_version": EMBEDDING_TEXT_VERSION,
+                    "experience_years_method": EXPERIENCE_YEARS_METHOD,
+                    "alias_applied": skill_norm.alias_applied,
+                    "taxonomy_applied": skill_norm.taxonomy_applied,
                     "has_structured_enrichment": False,
                 },
             )
@@ -594,7 +801,7 @@ def iter_suri(limit_people: int = 3000, *, csv_chunk_size: int = DEFAULT_CSV_CHU
         linkedin = _clean_text(row.get("linkedin"))
 
         abilities_raw, _ = _normalize_skill_list(abil_map.get(pid, []))
-        skills, normalized_skills = _normalize_skill_list(skill_map.get(pid, []))
+        raw_skills, skill_norm = _apply_skill_normalization(raw_skills=skill_map.get(pid, []), abilities=abilities_raw)
 
         education_items: list[ParsedEducation] = []
         for edu in edu_map.get(pid, []):
@@ -629,9 +836,16 @@ def iter_suri(limit_people: int = 3000, *, csv_chunk_size: int = DEFAULT_CSV_CHU
 
         parsed = ParsedSection(
             summary=summary,
-            skills=skills,
-            normalized_skills=normalized_skills,
+            skills=raw_skills,
+            normalized_skills=skill_norm.normalized_skills,
             abilities=abilities_raw,
+            canonical_skills=skill_norm.canonical_skills,
+            core_skills=skill_norm.core_skills,
+            expanded_skills=skill_norm.expanded_skills,
+            capability_phrases=skill_norm.capability_phrases,
+            role_candidates=skill_norm.role_candidates,
+            review_required_skills=skill_norm.review_required_skills,
+            versioned_skills=skill_norm.versioned_skills,
             experience_years=experience_years,
             seniority_level=seniority,
             education=education_items,
@@ -642,8 +856,10 @@ def iter_suri(limit_people: int = 3000, *, csv_chunk_size: int = DEFAULT_CSV_CHU
             name=name,
             category=None,
             summary=summary,
-            skills=normalized_skills,
-            abilities=abilities_raw,
+            core_skills=parsed.core_skills,
+            canonical_skills=parsed.canonical_skills,
+            expanded_skills=parsed.expanded_skills,
+            capability_phrases=parsed.capability_phrases,
             experience_titles=experience_titles,
             fallback_text=None,
         )
@@ -665,7 +881,13 @@ def iter_suri(limit_people: int = 3000, *, csv_chunk_size: int = DEFAULT_CSV_CHU
             embedding_text=embedding_text,
             ingestion={
                 "ingested_at": None,
-                "parsing_version": "v3-rule-based-normalized",
+                "parsing_version": PARSING_VERSION_STRUCTURED,
+                "normalization_version": NORMALIZATION_VERSION,
+                "taxonomy_version": TAXONOMY_VERSION,
+                "embedding_text_version": EMBEDDING_TEXT_VERSION,
+                "experience_years_method": EXPERIENCE_YEARS_METHOD,
+                "alias_applied": skill_norm.alias_applied,
+                "taxonomy_applied": skill_norm.taxonomy_applied,
                 "has_structured_enrichment": True,
             },
         )
@@ -701,7 +923,9 @@ def iter_candidates_from_mongo(source: str, *, sneha_limit: int | None, suri_lim
         for doc in cursor:
             doc.pop("_id", None)
             cand = Candidate.model_validate(doc)
+            cand = _upgrade_candidate_to_v2(cand)
             _ensure_normalization_hash(cand)
+            _ensure_embedding_hash(cand)
             yield cand
 
 
@@ -759,21 +983,22 @@ def _build_batch_plan(
 
     for cand in batch:
         norm_hash = _ensure_normalization_hash(cand)
+        emb_hash = _ensure_embedding_hash(cand)
         key = _candidate_key(cand)
         prev = existing.get(key)
         prev_norm_hash = prev.normalization_hash if prev else None
         prev_embedding_hash = prev.embedding_hash if prev else None
 
         needs_mongo_upsert = write_mongo and (force_mongo_upsert or prev_norm_hash != norm_hash)
-        needs_embedding = write_milvus and (force_reembed or prev_embedding_hash != norm_hash)
+        needs_embedding = write_milvus and (force_reembed or prev_embedding_hash != emb_hash)
 
         if needs_mongo_upsert:
             doc = cand.model_dump()
             doc_ingestion = doc.setdefault("ingestion", {})
             doc_ingestion["ingested_at"] = now_iso
             doc_ingestion["normalization_hash"] = norm_hash
-            if prev_embedding_hash == norm_hash:
-                doc_ingestion["embedding_hash"] = prev_embedding_hash
+            if prev_embedding_hash == emb_hash:
+                doc_ingestion["embedding_hash"] = emb_hash
             else:
                 doc_ingestion["embedding_hash"] = None
                 doc_ingestion["embedding_upserted_at"] = None
@@ -821,14 +1046,21 @@ def _mark_embedding_synced(cands: Sequence[Candidate], *, dry_run: bool) -> int:
     ops: list[UpdateOne] = []
     for cand in cands:
         norm_hash = _ensure_normalization_hash(cand)
+        emb_hash = _ensure_embedding_hash(cand)
         ops.append(
             UpdateOne(
                 {"candidate_id": cand.candidate_id, "source_dataset": cand.source_dataset},
                 {
                     "$set": {
                         "ingestion.normalization_hash": norm_hash,
-                        "ingestion.embedding_hash": norm_hash,
+                        "ingestion.embedding_hash": emb_hash,
                         "ingestion.embedding_upserted_at": now_iso,
+                        "ingestion.normalization_version": cand.ingestion.normalization_version,
+                        "ingestion.taxonomy_version": cand.ingestion.taxonomy_version,
+                        "ingestion.embedding_text_version": cand.ingestion.embedding_text_version,
+                        "ingestion.experience_years_method": cand.ingestion.experience_years_method,
+                        "ingestion.alias_applied": cand.ingestion.alias_applied,
+                        "ingestion.taxonomy_applied": cand.ingestion.taxonomy_applied,
                     }
                 },
                 upsert=False,

@@ -1,0 +1,128 @@
+oracle 10g:
+  canonical: oracle
+  version: 10g
+  frequency: 425
+oracle 11g:
+  canonical: oracle
+  version: 11g
+  frequency: 384
+oracle 12c:
+  canonical: oracle
+  version: 12c
+  frequency: 291
+sql server 2012:
+  canonical: sql server
+  version: '2012'
+  frequency: 189
+sql server 2008:
+  canonical: sql server
+  version: '2008'
+  frequency: 177
+oracle 9i:
+  canonical: oracle
+  version: 9i
+  frequency: 147
+sql server 2005:
+  canonical: sql server
+  version: '2005'
+  frequency: 143
+sql server 2014:
+  canonical: sql server
+  version: '2014'
+  frequency: 107
+windows 7:
+  canonical: windows
+  version: '7'
+  frequency: 94
+windows xp:
+  canonical: windows
+  version: xp
+  frequency: 85
+sql server 2016:
+  canonical: sql server
+  version: '2016'
+  frequency: 84
+sql server 2000:
+  canonical: sql server
+  version: '2000'
+  frequency: 78
+oracle 11gr2:
+  canonical: oracle
+  version: 11gr2
+  frequency: 74
+oracle 11g rac:
+  canonical: oracle
+  version: 11g rac
+  frequency: 69
+sql server 2008 r2:
+  canonical: sql server
+  version: 2008 r2
+  frequency: 69
+oracle 8i:
+  canonical: oracle
+  version: 8i
+  frequency: 63
+oracle 10g rac:
+  canonical: oracle
+  version: 10g rac
+  frequency: 57
+windows 2000:
+  canonical: windows
+  version: '2000'
+  frequency: 56
+sql server 2008r2:
+  canonical: sql server
+  version: 2008r2
+  frequency: 54
+windows nt:
+  canonical: windows
+  version: nt
+  frequency: 52
+oracle 10g/11g:
+  canonical: oracle
+  version: 10g/11g
+  frequency: 47
+windows server 2008:
+  canonical: windows server
+  version: '2008'
+  frequency: 43
+windows 8:
+  canonical: windows
+  version: '8'
+  frequency: 41
+windows server 2012:
+  canonical: windows server
+  version: '2012'
+  frequency: 36
+windows server 2003:
+  canonical: windows server
+  version: '2003'
+  frequency: 35
+oracle 11g/12c:
+  canonical: oracle
+  version: 11g/12c
+  frequency: 34
+windows 10:
+  canonical: windows
+  version: '10'
+  frequency: 34
+oracle 10.2.0.5:
+  canonical: oracle
+  version: 10.2.0.5
+  frequency: 32
+sharepoint 2010:
+  canonical: sharepoint
+  version: '2010'
+  frequency: 27
+sql 2012:
+  canonical: sql
+  version: '2012'
+  frequency: 23
+ms sql server 2012:
+  canonical: sql server
+  version: '2012'
+  frequency: 22
+microsoft sql server 2012:
+  canonical: sql server
+  version: '2012'
+  frequency: 21

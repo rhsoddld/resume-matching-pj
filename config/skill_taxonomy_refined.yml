@@ -1,0 +1,382 @@
+sql:
+  domain: language
+  family: database
+  parents:
+  - programming
+  - database
+sql server:
+  domain: database
+  family: relational
+  parents:
+  - database
+  - sql
+oracle:
+  domain: database
+  family: relational
+  parents:
+  - database
+  - sql
+excel:
+  domain: data
+  family: analytics
+  parents:
+  - data
+rman:
+  domain: database
+  family: database_tooling
+  parents:
+  - database
+  - oracle
+linux:
+  domain: os_platform
+  family: os
+  parents:
+  - platform
+mysql:
+  domain: database
+  family: relational
+  parents:
+  - database
+  - sql
+pl/sql:
+  domain: language
+  family: database
+  parents:
+  - programming
+  - database
+  - sql
+ssis:
+  domain: data
+  family: data_integration
+  parents:
+  - data
+  - sql server
+etl:
+  domain: data
+  family: data_integration
+  parents:
+  - data
+data guard:
+  domain: database
+  family: high_availability
+  parents:
+  - database
+  - oracle
+rac:
+  domain: database
+  family: high_availability
+  parents:
+  - database
+  - oracle
+unix:
+  domain: os_platform
+  family: os
+  parents:
+  - platform
+t-sql:
+  domain: language
+  family: database
+  parents:
+  - programming
+  - database
+  - sql
+windows:
+  domain: os_platform
+  family: os
+  parents:
+  - platform
+javascript:
+  domain: language
+  family: backend_frontend
+  parents:
+  - programming
+  - backend
+  - frontend
+html:
+  domain: frontend_framework
+  family: frontend
+  parents:
+  - frontend
+security:
+  domain: security
+  family: application_security
+  parents:
+  - security
+shell scripting:
+  domain: devops
+  family: scripting
+  parents:
+  - devops
+  - platform
+oem:
+  domain: database
+  family: database_tooling
+  parents:
+  - database
+  - oracle
+toad:
+  domain: database
+  family: database_tooling
+  parents:
+  - database
+sql server reporting services:
+  domain: database
+  family: sql_server
+  parents:
+  - sql server
+  - database
+  - sql
+ssrs:
+  domain: data
+  family: reporting
+  parents:
+  - data
+  - sql server
+java:
+  domain: language
+  family: backend
+  parents:
+  - programming
+  - backend
+python:
+  domain: language
+  family: backend
+  parents:
+  - programming
+  - backend
+awr:
+  domain: database
+  family: database_tooling
+  parents:
+  - database
+  - oracle
+aws:
+  domain: cloud
+  family: public_cloud
+  parents:
+  - cloud
+golden gate:
+  domain: database
+  family: replication
+  parents:
+  - database
+  - oracle
+css:
+  domain: frontend_framework
+  family: frontend
+  parents:
+  - frontend
+tableau:
+  domain: data
+  family: bi
+  parents:
+  - data
+  - bi
+c#:
+  domain: language
+  family: backend
+  parents:
+  - programming
+  - backend
+php:
+  domain: language
+  family: backend
+  parents:
+  - programming
+  - backend
+postgresql:
+  domain: database
+  family: relational
+  parents:
+  - database
+  - sql
+powershell:
+  domain: devops
+  family: scripting
+  parents:
+  - devops
+  - platform
+mongodb:
+  domain: database
+  family: nosql
+  parents:
+  - database
+  - nosql
+sql loader:
+  domain: database
+  family: database_tooling
+  parents:
+  - database
+  - sql
+sql profiler:
+  domain: database
+  family: database_tooling
+  parents:
+  - database
+  - sql
+c++:
+  domain: language
+  family: systems
+  parents:
+  - programming
+  - systems
+windows server:
+  domain: os_platform
+  family: os
+  parents:
+  - platform
+oracle streams:
+  domain: database
+  family: oracle
+  parents:
+  - oracle
+  - database
+  - sql
+red hat linux:
+  domain: os_platform
+  family: os
+  parents:
+  - platform
+azure:
+  domain: cloud
+  family: public_cloud
+  parents:
+  - cloud
+power bi:
+  domain: data
+  family: bi
+  parents:
+  - data
+  - bi
+data security:
+  domain: security
+  family: application_security
+  parents:
+  - security
+git:
+  domain: tool
+  family: version_control
+  parents:
+  - tools
+  - version_control
+hadoop:
+  domain: data
+  family: big_data
+  parents:
+  - data
+  - big_data
+html5:
+  domain: frontend_framework
+  family: frontend
+  parents:
+  - frontend
+network security:
+  domain: security
+  family: application_security
+  parents:
+  - security
+oracle exadata:
+  domain: database
+  family: oracle
+  parents:
+  - oracle
+  - database
+  - sql
+jenkins:
+  domain: devops
+  family: ci_cd
+  parents:
+  - devops
+  - ci_cd
+sql server integration services:
+  domain: database
+  family: sql_server
+  parents:
+  - sql server
+  - database
+  - sql
+ansible:
+  domain: devops
+  family: configuration
+  parents:
+  - devops
+information security:
+  domain: security
+  family: application_security
+  parents:
+  - security
+oracle databases:
+  domain: database
+  family: oracle
+  parents:
+  - oracle
+  - database
+  - sql
+github:
+  domain: tool
+  family: version_control
+  parents:
+  - tools
+  - version_control
+nodejs:
+  domain: framework
+  family: backend_runtime
+  parents:
+  - backend
+hp-unix:
+  domain: os_platform
+  family: os
+  parents:
+  - platform
+ruby:
+  domain: language
+  family: backend
+  parents:
+  - programming
+  - backend
+sql server management studio:
+  domain: database
+  family: sql_server
+  parents:
+  - sql server
+  - database
+  - sql
+docker:
+  domain: devops
+  family: container
+  parents:
+  - devops
+  - containerization
+angularjs:
+  domain: frontend_framework
+  family: frontend
+  parents:
+  - frontend
+aws rds:
+  domain: cloud
+  family: aws_service
+  parents:
+  - aws
+  - cloud
+cyber security:
+  domain: security
+  family: application_security
+  parents:
+  - security
+css3:
+  domain: frontend_framework
+  family: frontend
+  parents:
+  - frontend
+oracle asm:
+  domain: database
+  family: oracle
+  parents:
+  - oracle
+  - database
+  - sql
+system security:
+  domain: security
+  family: application_security
+  parents:
+  - security

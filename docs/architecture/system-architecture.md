@@ -10,8 +10,8 @@
 | | `api/ingestion` | Kaggle resume 데이터셋 ingestion 트리거 | `src/backend/api/ingestion.py` |
 | | `api/health` & `api/ready` | 상태 확인 엔드포인트 | `src/backend/api/health.py` |
 | **Service Layer** | `IngestionService` | CSV 파싱·정규화 → Mongo + Milvus 저장 | `src/backend/services/ingestion_service.py` |
-| | `MatchingService` | job description 파싱 → hybrid retrieval → 점수 요청 | `src/backend/services/matching_service.py` |
-| | `ScoringService` | Agents SDK 기반 scoring 파이프라인 호출 | `src/backend/services/scoring_service.py` |
+| | `MatchingService` | job description 임베딩 → hybrid retrieval(벡터+BM25) → Top 30 후보군 구성 → feature extraction/scoring/rerank orchestration | `src/backend/services/matching_service.py` |
+| | `ScoringService` | deterministic feature 기반 초기 랭킹(Top 10) 계산 | `src/backend/services/scoring_service.py` |
 | | `ExplanationService` | 최종 후보에 대한 설명 텍스트 구성 | `src/backend/services/explanation_service.py` |
 | **Data Layer** | MongoDB | `candidates` · `jobs` · `match_results` · (선택) `feedback` | Docker container |
 | | Milvus | `candidate_embeddings` — 벡터 기반 후보 검색 | Docker container |
@@ -70,6 +70,28 @@ flowchart LR
   explanation --> apiGateway
   apiGateway --> recruiterUI
 ```
+
+### 3-1. Retrieval / Rerank 고정 파이프라인
+
+```mermaid
+flowchart LR
+  jd["Job Description"] --> emb["OpenAI embedding<br/>text-embedding-3-small"]
+  emb --> milvus["Milvus vector search"]
+  jd --> bm25["BM25 skill search"]
+  milvus --> merge["Hybrid merge"]
+  bm25 --> merge
+  merge --> top30["Top 30 candidates"]
+  top30 --> features["Feature extraction"]
+  features --> dscore["Deterministic scoring"]
+  dscore --> top10["Top 10 candidates"]
+  top10 --> rerank["LLM rerank<br/>gpt-4o-mini"]
+  rerank --> top5["Top 5 candidates"]
+```
+
+- baseline 목적: capstone 범위 내 비용/속도/구현 단순성 우선
+- 확장 경로: `text-embedding-3-large` 또는 별도 reranker 강화
+- deterministic scoring core: `semantic_similarity`, `skill_overlap`, `experience_fit` (+ low-weight `seniority_fit`)
+- conditional bonus: `category_fit`, `education_fit`, `recency_fit`
 
 ---
 

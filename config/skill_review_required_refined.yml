@@ -1,0 +1,373 @@
+ambiguous_skills:
+- token: database
+  frequency: 906
+  reasons:
+  - not_in_core_whitelist
+- token: powerpoint
+  frequency: 415
+  reasons:
+  - not_in_core_whitelist
+- token: oracle database
+  frequency: 408
+  reasons:
+  - not_in_core_whitelist
+- token: leadership
+  frequency: 299
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: databases
+  frequency: 297
+  reasons:
+  - not_in_core_whitelist
+- token: oracle enterprise manager
+  frequency: 206
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: security management
+  frequency: 160
+  reasons:
+  - not_in_core_whitelist
+- token: sql database
+  frequency: 138
+  reasons:
+  - not_in_core_whitelist
+- token: database architecture
+  frequency: 126
+  reasons:
+  - not_in_core_whitelist
+- token: hr
+  frequency: 101
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: team player
+  frequency: 96
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: sql server clustering
+  frequency: 95
+  reasons:
+  - not_in_core_whitelist
+- token: unix shell scripts
+  frequency: 85
+  reasons:
+  - not_in_core_whitelist
+- token: database auditing
+  frequency: 83
+  reasons:
+  - not_in_core_whitelist
+- token: sql server profiler
+  frequency: 82
+  reasons:
+  - not_in_core_whitelist
+- token: communication skills
+  frequency: 77
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: organizational skills
+  frequency: 76
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: c
+  frequency: 74
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: sql server agent
+  frequency: 73
+  reasons:
+  - not_in_core_whitelist
+- token: team leadership
+  frequency: 73
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: enterprise manager
+  frequency: 68
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: linux administration
+  frequency: 65
+  reasons:
+  - not_in_core_whitelist
+- token: bi
+  frequency: 64
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: database automation
+  frequency: 63
+  reasons:
+  - not_in_core_whitelist
+- token: unix shell
+  frequency: 62
+  reasons:
+  - not_in_core_whitelist
+- token: ad
+  frequency: 60
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: oracle enterprise manager (oem)
+  frequency: 59
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: security patches
+  frequency: 54
+  reasons:
+  - not_in_core_whitelist
+- token: authorized to work in the us for any employer
+  frequency: 49
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: detail oriented
+  frequency: 49
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: interpersonal skills
+  frequency: 49
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: database high availability
+  frequency: 47
+  reasons:
+  - not_in_core_whitelist
+- token: hp
+  frequency: 47
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: quick learner
+  frequency: 42
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: self-motivated
+  frequency: 42
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: security implementations
+  frequency: 41
+  reasons:
+  - not_in_core_whitelist
+- token: analytical skills
+  frequency: 40
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: database consistency checks
+  frequency: 38
+  reasons:
+  - not_in_core_whitelist
+- token: linux/unix
+  frequency: 38
+  reasons:
+  - not_in_core_whitelist
+- token: ap
+  frequency: 37
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: ca
+  frequency: 36
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: mysql replication
+  frequency: 36
+  reasons:
+  - not_in_core_whitelist
+- token: pr
+  frequency: 36
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: ar
+  frequency: 35
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: database mail
+  frequency: 35
+  reasons:
+  - not_in_core_whitelist
+- token: r
+  frequency: 35
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: sql server databases
+  frequency: 35
+  reasons:
+  - not_in_core_whitelist
+- token: oracle grid control
+  frequency: 34
+  reasons:
+  - not_in_core_whitelist
+- token: vb
+  frequency: 34
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: unix/linux
+  frequency: 32
+  reasons:
+  - not_in_core_whitelist
+- token: aws cloud
+  frequency: 31
+  reasons:
+  - not_in_core_whitelist
+- token: oracle applications
+  frequency: 31
+  reasons:
+  - not_in_core_whitelist
+- token: security administration
+  frequency: 31
+  reasons:
+  - not_in_core_whitelist
+- token: security implementation
+  frequency: 31
+  reasons:
+  - not_in_core_whitelist
+- token: unix scripts
+  frequency: 31
+  reasons:
+  - not_in_core_whitelist
+- token: security policies
+  frequency: 30
+  reasons:
+  - not_in_core_whitelist
+- token: excellent communication skills
+  frequency: 28
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: nt
+  frequency: 28
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: it
+  frequency: 27
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: tv
+  frequency: 24
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: adaptable
+  frequency: 23
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: motivated
+  frequency: 23
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: dedicated
+  frequency: 22
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: ip
+  frequency: 22
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: technical leadership
+  frequency: 21
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: xp
+  frequency: 21
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: computer skills
+  frequency: 20
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: gl
+  frequency: 20
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+- token: leadership skills
+  frequency: 20
+  reasons:
+  - not_in_core_whitelist
+  - previous_review_required
+canonical_merge_candidates:
+- token: ms sql server
+  frequency: 310
+  reasons:
+  - canonical_merge_candidate
+  suggested_canonical: sql server
+- token: oracle rac
+  frequency: 249
+  reasons:
+  - canonical_merge_candidate
+  suggested_canonical: rac
+- token: oracle data guard
+  frequency: 191
+  reasons:
+  - canonical_merge_candidate
+  suggested_canonical: data guard
+- token: microsoft sql server
+  frequency: 184
+  reasons:
+  - canonical_merge_candidate
+  suggested_canonical: sql server
+- token: oracle goldengate
+  frequency: 179
+  reasons:
+  - canonical_merge_candidate
+  suggested_canonical: golden gate
+- token: microsoft excel
+  frequency: 86
+  reasons:
+  - canonical_merge_candidate
+  suggested_canonical: excel
+- token: mssql
+  frequency: 76
+  reasons:
+  - canonical_merge_candidate
+  suggested_canonical: sql server
+- token: ms excel
+  frequency: 66
+  reasons:
+  - canonical_merge_candidate
+  suggested_canonical: excel
+- token: microsoft windows
+  frequency: 44
+  reasons:
+  - canonical_merge_candidate
+  suggested_canonical: windows
+- token: postgres
+  frequency: 39
+  reasons:
+  - canonical_merge_candidate
+  suggested_canonical: postgresql
+- token: microsoft azure
+  frequency: 34
+  reasons:
+  - canonical_merge_candidate
+  suggested_canonical: azure
+source_note: Generated by refine_skill_ontology.py without overwriting first-pass
+  files.
