@@ -134,9 +134,9 @@ AI-powered Resume Intelligence & Candidate Matching 시스템을 **Python + Fast
 | Phase | 설명 | Status |
 |-------|------|--------|
 | Phase 0 | Scope & Contracts | ✅ Done |
-| Phase 1 | Happy Path (Ingestion + 기본 매칭 API + 최소 UI) | 🔄 In Progress |
-| Phase 2 | Multi-Agent & Hybrid Retrieval | 🔄 In Progress |
-| Phase 3 | Evaluation & Observability | ⬜ Pending |
+| Phase 1 | Happy Path (Ingestion + 기본 매칭 API + 최소 UI) | ✅ Done |
+| Phase 2 | Multi-Agent & Hybrid Retrieval | ✅ Done |
+| Phase 3 | Evaluation & Observability | 🔄 In Progress |
 | Phase 4 | Reviewer Layer & Polish | ⬜ Pending |
 
 **Legend**: ✅ Done · 🔄 In Progress · ⬜ Pending
@@ -168,14 +168,17 @@ AI-powered Resume Intelligence & Candidate Matching 시스템을 **Python + Fast
 | 매칭 응답 스키마에 agent score/explanation 필드 추가 | ✅ 완료 | `src/backend/schemas/job.py`, `src/backend/services/match_result_builder.py` |
 | Agent 계약 테스트 | ✅ 완료 | `tests/test_agent_io_contracts.py`, `tests/test_agent_orchestration_service.py` |
 | Hybrid retrieval fallback (Milvus/OpenAI 실패 시 Mongo 경로) | ✅ 완료 | `src/backend/repositories/hybrid_retriever.py`, `tests/test_retrieval_fallback.py` |
+| Agent SDK 실호출 연결 + 실패 시 heuristic fallback | ✅ 완료 | `src/backend/services/agent_orchestration_service.py` |
+| A2A(Recruiter/HiringManager) weight negotiation + 최종 가중치 주입 | ✅ 완료 | `src/agents/weight_negotiation_agent.py`, `src/backend/services/agent_orchestration_service.py` |
+| Agent weighted score를 최종 랭킹 정책에 반영 | ✅ 완료 | `src/backend/services/scoring_service.py`, `src/backend/services/match_result_builder.py`, `tests/test_ranking_policy.py` |
 
 ---
 
 ## Next Slice
 
-1. Agent SDK 실호출(placeholder scoring 제거) 및 프롬프트/툴 wiring
-2. A2A(Recruiter/HiringManager) weight negotiation 흐름 추가
-3. Agent weighted score를 최종 rank에 반영하는 정책 확정
+1. Agent prompt 품질 튜닝 및 호출 비용/지연 측정
+2. A2A negotiation 결과에 대한 정책 실험(직군별 weight profile)
+3. 랭킹 정책 회귀 테스트를 API/E2E 레벨로 확대
 
 ### 발표 준비 관점의 병행 체크
 

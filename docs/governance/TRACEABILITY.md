@@ -15,10 +15,10 @@
 | R1.4 | Category / 경력 연차 메타 필터 지원 | Must | MatchingService, Milvus | `src/backend/services/matching_service.py`, `src/backend/core/vector_store.py` | ✅ Done |
 | R1.5 | 매칭 결과에 category / skills 요약 / 총점 포함 | Must | Schemas, MatchingService | `src/backend/services/matching_service.py` | ✅ Done |
 | R1.6 | FastAPI REST 엔드포인트 제공 | Must | API Layer | `src/backend/api/` | ✅ Done |
-| R2.1 | Multi-Agent 파이프라인 (Skill/Exp/Technical/Culture 점수 분리) | Should | Agent Layer | `src/agents/`, `src/backend/services/agent_orchestration_service.py` | 🔄 In Progress |
-| R2.2 | RankingAgent 가중 합산 + 설명 생성 | Should | RankingAgent | `src/agents/ranking_agent.py`, `src/backend/services/agent_orchestration_service.py` | 🔄 In Progress |
+| R2.1 | Multi-Agent 파이프라인 (Skill/Exp/Technical/Culture 점수 분리) | Should | Agent Layer | `src/agents/`, `src/backend/services/agent_orchestration_service.py` | ✅ Done |
+| R2.2 | RankingAgent 가중 합산 + 설명 생성 | Should | RankingAgent | `src/agents/ranking_agent.py`, `src/backend/services/agent_orchestration_service.py` | ✅ Done |
 | R2.3 | Hybrid retrieval + Milvus 장애 시 Mongo fallback | Should | HybridRetriever | `src/backend/repositories/hybrid_retriever.py` | 🔄 In Progress |
-| R2.4 | RecruiterAgent ↔ HiringManagerAgent A2A 가중치 조정 | Should | Agent Layer (A2A) | `(planned) src/agents/recruiter_agent.py`, `(planned) src/agents/hiring_manager_agent.py` | ⬜ Pending |
+| R2.4 | RecruiterAgent ↔ HiringManagerAgent A2A 가중치 조정 | Should | Agent Layer (A2A) | `src/agents/weight_negotiation_agent.py`, `src/backend/services/agent_orchestration_service.py` | ✅ Done |
 | R3.1 | DeepEval + LLM-as-Judge 자동 평가 | Should | Eval Layer | `src/eval/` | ⬜ Pending |
 | R3.2 | LangSmith run/experiment/dataset 추적 | Should | Observability | `(planned) src/ops/langsmith_tracer.py` | ⬜ Pending |
 | R3.3 | golden_set.jsonl (최소 10–15개 job+candidate 라벨) | Should | Eval Layer | `(planned) src/eval/golden_set.jsonl` | ⬜ Pending |
@@ -43,7 +43,7 @@
 | Embedding 모델 고정: `text-embedding-3-small` | R1.1, R1.2 | `docs/governance/DESIGN_DECISION_MATRIX.md`, `docs/governance/AGENT.md` | 🔄 In Progress |
 | Hybrid retrieval 고정: Milvus + BM25 + merge (Top 30) | R2.3 | `docs/architecture/system-architecture.md`, `docs/governance/AGENT.md` | 🔄 In Progress |
 | Deterministic scoring 고정: feature extraction + explainable Top 10 | R1.3, R1.5 | `docs/governance/DESIGN_DECISION_MATRIX.md`, `docs/architecture/system-architecture.md` | 🔄 In Progress |
-| Rerank/설명 모델 고정: `gpt-4o-mini` (Top 10 → Top 5 refinement) | R2.2 | `docs/governance/DESIGN_DECISION_MATRIX.md`, `docs/architecture/system-architecture.md` | 🔄 In Progress |
+| Rerank/설명 모델 고정: `OPENAI_AGENT_MODEL` (기본 `gpt-4.1-mini`) | R2.2 | `src/backend/core/settings.py`, `src/backend/services/agent_orchestration_service.py` | ✅ Done |
 | 모델 선택 근거(비용/속도/단순성)와 확장 경로 문서화 | R5.2, R5.3 | `docs/governance/DESIGN_DECISION_MATRIX.md`, 본 문서 | 🔄 In Progress |
 | Mongo 데이터 품질 기반 feature 우선순위(core/conditional) 문서화 | R1.3, R5.3 | `docs/governance/DESIGN_DECISION_MATRIX.md`, `docs/ingestion_normalization_design.md` | ✅ Done |
 
@@ -56,7 +56,7 @@
 | FastAPI API Layer | `src/backend/api/` | R1.6, R3.5, R4.3 | Layered Architecture (ADR-001) |
 | IngestionService | `src/backend/services/ingest_resumes.py` | R1.1 | Dataset normalization to single schema |
 | MatchingService | `src/backend/services/matching_service.py` | R1.2, R1.3, R1.4, R1.5, R2.3 | Hybrid retrieval (Top 30) + scoring/rerank orchestration |
-| ScoringService | `src/backend/services/scoring_service.py` | R1.3, R1.5 | Deterministic feature-based explainable scoring (Top 10) |
+| ScoringService | `src/backend/services/scoring_service.py` | R1.3, R1.5, R2.2 | Deterministic + agent weighted hybrid rank policy |
 | HybridRetriever | `src/backend/repositories/hybrid_retriever.py` | R2.3 | Milvus-primary + Mongo fallback |
 | MongoDB Repository | `src/backend/repositories/mongo_repo.py` | R1.3, R1.4, R2.3 | MongoDB as domain data store |
 | Milvus Vector Store | `src/backend/core/vector_store.py` | R1.1, R1.2, R1.4 | Milvus as vector store |
@@ -66,9 +66,8 @@
 | TechnicalEvalAgent | `src/agents/technical_agent.py` | R2.1 | Atomic domain agent contract (I/O fixed) |
 | CultureFitAgent | `src/agents/culture_agent.py` | R2.1 | Atomic domain agent contract (I/O fixed) |
 | RankingAgent | `src/agents/ranking_agent.py` | R2.2 | Weighted scoring + explanation contract |
-| Agent Orchestration Adapter | `src/backend/services/agent_orchestration_service.py` | R2.1, R2.2 | Matching pipeline 연결용 scaffold adapter |
-| RecruiterAgent | `(planned) src/agents/recruiter_agent.py` | R2.4 | A2A weight negotiation |
-| HiringManagerAgent | `(planned) src/agents/hiring_manager_agent.py` | R2.4 | A2A weight negotiation |
+| Agent Orchestration Adapter | `src/backend/services/agent_orchestration_service.py` | R2.1, R2.2, R2.4 | Live OpenAI scoring + A2A weight negotiation + fallback |
+| WeightNegotiationAgent | `src/agents/weight_negotiation_agent.py` | R2.4 | Recruiter/HiringManager proposal + final policy contract |
 | DeepEval Tests | `(planned) src/eval/` | R3.1, R3.3 | LLM-as-Judge evaluation doctrine |
 | LangSmith Tracer | `(planned) src/ops/langsmith_tracer.py` | R3.2 | Run/experiment tracking |
 | Golden Set | `(planned) src/eval/golden_set.jsonl` | R3.3 | Ground-truth evaluation set |
@@ -125,9 +124,9 @@
 | Phase | 설명 | 기간 목표 | Status | 완료 기준 |
 |-------|-----|---------|--------|---------|
 | Phase 0 | Scope & Contracts – 요구사항 확정, 아키텍처·폴더 구조 계약 | Day 1–2 | ✅ Done | `AGENT.md`, `requirements.md`, `system-architecture.md` 완성 |
-| Phase 1 | Happy Path – Ingestion + 기본 매칭 API + 최소 UI | Day 2–3 | 🔄 In Progress | `/api/jobs/match` 기본 응답, Vite UI에서 호출 성공 |
-| Phase 2 | Multi-Agent & Hybrid Retrieval – Agent SDK 통합 | Weekend 전반 | 🔄 In Progress | Agent I/O 계약 + adapter 연결, 이후 fallback/A2A 연동 |
-| Phase 3 | Evaluation & Observability – DeepEval + LangSmith | Weekend 후반 | ⬜ Pending | golden set 평가 1회 실행, LangSmith run 추적 확인 |
+| Phase 1 | Happy Path – Ingestion + 기본 매칭 API + 최소 UI | Day 2–3 | ✅ Done | `/api/jobs/match` E2E 통과(18개 테스트), Vite UI 구현 완료 |
+| Phase 2 | Multi-Agent & Hybrid Retrieval – Agent SDK 통합 | Weekend 전반 | ✅ Done | Agent I/O 계약 + adapter + fallback + A2A 연동 완료 |
+| Phase 3 | Evaluation & Observability – DeepEval + LangSmith | Weekend 후반 | 🔄 In Progress | golden set 구성·DeepEval stub 작성, structlog/request_id 미들웨어 완료 |
 | Phase 4 | Reviewer Layer & Polish – 문서/다이어그램/Checklist | Day 7 | ⬜ Pending | README, TRACEABILITY, eval-results 완성, self-review 통과 |
 
 ---
@@ -145,4 +144,4 @@
 
 ---
 
-*Last updated: 2026-03-13 | Maintainer: 프로젝트 팀*
+*Last updated: 2026-03-13 (Phase 1·2 ✅ 완료 확정, Phase 3 착수) | Maintainer: 프로젝트 팀*

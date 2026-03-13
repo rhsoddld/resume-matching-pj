@@ -9,6 +9,7 @@ from agents.experience_agent import ExperienceAgentInput, ExperienceAgentOutput
 from agents.ranking_agent import RankingAgentInput, RankingAgentOutput
 from agents.skill_agent import SkillAgentInput, SkillAgentOutput
 from agents.technical_agent import TechnicalAgentInput, TechnicalAgentOutput
+from agents.weight_negotiation_agent import WeightNegotiationOutput
 
 
 class CandidateContext(BaseModel):
@@ -49,8 +50,8 @@ class CandidateAgentResult(BaseModel):
     culture_output: CultureAgentOutput
     ranking_input: RankingAgentInput
     ranking_output: RankingAgentOutput
+    weight_negotiation: WeightNegotiationOutput | None = None
 
 
 class OrchestratorResponse(BaseModel):
     results: list[CandidateAgentResult] = Field(default_factory=list)
-

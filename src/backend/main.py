@@ -2,20 +2,22 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
-import logging
 
 from backend.core.startup import warmup_infrastructure
 from backend.core.exceptions import AppError
 from backend.core.database import get_mongo_client
 from backend.core.settings import settings
 from backend.api import candidates, jobs
+from ops.logging import configure_logging, get_logger
+from ops.middleware import RequestIdMiddleware
 from pymilvus import connections, utility
 
-logging.basicConfig(level=settings.log_level)
-logger = logging.getLogger(__name__)
+configure_logging(log_level=settings.log_level)
+logger = get_logger(__name__)
 
 app = FastAPI(title=settings.app_name)
 
+app.add_middleware(RequestIdMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

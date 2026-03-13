@@ -5,7 +5,11 @@ from typing import Any
 from agents.orchestrator import CandidateAgentResult
 from backend.schemas.job import JobMatchCandidate
 from backend.services.job_profile_extractor import JobProfile
-from backend.services.scoring_service import compute_deterministic_match_score, compute_skill_overlap
+from backend.services.scoring_service import (
+    compute_deterministic_match_score,
+    compute_final_ranking_score,
+    compute_skill_overlap,
+)
 
 
 def build_match_candidate(
@@ -33,6 +37,11 @@ def build_match_candidate(
         preferred_seniority=job_profile.preferred_seniority,
         category_matched=bool(category and hit.get("category") == category),
     )
+    agent_weighted_score = agent_result.ranking_output.final_score if agent_result is not None else None
+    rank_score = compute_final_ranking_score(
+        deterministic_score=float(final_score),
+        agent_weighted_score=agent_weighted_score,
+    )
 
     return JobMatchCandidate(
         candidate_id=hit["candidate_id"],
@@ -44,7 +53,7 @@ def build_match_candidate(
         expanded_skills=parsed.get("expanded_skills", []),
         experience_years=hit.get("experience_years"),
         seniority_level=hit.get("seniority_level"),
-        score=round(float(final_score), 4),
+        score=round(float(rank_score), 4),
         vector_score=round(float(hit["score"]), 4),
         skill_overlap=round(float(skill_overlap_score), 4),
         score_detail={
@@ -52,6 +61,12 @@ def build_match_candidate(
             "experience_fit": round(float(final_score_detail["experience_fit"]), 4),
             "seniority_fit": round(float(final_score_detail["seniority_fit"]), 4),
             "category_fit": round(float(final_score_detail["category_fit"]), 4),
+            "agent_weighted": round(float(agent_weighted_score), 4) if agent_weighted_score is not None else None,
+            "rank_policy": (
+                "hybrid(deterministic:0.55,agent:0.45)"
+                if agent_weighted_score is not None
+                else "deterministic-only"
+            ),
         },
         skill_overlap_detail={
             "core_overlap": round(float(skill_overlap_detail["core_overlap"]), 4),
@@ -65,6 +80,12 @@ def build_match_candidate(
                 "technical": agent_result.technical_output.score,
                 "culture": agent_result.culture_output.score,
                 "weighted": agent_result.ranking_output.final_score,
+                "weights": agent_result.ranking_input.weights.model_dump(),
+                "weight_negotiation": (
+                    agent_result.weight_negotiation.model_dump()
+                    if agent_result.weight_negotiation is not None
+                    else None
+                ),
             }
             if agent_result is not None
             else {}

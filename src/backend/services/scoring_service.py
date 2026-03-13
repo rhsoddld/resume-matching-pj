@@ -112,6 +112,20 @@ def compute_deterministic_match_score(
     return final_score, detail
 
 
+def compute_final_ranking_score(
+    *,
+    deterministic_score: float,
+    agent_weighted_score: float | None,
+    deterministic_weight: float = 0.55,
+    agent_weight: float = 0.45,
+) -> float:
+    if agent_weighted_score is None:
+        return _clip_01(deterministic_score)
+
+    weighted = (deterministic_score * deterministic_weight) + (agent_weighted_score * agent_weight)
+    return _clip_01(weighted)
+
+
 def compute_skill_overlap(candidate: Mapping[str, object], job: Mapping[str, object]) -> tuple[float, dict[str, float]]:
     """
     Ontology-aware skill overlap scoring.

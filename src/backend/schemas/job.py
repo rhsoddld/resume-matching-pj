@@ -33,6 +33,8 @@ class ScoreDetail(BaseModel):
     experience_fit: float
     seniority_fit: float
     category_fit: float
+    agent_weighted: Optional[float] = None
+    rank_policy: Optional[str] = None
 
 
 class SkillOverlapDetail(BaseModel):

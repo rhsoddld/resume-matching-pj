@@ -15,3 +15,5 @@ spacy
 pdfplumber
 pdfminer.six
 dateparser
+structlog
+deepeval
