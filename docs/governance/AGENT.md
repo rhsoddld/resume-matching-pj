@@ -135,7 +135,7 @@ AI-powered Resume Intelligence & Candidate Matching 시스템을 **Python + Fast
 |-------|------|--------|
 | Phase 0 | Scope & Contracts | ✅ Done |
 | Phase 1 | Happy Path (Ingestion + 기본 매칭 API + 최소 UI) | 🔄 In Progress |
-| Phase 2 | Multi-Agent & Hybrid Retrieval | ⬜ Pending |
+| Phase 2 | Multi-Agent & Hybrid Retrieval | 🔄 In Progress |
 | Phase 3 | Evaluation & Observability | ⬜ Pending |
 | Phase 4 | Reviewer Layer & Polish | ⬜ Pending |
 
@@ -152,19 +152,30 @@ AI-powered Resume Intelligence & Candidate Matching 시스템을 **Python + Fast
 | Sneha category → core_skills inject | ✅ 완료 | Sneha empty 0.0% |
 | Substring matching (ex. `sql server 2012`→`sql server`) | ✅ 완료 | `skill_ontology.py` |
 | Milvus 벡터 적재 | ✅ 완료 | `ingest_complete: seen=5484, embedded=5484, embed_skipped=0` |
-| 기본 매칭 API (`POST /api/jobs/match`) | 🔄 구조 완료, E2E 테스트 대기 | `matching_service.py` |
+| 기본 매칭 API (`POST /api/jobs/match`) | ✅ E2E/API 통합 테스트 완료 | `matching_service.py`, `tests/test_api_endpoints.py` |
+| Readiness 엔드포인트 (`GET /api/ready`) | ✅ 구현 완료 | `src/backend/main.py` |
 | Deterministic scoring | ✅ 완료 | `scoring_service.py` |
-| 5/5 유닛 테스트 | ✅ Pass | `tests/test_skill_overlap_scoring.py` |
+| 테스트 스위트 (18개) | ✅ Pass | `python -m pytest -q` |
 
-> **Milvus 인덱스 활성화 완료**: 이제 `POST /api/jobs/match` 경로의 실질 E2E 검증 단계로 진행 가능.
+> **Phase 1 게이트 통과**: `/api/jobs/match` E2E와 `/api/ready` readiness 계약을 코드/테스트 기준으로 고정.
+
+### Phase 2 착수 현황 (2026-03-13)
+
+| 항목 | 상태 | 증거 |
+|------|------|------|
+| Agent I/O 계약 스캐폴드 (Orchestrator/Skill/Experience/Technical/Culture/Ranking) | ✅ 완료 | `src/agents/*.py` |
+| MatchingService ↔ AgentOrchestrationService 어댑터 연결 | ✅ 완료 | `src/backend/services/agent_orchestration_service.py`, `src/backend/services/matching_service.py` |
+| 매칭 응답 스키마에 agent score/explanation 필드 추가 | ✅ 완료 | `src/backend/schemas/job.py`, `src/backend/services/match_result_builder.py` |
+| Agent 계약 테스트 | ✅ 완료 | `tests/test_agent_io_contracts.py`, `tests/test_agent_orchestration_service.py` |
+| Hybrid retrieval fallback (Milvus/OpenAI 실패 시 Mongo 경로) | ✅ 완료 | `src/backend/repositories/hybrid_retriever.py`, `tests/test_retrieval_fallback.py` |
 
 ---
 
 ## Next Slice
 
-1. 매칭 API end-to-end smoke test (`POST /api/jobs/match`)
-2. retrieval/score 응답 품질 점검(Top-K, score breakdown)
-3. Phase 2 Multi-Agent 시작 판단
+1. Agent SDK 실호출(placeholder scoring 제거) 및 프롬프트/툴 wiring
+2. A2A(Recruiter/HiringManager) weight negotiation 흐름 추가
+3. Agent weighted score를 최종 rank에 반영하는 정책 확정
 
 ### 발표 준비 관점의 병행 체크
 

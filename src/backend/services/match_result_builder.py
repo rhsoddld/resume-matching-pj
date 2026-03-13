@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from agents.orchestrator import CandidateAgentResult
 from backend.schemas.job import JobMatchCandidate
 from backend.services.job_profile_extractor import JobProfile
 from backend.services.scoring_service import compute_deterministic_match_score, compute_skill_overlap
@@ -13,6 +14,7 @@ def build_match_candidate(
     candidate_doc: dict[str, Any],
     job_profile: JobProfile,
     category: str | None,
+    agent_result: CandidateAgentResult | None = None,
 ) -> JobMatchCandidate:
     parsed = candidate_doc.get("parsed", {})
     parsed = parsed if isinstance(parsed, dict) else {}
@@ -56,4 +58,16 @@ def build_match_candidate(
             "expanded_overlap": round(float(skill_overlap_detail["expanded_overlap"]), 4),
             "normalized_overlap": round(float(skill_overlap_detail["normalized_overlap"]), 4),
         },
+        agent_scores=(
+            {
+                "skill": agent_result.skill_output.score,
+                "experience": agent_result.experience_output.score,
+                "technical": agent_result.technical_output.score,
+                "culture": agent_result.culture_output.score,
+                "weighted": agent_result.ranking_output.final_score,
+            }
+            if agent_result is not None
+            else {}
+        ),
+        agent_explanation=agent_result.ranking_output.explanation if agent_result is not None else None,
     )

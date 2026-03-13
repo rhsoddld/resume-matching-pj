@@ -56,6 +56,8 @@ class JobMatchCandidate(BaseModel):
     skill_overlap: float
     score_detail: ScoreDetail
     skill_overlap_detail: SkillOverlapDetail
+    agent_scores: dict = Field(default_factory=dict)
+    agent_explanation: Optional[str] = None
 
 
 class JobMatchResponse(BaseModel):
