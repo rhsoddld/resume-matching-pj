@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+pymongo
+motor
+pymilvus
+pydantic
+pydantic-settings
+python-dotenv
+openai
+pandas
+langsmith
+# pyresparser removed: incompatible with spaCy 3.x on Python 3.10
+# NER-based extraction is handled by spaCy (en_core_web_sm) directly
+spacy
+pdfplumber
+pdfminer.six
+dateparser
