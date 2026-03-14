@@ -27,7 +27,9 @@ export default function ResultCard({ candidate, rank }: Props) {
   // Determine badge colour based on score
   const badgeClass = pct >= 70 ? "badge-good" : pct >= 45 ? "badge-mid" : "badge-low";
 
-  const agentScoreEntries = Object.entries(candidate.agent_scores ?? {});
+  const agentScoreEntries = Object.entries(candidate.agent_scores ?? {}).filter(
+    ([, val]) => typeof val === "number"
+  ) as Array<[string, number]>;
   const topSkills = (candidate.core_skills?.length
     ? candidate.core_skills
     : candidate.normalized_skills
@@ -85,6 +87,21 @@ export default function ResultCard({ candidate, rank }: Props) {
             <ScoreBar value={candidate.score_detail.experience_fit} label="Experience" />
             <ScoreBar value={candidate.score_detail.seniority_fit} label="Seniority" />
             <ScoreBar value={candidate.score_detail.category_fit} label="Category" />
+            {typeof candidate.score_detail.retrieval_fusion === "number" && (
+              <ScoreBar value={candidate.score_detail.retrieval_fusion} label="Retrieval Fusion" />
+            )}
+            {typeof candidate.score_detail.retrieval_keyword === "number" && (
+              <ScoreBar value={candidate.score_detail.retrieval_keyword} label="Keyword" />
+            )}
+            {typeof candidate.score_detail.retrieval_metadata === "number" && (
+              <ScoreBar value={candidate.score_detail.retrieval_metadata} label="Metadata" />
+            )}
+            {typeof candidate.score_detail.must_have_match_rate === "number" && (
+              <ScoreBar value={candidate.score_detail.must_have_match_rate} label="Must-Have Match" />
+            )}
+            {typeof candidate.score_detail.must_have_penalty === "number" && (
+              <ScoreBar value={candidate.score_detail.must_have_penalty} label="Must-Have Penalty" />
+            )}
             {typeof candidate.score_detail.agent_weighted === "number" && (
               <ScoreBar value={candidate.score_detail.agent_weighted} label="Agent Weighted" />
             )}
@@ -97,6 +114,35 @@ export default function ResultCard({ candidate, rank }: Props) {
               {agentScoreEntries.map(([key, val]) => (
                 <ScoreBar key={key} value={val} label={key} />
               ))}
+            </div>
+          )}
+
+          {candidate.relevant_experience?.length > 0 && (
+            <div className="explanation-box">
+              <h4 className="section-title">Relevant Experience</h4>
+              <ul className="detail-list">
+                {candidate.relevant_experience.map((item, idx) => (
+                  <li key={`${candidate.candidate_id}-exp-${idx}`}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {candidate.possible_gaps?.length > 0 && (
+            <div className="explanation-box">
+              <h4 className="section-title">Possible Gaps</h4>
+              <ul className="detail-list">
+                {candidate.possible_gaps.map((gap, idx) => (
+                  <li key={`${candidate.candidate_id}-gap-${idx}`}>{gap}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {candidate.weighting_summary && (
+            <div className="explanation-box">
+              <h4 className="section-title">Weighting Summary</h4>
+              <p>{candidate.weighting_summary}</p>
             </div>
           )}
 

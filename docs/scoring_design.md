@@ -1,65 +1,111 @@
-# Scoring Design (Deterministic Layer)
+# Scoring Design
 
-## Fixed Pipeline Context
+## 1. Current Ranking Pipeline
 
-Embedding (`text-embedding-3-small`)
--> Milvus vector search
--> BM25 skill search
--> Hybrid merge
--> Top 30 candidates
--> Feature extraction
--> Deterministic scoring
--> Top 10
--> LLM rerank (`gpt-4o-mini`)
--> Top 5 candidates
+```text
+JD
+-> Deterministic Query Understanding
+-> (optional) constrained LLM fallback when low confidence / high unknown ratio
+-> ontology + alias normalization
+-> Hybrid Retrieval (vector + keyword + metadata fusion)
+-> Top-50 retrieval set
+-> (optional) Cross-Encoder Rerank
+-> Top-K shortlist
+-> Deterministic score computation
+-> Agent score pack (skill/experience/technical/culture)
+-> Hybrid rank score (deterministic + agent weighted)
+-> Must-have penalty
+-> Explainable output
+```
 
-This pipeline is fixed unless explicitly requested otherwise.
+현재 랭킹 경로에는 LLM rerank 단계가 없다.  
+LLM은 저신뢰 query understanding fallback과 optional rerank 단계에서만 제한적으로 사용한다.
 
-## Retrieval vs Scoring vs Rerank
+## 2. Query Understanding Quality Gate
 
-Vector similarity and BM25 are used for recall-oriented candidate retrieval.
+Fallback trigger:
 
-A deterministic feature-based scoring layer performs explainable initial ranking using
-semantic similarity, ontology-aware skill overlap, and experience fit.
+```text
+confidence < QUERY_FALLBACK_CONFIDENCE_THRESHOLD
+or
+unknown_ratio > QUERY_FALLBACK_UNKNOWN_RATIO_THRESHOLD
+```
 
-Skill overlap prioritizes core skill matches derived from the skill ontology
-and uses expanded taxonomy relationships for partial matches.
+기본값:
 
-An LLM reranker then refines the ranking and generates reasoning for the final candidate recommendations.
+- `QUERY_FALLBACK_CONFIDENCE_THRESHOLD=0.62`
+- `QUERY_FALLBACK_UNKNOWN_RATIO_THRESHOLD=0.55`
 
-## Ontology-Aware Skill Overlap
+Fallback을 적용하더라도 최종 query profile은 ontology/alias normalization을 반드시 다시 거친 결과만 사용한다.
 
-`skill_overlap` uses the following candidate fields:
+## 3. Retrieval Fusion Score
+
+Hybrid retrieval은 후보별로 아래 신호를 결합한다.
+
+- `vector_score`: Milvus similarity 정규화 값
+- `keyword_score`: normalized/core/expanded skill + summary overlap
+- `metadata_score`: category / experience / seniority 정합성
+
+기본 결합식:
+
+```text
+fusion_score =
+0.55 * vector_score
++ 0.30 * keyword_score
++ 0.15 * metadata_score
+```
+
+`fusion_score`는 shortlist 정렬 기준이며, 이후 deterministic scoring/agent scoring의 입력으로 사용된다.
+
+### 3-1. Optional Cross-Encoder Rerank
+
+`RERANK_ENABLED=true`일 때만 동작한다.
+
+```text
+retrieval_top_n = max(top_k, RERANK_TOP_N)
+hybrid_retrieval -> top-N
+cross-encoder rerank -> top-K
+```
+
+기본값:
+
+- `RERANK_ENABLED=false`
+- `RERANK_TOP_N=50`
+- `RERANK_MODEL=gpt-4.1-mini`
+
+## 4. Deterministic Score
+
+Deterministic 최상위 식:
+
+```text
+deterministic_score =
+0.42 * semantic_similarity
++ 0.33 * skill_overlap
++ 0.18 * experience_fit
++ 0.07 * seniority_fit
++ category_fit
+```
+
+`category_fit`은 카테고리 매칭 시 `+0.03` 보너스다.
+
+### 4-1. Ontology-aware Skill Overlap
+
+Candidate skill source:
+
 - `parsed.core_skills`
 - `parsed.expanded_skills`
 - `parsed.normalized_skills`
 
-The following fields are intentionally excluded from scoring:
-- `parsed.capability_phrases`
-- `parsed.role_candidates`
-
-### Scoring Rule
-
-When `core_skills` exists:
+식:
 
 ```text
-skill_overlap_score =
-0.6 * core_overlap
-+ 0.3 * expanded_overlap
-+ 0.1 * normalized_overlap
+if candidate_core exists:
+  skill_overlap = 0.6 * core_overlap + 0.3 * expanded_overlap + 0.1 * normalized_overlap
+else:
+  skill_overlap = 0.7 * normalized_overlap + 0.3 * expanded_overlap
 ```
 
-When `core_skills` is empty:
-
-```text
-skill_overlap_score =
-0.7 * normalized_overlap
-+ 0.3 * expanded_overlap
-```
-
-### Explainability Breakdown
-
-`skill_overlap` should expose a deterministic breakdown:
+Breakdown output:
 
 ```json
 {
@@ -69,20 +115,64 @@ skill_overlap_score =
 }
 ```
 
-## Fixed Overall Formula (Unchanged)
+## 5. Agent-augmented Rank Score
 
-The top-level deterministic scoring formula remains unchanged:
+Agent weighted score가 있는 경우:
 
 ```text
-score =
-0.42 * semantic_similarity
-+ 0.33 * skill_overlap
-+ 0.18 * experience_fit
-+ 0.07 * seniority_fit
-+ category_fit
+rank_score_before_penalty =
+0.55 * deterministic_score
++ 0.45 * agent_weighted_score
 ```
 
-Current implementation notes:
-- `score`는 최종 랭킹 결정용 deterministic 점수로 사용됨.
-- `category_fit`: Sneha/Suri 카테고리 매칭 시 0.03 보너스 반영 중.
-- `education_fit` 및 `recency_fit`: 설계상 확장 영역이며 현재 미구현.
+Agent weighted score가 없는 경우:
+
+```text
+rank_score_before_penalty = deterministic_score
+```
+
+`rank_policy`:
+
+- `hybrid(deterministic:0.55,agent:0.45,must-have-penalty:max0.25)`
+- `deterministic-only(must-have-penalty:max0.25)`
+
+## 6. Must-have Penalty
+
+`job_profile.skill_signals`에서 `must have`로 분류된 skill에 대해 match rate를 계산한다.
+
+```text
+must_have_match_rate = matched_must_have / total_must_have
+must_have_penalty = min(0.25, (1 - must_have_match_rate) * 0.25)
+final_score = rank_score_before_penalty * (1 - must_have_penalty)
+```
+
+결과 payload는 아래를 포함한다.
+
+- `must_have_match_rate`
+- `must_have_penalty`
+
+## 7. Explainability Output Fields
+
+결과별 출력 필드:
+
+- `score`
+- `score_detail.semantic_similarity/experience_fit/seniority_fit/category_fit`
+- `score_detail.retrieval_fusion/retrieval_keyword/retrieval_metadata`
+- `score_detail.must_have_match_rate/must_have_penalty`
+- `skill_overlap_detail`
+- `relevant_experience`
+- `possible_gaps`
+- `weighting_summary`
+
+Query profile explainability:
+
+- `confidence`
+- `signal_quality.unknown_ratio`
+- `fallback_used/fallback_reason/fallback_rationale/fallback_trigger`
+
+## 8. Tuning Backlog
+
+- 직군별 retrieval fusion weight calibration
+- must-have penalty 상한(`0.25`) 민감도 실험
+- fallback 임계치와 precision/recall trade-off 검증
+- fairness metric과 score drift 모니터링 추가

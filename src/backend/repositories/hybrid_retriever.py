@@ -7,6 +7,7 @@ from typing import Any
 from backend.core.database import get_collection
 from backend.core.exceptions import ExternalDependencyError, RepositoryError
 from backend.services.retrieval_service import RetrievalService
+from backend.services.job_profile_extractor import JobProfile
 
 
 logger = logging.getLogger(__name__)
@@ -43,25 +44,55 @@ class HybridRetriever:
     def __init__(self) -> None:
         self.retrieval_service = RetrievalService()
 
-    def search_candidates(self, *, job_description: str, top_k: int, category: str | None) -> list[dict[str, Any]]:
+    def search_candidates(
+        self,
+        *,
+        job_description: str,
+        job_profile: JobProfile,
+        top_k: int,
+        category: str | None,
+        min_experience_years: float | None = None,
+    ) -> list[dict[str, Any]]:
+        keyword_hits = self._search_keyword_candidates(
+            job_description=job_description,
+            job_profile=job_profile,
+            top_k=max(top_k * 3, 30),
+            category=category,
+            min_experience_years=min_experience_years,
+        )
         try:
-            return self.retrieval_service.search_candidates(
-                job_description=job_description,
-                top_k=top_k,
+            vector_hits = self.retrieval_service.search_candidates(
+                query_text=job_profile.query_text_for_embedding or job_description,
+                top_k=max(top_k * 3, 30),
                 category=category,
+                min_experience_years=min_experience_years,
+            )
+            return self._merge_fusion_hits(
+                vector_hits=vector_hits,
+                keyword_hits=keyword_hits,
+                job_profile=job_profile,
+                category=category,
+                min_experience_years=min_experience_years,
+                top_k=top_k,
             )
         except ExternalDependencyError:
             logger.warning("Vector retrieval unavailable. Falling back to Mongo lexical retrieval.")
-            return self._search_mongo_fallback(
-                job_description=job_description,
-                top_k=top_k,
-                category=category,
-            )
+            if keyword_hits:
+                return keyword_hits[:top_k]
+            raise
 
-    def _search_mongo_fallback(self, *, job_description: str, top_k: int, category: str | None) -> list[dict[str, Any]]:
+    def _search_keyword_candidates(
+        self,
+        *,
+        job_description: str,
+        job_profile: JobProfile,
+        top_k: int,
+        category: str | None,
+        min_experience_years: float | None,
+    ) -> list[dict[str, Any]]:
         try:
-            terms = self._extract_terms(job_description)
-            query = self._build_query(terms=terms, category=category)
+            terms = self._build_query_terms(job_description=job_description, job_profile=job_profile)
+            query = self._build_query(terms=terms, category=category, min_experience_years=min_experience_years)
             projection = {
                 "_id": 0,
                 "candidate_id": 1,
@@ -77,15 +108,134 @@ class HybridRetriever:
             }
             scan_limit = max(50, top_k * 25)
             docs = list(get_collection("candidates").find(query, projection).limit(scan_limit))
-            scored_hits = [self._doc_to_hit(doc=doc, terms=terms, category=category) for doc in docs]
+            scored_hits = [
+                self._doc_to_hit(
+                    doc=doc,
+                    terms=terms,
+                    category=category,
+                    min_experience_years=min_experience_years,
+                    preferred_seniority=job_profile.preferred_seniority,
+                )
+                for doc in docs
+            ]
             scored_hits = [hit for hit in scored_hits if hit["candidate_id"]]
-            scored_hits.sort(key=lambda item: item["score"], reverse=True)
+            scored_hits.sort(key=lambda item: item["fusion_score"], reverse=True)
             return scored_hits[:top_k]
         except Exception as exc:
             logger.exception("Mongo fallback retrieval failed.")
             if isinstance(exc, RepositoryError):
                 raise ExternalDependencyError("Both vector retrieval and Mongo fallback failed.") from exc
             raise ExternalDependencyError("Both vector retrieval and Mongo fallback failed.") from exc
+
+    def _merge_fusion_hits(
+        self,
+        *,
+        vector_hits: list[dict[str, Any]],
+        keyword_hits: list[dict[str, Any]],
+        job_profile: JobProfile,
+        category: str | None,
+        min_experience_years: float | None,
+        top_k: int,
+    ) -> list[dict[str, Any]]:
+        merged: dict[str, dict[str, Any]] = {}
+
+        for hit in vector_hits:
+            candidate_id = hit.get("candidate_id")
+            if not candidate_id:
+                continue
+            raw_vector_score = float(hit.get("score", 0.0))
+            vector_score = self._normalize_vector_similarity(raw_vector_score)
+            metadata_score = self._metadata_score(
+                category=category,
+                min_experience_years=min_experience_years,
+                preferred_seniority=job_profile.preferred_seniority,
+                candidate_category=hit.get("category"),
+                candidate_experience_years=hit.get("experience_years"),
+                candidate_seniority_level=hit.get("seniority_level"),
+            )
+            fusion_score = self._fusion_score(
+                vector_score=vector_score,
+                keyword_score=0.0,
+                metadata_score=metadata_score,
+            )
+            merged[candidate_id] = {
+                "candidate_id": candidate_id,
+                "source_dataset": hit.get("source_dataset"),
+                "category": hit.get("category"),
+                "experience_years": hit.get("experience_years"),
+                "seniority_level": hit.get("seniority_level"),
+                "score": raw_vector_score,
+                "vector_score": round(vector_score, 4),
+                "keyword_score": 0.0,
+                "metadata_score": round(metadata_score, 4),
+                "fusion_score": round(fusion_score, 4),
+            }
+
+        for hit in keyword_hits:
+            candidate_id = hit.get("candidate_id")
+            if not candidate_id:
+                continue
+            existing = merged.get(candidate_id)
+            keyword_score = float(hit.get("keyword_score", hit.get("fusion_score", 0.0)))
+            metadata_score = float(hit.get("metadata_score", 0.0))
+            if existing is None:
+                pseudo_raw_vector_score = (keyword_score * 2.0) - 1.0
+                fusion_score = self._fusion_score(
+                    vector_score=0.0,
+                    keyword_score=keyword_score,
+                    metadata_score=metadata_score,
+                )
+                merged[candidate_id] = {
+                    "candidate_id": candidate_id,
+                    "source_dataset": hit.get("source_dataset"),
+                    "category": hit.get("category"),
+                    "experience_years": hit.get("experience_years"),
+                    "seniority_level": hit.get("seniority_level"),
+                    "score": round(pseudo_raw_vector_score, 4),
+                    "vector_score": 0.0,
+                    "keyword_score": round(keyword_score, 4),
+                    "metadata_score": round(metadata_score, 4),
+                    "fusion_score": round(fusion_score, 4),
+                }
+                continue
+
+            existing["keyword_score"] = round(max(float(existing.get("keyword_score", 0.0)), keyword_score), 4)
+            existing["metadata_score"] = round(max(float(existing.get("metadata_score", 0.0)), metadata_score), 4)
+            existing["fusion_score"] = round(
+                self._fusion_score(
+                    vector_score=float(existing.get("vector_score", 0.0)),
+                    keyword_score=float(existing.get("keyword_score", 0.0)),
+                    metadata_score=float(existing.get("metadata_score", 0.0)),
+                ),
+                4,
+            )
+
+        ranked = sorted(merged.values(), key=lambda item: float(item.get("fusion_score", 0.0)), reverse=True)
+        return ranked[:top_k]
+
+    def _build_query_terms(self, *, job_description: str, job_profile: JobProfile) -> list[str]:
+        query_text = job_profile.lexical_query or job_profile.query_text_for_embedding or job_description
+        deduped: list[str] = []
+        for role in job_profile.roles:
+            role_token = role.strip().lower()
+            if role_token and role_token not in deduped:
+                deduped.append(role_token)
+        for signal in sorted(job_profile.skill_signals, key=lambda s: {"must have": 4, "main focus": 3, "nice to have": 2, "familiarity": 1, "unknown": 0}.get(s.strength, 0), reverse=True):
+            token = signal.name.strip().lower()
+            if token and token not in deduped:
+                deduped.append(token)
+        for signal in job_profile.capability_signals:
+            token = signal.name.strip().lower()
+            if token and token not in deduped:
+                deduped.append(token)
+        for term in [*job_profile.required_skills, *job_profile.related_skills]:
+            normalized = term.strip().lower() if isinstance(term, str) else ""
+            if normalized and normalized not in deduped:
+                deduped.append(normalized)
+        for token in self._extract_terms(query_text):
+            if token not in deduped:
+                deduped.append(token)
+        return deduped[:24]
 
     @staticmethod
     def _extract_terms(job_description: str) -> list[str]:
@@ -101,10 +251,12 @@ class HybridRetriever:
         return deduped[:24]
 
     @staticmethod
-    def _build_query(*, terms: list[str], category: str | None) -> dict[str, Any]:
+    def _build_query(*, terms: list[str], category: str | None, min_experience_years: float | None) -> dict[str, Any]:
         query: dict[str, Any] = {}
         if category:
             query["category"] = category
+        if min_experience_years is not None:
+            query["parsed.experience_years"] = {"$gte": float(min_experience_years)}
         if not terms:
             return query
         regex = "|".join(re.escape(term) for term in terms[:8])
@@ -118,7 +270,14 @@ class HybridRetriever:
         return query
 
     @staticmethod
-    def _doc_to_hit(*, doc: dict[str, Any], terms: list[str], category: str | None) -> dict[str, Any]:
+    def _doc_to_hit(
+        *,
+        doc: dict[str, Any],
+        terms: list[str],
+        category: str | None,
+        min_experience_years: float | None,
+        preferred_seniority: str | None,
+    ) -> dict[str, Any]:
         parsed = doc.get("parsed", {})
         parsed = parsed if isinstance(parsed, dict) else {}
         token_pool = set()
@@ -132,12 +291,26 @@ class HybridRetriever:
             overlap = len(set(terms).intersection(token_pool)) / len(set(terms))
         else:
             overlap = 0.0
-        category_bonus = 0.15 if category and doc.get("category") == category else 0.0
-        experience_years = parsed.get("experience_years")
-        experience_signal = 0.0
-        if isinstance(experience_years, (int, float)):
-            experience_signal = min(1.0, float(experience_years) / 20.0)
-        score = round(min(1.0, overlap * 0.75 + category_bonus + experience_signal * 0.1), 4)
+        keyword_score = round(min(1.0, overlap), 4)
+        metadata_score = round(
+            HybridRetriever._metadata_score(
+                category=category,
+                min_experience_years=min_experience_years,
+                preferred_seniority=preferred_seniority,
+                candidate_category=doc.get("category"),
+                candidate_experience_years=parsed.get("experience_years"),
+                candidate_seniority_level=parsed.get("seniority_level"),
+            ),
+            4,
+        )
+        fusion_score = round(
+            HybridRetriever._fusion_score(
+                vector_score=0.0,
+                keyword_score=keyword_score,
+                metadata_score=metadata_score,
+            ),
+            4,
+        )
 
         return {
             "candidate_id": doc.get("candidate_id"),
@@ -145,6 +318,52 @@ class HybridRetriever:
             "category": doc.get("category"),
             "experience_years": parsed.get("experience_years"),
             "seniority_level": parsed.get("seniority_level"),
-            "score": score,
+            "score": round((keyword_score * 2.0) - 1.0, 4),
+            "vector_score": 0.0,
+            "keyword_score": keyword_score,
+            "metadata_score": metadata_score,
+            "fusion_score": fusion_score,
         }
 
+    @staticmethod
+    def _normalize_vector_similarity(raw_similarity: float) -> float:
+        normalized = (raw_similarity + 1.0) / 2.0
+        return max(0.0, min(1.0, normalized))
+
+    @staticmethod
+    def _fusion_score(*, vector_score: float, keyword_score: float, metadata_score: float) -> float:
+        return max(0.0, min(1.0, (vector_score * 0.55) + (keyword_score * 0.30) + (metadata_score * 0.15)))
+
+    @staticmethod
+    def _metadata_score(
+        *,
+        category: str | None,
+        min_experience_years: float | None,
+        preferred_seniority: str | None,
+        candidate_category: str | None,
+        candidate_experience_years: float | None,
+        candidate_seniority_level: str | None,
+    ) -> float:
+        category_score = 0.5
+        if category:
+            category_score = 1.0 if candidate_category == category else 0.0
+
+        experience_score = 0.5
+        if min_experience_years is not None:
+            if candidate_experience_years is None:
+                experience_score = 0.0
+            elif min_experience_years <= 0:
+                experience_score = 1.0
+            else:
+                experience_score = max(0.0, min(1.0, float(candidate_experience_years) / float(min_experience_years)))
+
+        seniority_score = 0.5
+        if preferred_seniority:
+            if not candidate_seniority_level:
+                seniority_score = 0.2
+            elif candidate_seniority_level.strip().lower() == preferred_seniority.strip().lower():
+                seniority_score = 1.0
+            else:
+                seniority_score = 0.4
+
+        return (category_score * 0.5) + (experience_score * 0.35) + (seniority_score * 0.15)

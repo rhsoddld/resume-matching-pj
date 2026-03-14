@@ -1,62 +1,173 @@
 # AI Resume Matching System
 
-AI-powered Resume Intelligence & Candidate Matching — FastAPI + OpenAI Agents SDK + MongoDB + Milvus
+AI-powered Resume Intelligence & Candidate Matching system built with FastAPI, MongoDB, Milvus, React, and OpenAI-based evaluation agents.
 
----
+## 아키텍처 개요
 
-## 아키텍처 요약
+이 프로젝트는 아래 7단계 파이프라인을 목표 아키텍처로 삼는다.
 
+- deterministic ingestion pipeline
+- deterministic query understanding
+- hybrid retrieval
+- multi-agent evaluation
+- agent-to-agent weight negotiation
+- explainable ranking
+- DeepEval / LLM-as-Judge / Bias guardrails
+
+```mermaid
+flowchart LR
+
+subgraph OFFLINE["Offline Layer - Resume Ingestion & Indexing"]
+A["Resume Dataset<br/>PDF / CSV / Text"]
+B["Resume Parsing & Normalization Pipeline"]
+C[("MongoDB<br/>Candidate Profiles")]
+D[("Milvus<br/>Candidate Embeddings")]
+A --> B
+B --> C
+B --> D
+end
+
+subgraph QUERY["Online Layer - Query Understanding & Retrieval"]
+E["Recruiter Job Description"]
+F["JD Query Understanding"]
+G["Structured Query Object"]
+H["Hybrid Retrieval<br/>Vector + Keyword + Metadata"]
+E --> F --> G
+G --> H
+end
+
+subgraph MATCH["Evaluation & Ranking Layer"]
+I["Top-K Candidate Shortlist"]
+J1["Skill Matching Agent"]
+J2["Experience Evaluation Agent"]
+J3["Technical Evaluation Agent"]
+J4["Culture Fit Agent"]
+K["Evaluation Score Pack"]
+L1["Recruiter Agent"]
+L2["Hiring Manager Agent"]
+M["Weight Negotiation Agent"]
+N["Ranking Engine"]
+O["Explainable Recommendation"]
+end
+
+C --> H
+D --> H
+H --> I
+I --> J1
+I --> J2
+I --> J3
+I --> J4
+G --> J1
+G --> J2
+G --> J3
+G --> J4
+J1 --> K
+J2 --> K
+J3 --> K
+J4 --> K
+K --> L1
+K --> L2
+L1 --> M
+L2 --> M
+K --> N
+M --> N
+N --> O
 ```
-Recruiter UI (React/Vite)
-      │
-  FastAPI API
-      │
-  ┌───┴────────────────┐
-  │                    │
-IngestionService   MatchingService
-  │                    │
-  ├── MongoDB       HybridRetriever ──── Milvus
-  └── Milvus            │
-                   OrchestratorAgent
-                        │
-          ┌─────────────┼──────────────┐
-     SkillAgent  ExperienceAgent  TechnicalAgent
-                        │
-                  RankingAgent → ExplainableScores
+
+## 핵심 설계 원칙
+
+- 이력서 ingestion은 오프라인 deterministic pipeline으로 처리한다.
+- JD Query Understanding은 LLM agent가 아니라 deterministic layer로 구현한다.
+- Retrieval은 semantic vector search, keyword search, metadata filtering을 함께 사용하는 hybrid 전략을 따른다.
+- 후보 평가는 shortlist 이후에만 multi-agent 구조를 사용한다.
+- 최종 점수는 Recruiter 관점과 Hiring Manager 관점의 weight negotiation 결과를 반영한다.
+- 응답은 점수만이 아니라 matched skills, relevant experience, technical strengths, possible gaps, weighting summary를 포함한 explainable recommendation을 제공한다.
+- 품질과 공정성은 DeepEval, LLM-as-Judge, Bias guardrails로 검증한다.
+
+## Query Understanding 계약
+
+JD Query Understanding은 다음 정보를 공통 Query 객체로 만든다.
+
+- `job_category`
+- `roles`
+- `required_skills`
+- `related_skills`
+- `skill_signals`
+- `capability_signals`
+- `seniority_hint`
+- `filters`
+- `metadata_filters`
+- `query_text_for_embedding`
+- `lexical_query`
+- `semantic_query_expansion`
+- `signal_quality`
+- `confidence`
+- `fallback_used`
+- `fallback_reason`
+- `fallback_rationale`
+- `fallback_trigger`
+
+예시:
+
+```json
+{
+  "job_category": "backend engineer",
+  "roles": ["backend engineer", "integration/service engineer"],
+  "required_skills": ["python", "api", "microservices"],
+  "related_skills": ["docker", "kubernetes", "cloud"],
+  "skill_signals": [{"name": "python", "strength": "must have", "signal_type": "skill"}],
+  "capability_signals": [{"name": "system integration", "strength": "main focus", "signal_type": "capability"}],
+  "seniority_hint": "mid",
+  "filters": {},
+  "metadata_filters": {},
+  "lexical_query": "backend engineer python api microservices",
+  "semantic_query_expansion": ["backend engineer", "integration/service engineer", "cloud deployment"],
+  "query_text_for_embedding": "backend engineer api microservices cloud deployment",
+  "signal_quality": {"total_signals": 8, "unknown_ratio": 0.125},
+  "confidence": 0.86,
+  "fallback_used": true,
+  "fallback_reason": "low_confidence",
+  "fallback_rationale": "deterministic extraction had sparse role signals",
+  "fallback_trigger": {"confidence": 0.41, "unknown_ratio": 0.67, "llm_model": "gpt-4.1-mini"}
+}
 ```
 
----
+이 Query 객체는 retrieval, agent evaluation, ranking explanation의 공통 컨텍스트로 사용한다.
+
+## 현재 구현 상태
+
+| 항목 | 상태 | 메모 |
+|------|------|------|
+| Offline ingestion / normalization | Implemented | `src/backend/services/ingest_resumes.py` 기반으로 MongoDB + Milvus 적재 |
+| Deterministic query understanding | Implemented v3 baseline | ontology-aligned role/skill/capability normalization + 저신뢰 구간 constrained LLM fallback + `query_profile` 확장 필드 제공 |
+| Hybrid retrieval | Implemented v2 baseline | `src/backend/repositories/hybrid_retriever.py`에서 vector + keyword + metadata fusion score 기반 shortlist 생성 |
+| Multi-agent evaluation | Implemented baseline | Skill / Experience / Technical / Culture agent 계약 및 heuristic/live orchestration 존재 |
+| Recruiter / Hiring Manager weight proposal | Implemented baseline | `WeightNegotiationAgent`와 orchestration 경로 존재 |
+| Explainable recommendation | Implemented v2 baseline | `possible_gaps`, `weighting_summary`, `relevant_experience`를 API 응답과 UI에서 확인 가능 |
+| DeepEval / LLM-as-Judge | Partial | `src/eval/` 골격 존재, 실행 결과 문서화와 rubric 확장 필요 |
+| Bias guardrails | Planned | 민감속성 금지, explanation auditing, fairness metrics는 문서화 후 구현 필요 |
 
 ## 기술 스택
 
 | 구분 | 선택 |
 |------|------|
-| Backend | Python 3.11+, FastAPI, Uvicorn |
-| Agent | OpenAI Agents SDK |
-| Embedding | OpenAI `OPENAI_EMBEDDING_MODEL` (default: `text-embedding-3-small`) |
+| Backend | Python 3.10+, FastAPI, Uvicorn |
+| Agents / LLM | OpenAI Agents SDK, OpenAI Chat / Embedding API |
 | Vector DB | Milvus |
 | Document DB | MongoDB 7 |
-| Evaluation | DeepEval + LangSmith |
-| Frontend | Vite + React + TypeScript |
-| 컨테이너 | Docker Compose |
-
-### Embedding 모델 선택 이유 (`text-embedding-3-small`)
-
-- capstone 범위에서 **비용/응답속도/구현 안정성**을 우선하기 위해 small을 기본값으로 채택했습니다.
-- 현재 파이프라인은 deterministic scoring breakdown을 함께 제공하므로, baseline 품질 대비 운영 효율이 중요했습니다.
-- 정확도 개선이 필요하면 `OPENAI_EMBEDDING_MODEL` 환경변수만 변경해 `text-embedding-3-large`로 확장할 수 있게 설계했습니다.
-
----
+| Evaluation | DeepEval, LLM-as-Judge, LangSmith |
+| Frontend | React, Vite, TypeScript |
+| Infra | Docker Compose |
 
 ## 빠른 시작
 
 ### 1. 환경 변수 설정
 
 ```bash
-# .env 파일을 생성/수정하고 OPENAI_API_KEY, MONGODB_URI, MILVUS_URI 등을 설정합니다
+# .env 파일에 OPENAI_API_KEY, MONGODB_URI, MILVUS_URI 등을 설정합니다.
 ```
 
-### 2. Docker Compose로 전체 기동 (Frontend + Backend + Infra)
+### 2. Docker Compose 기동
 
 ```bash
 docker compose up -d --build
@@ -65,243 +176,85 @@ docker compose up -d --build
 - Frontend: http://localhost
 - Backend API: http://localhost:8000/docs
 
-컨테이너 내부 연결은 서비스 DNS를 사용합니다.
-
-- MongoDB: `DOCKER_MONGODB_URI` (default: `mongodb://admin:admin123@mongodb:27017/resume_matching?authSource=admin`)
-- Milvus: `DOCKER_MILVUS_URI` (default: `http://milvus:19530`)
-
-로컬 실행용 `.env`에 `MONGODB_URI=...localhost...`, `MILVUS_URI=...localhost...`가 있어도,
-`docker compose`에서는 위 `DOCKER_*` 값이 우선 적용됩니다.
-
-기본 Compose 설정은 응답 속도를 위해 `OPENAI_AGENT_LIVE_MODE=false`입니다.
-LLM 실호출 기반 agent scoring을 쓰려면 `.env`에 `OPENAI_AGENT_LIVE_MODE=true`를 지정하세요.
-
-필요 시 인프라만 먼저 기동하려면:
-
-```bash
-docker compose up -d mongodb etcd minio milvus
-```
-
 ### 3. Python 환경 설정
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate       # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Resume 데이터 Ingestion
-
-Kaggle 데이터셋을 `data/` 디렉토리에 배치한 후:
+### 3-1. 로컬 테스트 (.venv 활성화 필수)
 
 ```bash
-# Step 1: MongoDB에 적재 (full dataset)
+source .venv/bin/activate
+./scripts/run_local_tests.sh
+```
+
+### 3-2. Query Fallback 임계치 (선택)
+
+```bash
+export QUERY_FALLBACK_ENABLED=true
+export QUERY_FALLBACK_CONFIDENCE_THRESHOLD=0.62
+export QUERY_FALLBACK_UNKNOWN_RATIO_THRESHOLD=0.55
+export QUERY_FALLBACK_MODEL=gpt-4.1-mini
+```
+
+### 3-3. Cross-Encoder Rerank (선택)
+
+```bash
+export RERANK_ENABLED=true
+export RERANK_TOP_N=50
+export RERANK_MODEL=gpt-4.1-mini
+```
+
+### 4. Resume Ingestion
+
+```bash
 PYTHONPATH=src python src/backend/services/ingest_resumes.py \
   --source all --target mongo --parser-mode hybrid
 
-# Step 2: Milvus에 임베딩 적재 (MongoDB 데이터 활용)
 PYTHONPATH=src python src/backend/services/ingest_resumes.py \
   --source all --target milvus --milvus-from-mongo --force-reembed
 ```
 
-| 옵션 | 설명 |
-|------|------|
-| `--source` | `sneha` / `suri` / `all` |
-| `--target` | `mongo` / `milvus` / `all` |
-| `--milvus-from-mongo` | Milvus 적재 시 MongoDB에서 읽음 |
-| `--sneha-limit` | Sneha 데이터셋 행 수 제한 |
-| `--suri-limit` | Suri 데이터셋 사람 수 제한 |
-
-### Ontology Runtime Config (운영 기준)
-
-Ingestion 런타임은 아래 파일을 최종 기준으로 사용합니다.
-
-- `config/skill_aliases.yml`
-- `config/skill_taxonomy.yml`
-- `config/skill_role_candidates.yml`
-- `config/versioned_skills.yml`
-- `config/skill_capability_phrases.yml`
-- `config/skill_review_required.yml`
-
-초안/이력 파일은 `docs/ontology/`에 보관합니다.
-
-### Clean Rebuild 가이드 (MongoDB + Milvus)
-
-정규화/스키마/임베딩 버전 변경 후에는 clean rebuild를 권장합니다.
-
-```bash
-# 1) Mongo candidates 컬렉션 드롭
-mongosh "mongodb://admin:admin123@localhost:27017/resume_matching?authSource=admin" --eval 'db.candidates.drop()'
-
-# 2) Mongo + Milvus 일괄 재적재
-PYTHONPATH=src python src/backend/services/ingest_resumes.py \
-  --source all --target all \
-  --force-mongo-upsert --force-reembed
-```
-
-### 5. API 서버 로컬 기동(선택)
+### 5. API 서버 실행
 
 ```bash
 PYTHONPATH=src uvicorn backend.main:app --reload --port 8000
 ```
 
-Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
+### 6. Backend 컨테이너 Python 버전 (3.10)
 
----
-
-## 발표/심사용 문서
-
-평가자가 먼저 확인할 가능성이 높은 핵심 문서는 아래 기준으로 관리합니다.
-
-| 항목 | 문서 |
-|------|------|
-| README / 실행 방법 / 폴더 구조 | `README.md` |
-| 시스템 아키텍처 | `docs/architecture/system-architecture.md` |
-| 데이터 흐름 | `docs/data-flow/ingestion-flow.md` |
-| 주요 설계 결정 / trade-off / justification | `docs/adr/DECISIONS.md` |
-| 요구사항 추적 / 체크리스트 | `docs/governance/TRACEABILITY.md`, `docs/Reviewer_Checklist.md` |
-
-`docs/adr/DECISIONS.md`에는 구현 중 발생한 핵심 의사결정을 계속 누적 기록합니다.  
-특히 아래 항목은 결정이 생길 때마다 바로 남겨두는 것을 기준으로 합니다.
-
-- 아키텍처 선택과 대안 비교
-- 데이터 처리 방식과 validation 전략
-- 모델/프롬프트/평가 방식 선택 이유
-- 비용, 성능, 운영 복잡도 관련 trade-off
-- guardrail, fallback, resilience 설계
-
----
-
-## 데이터셋 구조
-
-`data/` 디렉토리에 아래 구조로 배치합니다:
-
-```
-data/
-├── snehaanbhawal/
-│   └── resume-dataset/
-│       └── Resume.csv          # ID, Resume_str, Category
-└── suriyaganesh/
-    └── resume-dataset-structured/
-        ├── 01_people.csv
-        ├── 02_abilities.csv
-        ├── 03_education.csv
-        ├── 04_experience.csv
-        └── 05_person_skills.csv
+```bash
+docker compose build backend
+docker compose up -d backend
+docker compose exec -T backend python -V
 ```
 
----
-
-## 주요 API 엔드포인트
+## 주요 API
 
 | Method | Path | 설명 |
 |--------|------|------|
-| `POST` | `/api/ingestion/resumes` | Resume 데이터셋 ingestion 트리거 |
-| `POST` | `/api/jobs` | Job 등록 |
-| `POST` | `/api/jobs/match` | 매칭 요청 → Top-K 후보 + 점수 + 설명 |
-| `GET` | `/api/health` | Mongo·Milvus·OpenAI 상태 체크 |
+| `POST` | `/api/jobs/match` | JD 입력으로 Top-K 후보 매칭 |
+| `GET` | `/api/candidates/{candidate_id}` | 후보 상세 조회 |
+| `GET` | `/api/health` | Mongo / Milvus / OpenAI 상태 확인 |
 | `GET` | `/api/ready` | 서비스 준비 상태 확인 |
 
-### 예시 요청 — 매칭
-
-```bash
-curl -X POST http://localhost:8000/api/jobs/match \
-  -H "Content-Type: application/json" \
-  -d '{
-    "job_description": "We are looking for a senior data scientist with 5+ years of experience in Python, machine learning, and SQL. Experience with cloud platforms (AWS/GCP) preferred.",
-    "top_k": 5,
-    "filters": {
-      "experience_level": "senior",
-      "category": "Data Science"
-    }
-  }'
-```
-
-### 예시 응답
-
-> **Note**: 아래는 **현재 구현된 deterministic scoring** 기반의 응답입니다. `Multi-Agent scoring`과 `explanation` 필드는 Phase 2에서 구현 예정입니다.
-
-```json
-[
-  {
-    "candidate_id": "sneha-16852973",
-    "category": "INFORMATION-TECHNOLOGY",
-    "summary": "Software engineer with 6 years of experience in Python and machine learning.",
-    "skills": ["python", "machine learning", "sql", "aws"],
-    "core_skills": ["information technology", "python", "machine learning", "sql", "aws"],
-    "expanded_skills": ["information technology", "technology", "programming", "python", "backend"],
-    "experience_years": 6.5,
-    "seniority_level": "senior",
-    "score": 0.8240,
-    "vector_score": 0.7812,
-    "skill_overlap": 0.6500,
-    "score_detail": {
-      "semantic_similarity": 0.8812,
-      "experience_fit": 1.0,
-      "seniority_fit": 1.0,
-      "category_fit": 0.0
-    },
-    "skill_overlap_detail": {
-      "core_overlap": 0.6667,
-      "expanded_overlap": 0.5000,
-      "normalized_overlap": 0.6667
-    }
-  }
-]
-```
-
----
-
-## 프로젝트 구조
-
-```
-resume-matching-pj/
-├── config/                # Skill taxonomy / alias / runtime normalization 설정
-├── data/                  # Kaggle 데이터셋 원본 및 적재 입력
-├── docs/
-│   ├── adr/               # Architecture Decision Records
-│   ├── architecture/      # 시스템 아키텍처
-│   ├── data-flow/         # 현재 구현된 ingestion flow
-│   ├── governance/        # AGENT.md, PLAN.md, TRACEABILITY.md, DESIGN_DOCTRINE.md
-│   ├── ontology/          # Ontology 분석/정제 초안 및 버전 이력
-│   ├── Reviewer_Checklist.md
-│   ├── ingestion_normalization_design.md
-│   └── scoring_design.md
-├── requirements/          # 문제정의 및 요구사항 문서
-├── scripts/               # Ontology 분석/정제 보조 스크립트
-├── src/
-│   └── backend/
-│       ├── api/           # FastAPI 라우터
-│       ├── core/          # 설정, DB 클라이언트, startup, vector store
-│       ├── repositories/  # Mongo 조회 래퍼
-│       ├── schemas/       # Pydantic 모델
-│       └── services/      # ingestion, parsing, matching, scoring, ontology
-├── tests/                 # pytest 테스트
-├── test_api.py            # API 스모크 테스트 스크립트
-├── docker-compose.yml
-├── requirements.txt
-├── pytest.ini
-└── README.md
-```
-
-### 현재 구현 상태 메모
-
-- 위 트리는 **현재 저장소에 실제 존재하는 폴더/파일 기준**입니다.
-- `src/agents/`, `src/eval/`, `src/frontend/`, `src/ops/`, `docs/eval/`, `.env.example`는 아직 생성되지 않았습니다.
-- Multi-Agent, 평가 전용 디렉토리, 프론트엔드 확장은 **Phase 2 이후 목표 범위**로 관리합니다.
-
----
-
-## 문서 링크
+## 문서 진입점
 
 | 문서 | 경로 |
 |------|------|
-| 요구사항 | [requirements/requirements.md](requirements/requirements.md) |
 | 시스템 아키텍처 | [docs/architecture/system-architecture.md](docs/architecture/system-architecture.md) |
-| Ingestion Flow | [docs/data-flow/ingestion-flow.md](docs/data-flow/ingestion-flow.md) |
-| Traceability Matrix | [docs/governance/TRACEABILITY.md](docs/governance/TRACEABILITY.md) |
-| Design Doctrine | [docs/governance/DESIGN_DOCTRINE.md](docs/governance/DESIGN_DOCTRINE.md) |
-| Design Decision Matrix | [docs/governance/DESIGN_DECISION_MATRIX.md](docs/governance/DESIGN_DECISION_MATRIX.md) |
-| Known Trade-offs | [docs/governance/KNOWN_TRADEOFFS.md](docs/governance/KNOWN_TRADEOFFS.md) |
-| ADR | [docs/adr/DECISIONS.md](docs/adr/DECISIONS.md) |
-| Agent Guide | [docs/governance/AGENT.md](docs/governance/AGENT.md) |
+| 거버넌스 기준 문서 | [docs/governance/AGENT.md](docs/governance/AGENT.md) |
+| 실행 계획 | [docs/governance/PLAN.md](docs/governance/PLAN.md) |
+| 추적 매트릭스 | [docs/governance/TRACEABILITY.md](docs/governance/TRACEABILITY.md) |
+| 요구사항 | [requirements/requirements.md](requirements/requirements.md) |
+
+## 다음에 해야 할 일
+
+1. query understanding release gate와 fallback 정책을 CI 배포 게이트에 연결한다.
+2. retrieval fusion weight를 직군별로 튜닝하고 offline ranking metric으로 calibration한다.
+3. DeepEval / LLM-as-Judge 결과 artifact를 CI에서 자동 생성해 문서 증거로 누적한다.
+4. Bias guardrails 정책(민감속성 배제, explanation audit, fairness metric)을 코드 경로와 연결한다.
+5. fallback 사용 비율/원인/품질개선 효과 운영 대시보드를 추가한다.

@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     openai_embedding_model: str = Field("text-embedding-3-small", env="OPENAI_EMBEDDING_MODEL")
     openai_agent_model: str = Field("gpt-4.1-mini", env="OPENAI_AGENT_MODEL")
     openai_agent_live_mode: bool = Field(True, env="OPENAI_AGENT_LIVE_MODE")
+    query_fallback_model: str = Field("gpt-4.1-mini", env="QUERY_FALLBACK_MODEL")
+    query_fallback_enabled: bool = Field(True, env="QUERY_FALLBACK_ENABLED")
+    query_fallback_confidence_threshold: float = Field(0.62, env="QUERY_FALLBACK_CONFIDENCE_THRESHOLD")
+    query_fallback_unknown_ratio_threshold: float = Field(0.55, env="QUERY_FALLBACK_UNKNOWN_RATIO_THRESHOLD")
+    rerank_enabled: bool = Field(False, env="RERANK_ENABLED")
+    rerank_model: str = Field("gpt-4.1-mini", env="RERANK_MODEL")
+    rerank_top_n: int = Field(50, env="RERANK_TOP_N")
 
     # Mongo
     mongodb_uri: str = Field(..., env="MONGODB_URI")

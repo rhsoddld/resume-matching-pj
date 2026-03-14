@@ -177,13 +177,18 @@ def search_embeddings(
     query_vector: List[float],
     top_k: int = 10,
     category: str | None = None,
+    min_experience_years: float | None = None,
 ) -> list[dict]:
     alias = _next_alias()
     collection = _get_or_create_collection(using=alias)
     _ensure_collection_loaded(collection, alias=alias)
-    expr = ""
+    filters: list[str] = []
     if category:
-        expr = f'category == "{category}"'
+        escaped_category = category.replace("\\", "\\\\").replace('"', '\\"')
+        filters.append(f'category == "{escaped_category}"')
+    if min_experience_years is not None:
+        filters.append(f"experience_years >= {float(min_experience_years)}")
+    expr = " and ".join(filters)
     results = collection.search(
         data=[query_vector],
         anns_field="embedding",

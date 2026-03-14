@@ -2,13 +2,14 @@ import { useState } from "react";
 import { matchCandidates } from "./api/match";
 import MatchForm from "./components/MatchForm";
 import ResultCard from "./components/ResultCard";
-import type { JobMatchCandidate, JobMatchRequest } from "./types";
+import type { JobMatchCandidate, JobMatchRequest, QueryUnderstandingProfile } from "./types";
 
 export default function App() {
   const [results, setResults] = useState<JobMatchCandidate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [queryProfile, setQueryProfile] = useState<QueryUnderstandingProfile | null>(null);
 
   async function handleSubmit(request: JobMatchRequest) {
     setIsLoading(true);
@@ -17,9 +18,11 @@ export default function App() {
 
     try {
       const response = await matchCandidates(request);
+      setQueryProfile(response.query_profile);
       setResults(response.matches);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error occurred");
+      setQueryProfile(null);
       setResults([]);
     } finally {
       setIsLoading(false);
@@ -67,6 +70,85 @@ export default function App() {
         {/* ── Results ── */}
         {!isLoading && hasSearched && (
           <section className="results-section">
+            {queryProfile && (
+              <article className="query-profile-card">
+                <div className="query-profile-header">
+                  <h3>Structured Query Profile</h3>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <span className="query-confidence-badge">
+                      Confidence {Math.round((queryProfile.confidence ?? 0) * 100)}%
+                    </span>
+                    {queryProfile.fallback_used && (
+                      <span className="query-confidence-badge">
+                        LLM Fallback Applied
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="query-confidence-track">
+                  <div
+                    className="query-confidence-fill"
+                    style={{ width: `${Math.round((queryProfile.confidence ?? 0) * 100)}%` }}
+                  />
+                </div>
+                <div className="query-profile-grid">
+                  <div>
+                    <span className="query-key">Job Category</span>
+                    <span className="query-val">{queryProfile.job_category || "Not inferred"}</span>
+                  </div>
+                  <div>
+                    <span className="query-key">Seniority Hint</span>
+                    <span className="query-val">{queryProfile.seniority_hint || "Not inferred"}</span>
+                  </div>
+                  <div>
+                    <span className="query-key">Signal Quality</span>
+                    <span className="query-val">
+                      unknown ratio: {Math.round(Number(queryProfile.signal_quality?.unknown_ratio ?? 0) * 100)}%
+                    </span>
+                  </div>
+                </div>
+                {queryProfile.roles?.length > 0 && (
+                  <div className="query-chip-row">
+                    {queryProfile.roles.map((role) => (
+                      <span key={`role-${role}`} className="query-chip query-chip-primary">
+                        role: {role}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="query-chip-row">
+                  {queryProfile.skill_signals.map((skill) => (
+                    <span key={`req-${skill.name}`} className="query-chip query-chip-primary">
+                      {skill.strength}: {skill.name}
+                    </span>
+                  ))}
+                  {queryProfile.capability_signals.map((cap) => (
+                    <span key={`cap-${cap.name}`} className="query-chip">
+                      {cap.strength}: {cap.name}
+                    </span>
+                  ))}
+                  {queryProfile.related_skills.map((skill) => (
+                    <span key={`rel-${skill}`} className="query-chip">
+                      related: {skill}
+                    </span>
+                  ))}
+                </div>
+                {queryProfile.lexical_query && (
+                  <p className="query-embedding-text">
+                    <strong>Lexical Query:</strong> {queryProfile.lexical_query}
+                  </p>
+                )}
+                {queryProfile.fallback_used && (
+                  <p className="query-embedding-text">
+                    <strong>Fallback Reason:</strong> {queryProfile.fallback_reason || "quality gate trigger"}
+                    {queryProfile.fallback_rationale ? ` · ${queryProfile.fallback_rationale}` : ""}
+                  </p>
+                )}
+                <p className="query-embedding-text">
+                  <strong>Semantic Query:</strong> {queryProfile.query_text_for_embedding}
+                </p>
+              </article>
+            )}
             {results.length > 0 ? (
               <>
                 <div className="results-header">

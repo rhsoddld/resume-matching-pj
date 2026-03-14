@@ -1,208 +1,140 @@
 # AGENT.md — AI Resume Matching System
 
----
-
 ## Mission
 
-AI-powered Resume Intelligence & Candidate Matching 시스템을 **Python + FastAPI + MongoDB + Milvus + OpenAI Agents SDK**로 구현하고, LangSmith + DeepEval 기반 평가/관측을 포함한 FDE 스타일 결과물을 낸다.
+AI-powered Resume Intelligence & Candidate Matching 시스템을 다음 원칙으로 구현하고 문서화한다.
 
----
+- deterministic ingestion pipeline
+- deterministic query understanding
+- hybrid retrieval
+- multi-agent evaluation
+- agent-to-agent weight negotiation
+- explainable ranking
+- DeepEval / LLM-as-Judge / Bias guardrails
 
-## Documentation Discipline
+문서의 목적은 “현재 코드가 어디까지 왔는지”와 “최종적으로 어떤 시스템을 만들 것인지”를 동시에 명확하게 유지하는 것이다.
 
-발표 직전에 한 번에 정리하지 않도록, 아래 항목은 작업 중 결정되는 즉시 문서에 반영한다.
+## Canonical Documentation Rules
 
 | 무엇을 기록할까 | 어디에 기록할까 |
 |------|------|
-| 아키텍처/기술 선택, 대안 비교, trade-off | `docs/adr/DECISIONS.md` |
-| 현재 작업 우선순위, 다음 액션, 발표 준비 TODO | `docs/governance/PLAN.md` |
-| 프로젝트 개요, 실행 방법, 폴더 구조, 심사용 문서 진입점 | `README.md` |
-| 엔지니어링 개발 순서, 설계 원칙, 신뢰성 기준 | `docs/governance/ENGINEERING_DOCTRINE.md` |
-| 레포 구조, 계층 책임, 문서 배치 규칙 | `docs/governance/REPO_STRUCTURE_RULES.md` |
-| 코드 스타일, 네이밍, 로깅, 타입 힌트 규칙 | `docs/governance/CODING_STYLE_GUIDE.md` |
+| 목표 아키텍처, 레이어 책임, 데이터 흐름 | `docs/architecture/system-architecture.md` |
+| 현재 실행 계획, 다음 우선순위, 미구현 항목 | `docs/governance/PLAN.md` |
+| 요구사항과 구현/평가 증거 연결 | `docs/governance/TRACEABILITY.md` |
+| 실행 방법, 진입점, 구현 상태 요약 | `README.md` |
+| 설계 결정과 trade-off | `docs/adr/DECISIONS.md` |
 
-## Governance References
+새 결정이 생기면 나중에 한 번에 정리하지 말고, 결정 시점에 바로 문서화한다.
 
-- Canonical entry: `docs/governance/AGENT.md`
-- 행동 기준 문서:
-  - `docs/governance/ENGINEERING_DOCTRINE.md` (개발 순서/설계 원칙)
-  - `docs/governance/REPO_STRUCTURE_RULES.md` (폴더/레이어 구조 규칙)
-  - `docs/governance/CODING_STYLE_GUIDE.md` (코드 작성 규칙)
-- 우선순위 규칙: 실행 우선순위와 일정은 `docs/governance/PLAN.md`, 엔지니어링 규범은 각 Doctrine/Rules 문서를 따른다.
+## 시스템 계약
 
-### 반드시 남길 Key Decision 포인트
+### 1. Offline Layer
 
-- 왜 이 구조를 선택했는가
-- 어떤 대안을 검토했고 왜 제외했는가
-- 비용/성능/정확도/운영성 trade-off는 무엇인가
-- fallback, validation, resilience는 어떻게 설계했는가
-- 평가(quality/eval) 방식과 그 이유는 무엇인가
+- 입력은 PDF / CSV / Text 이력서 데이터셋이다.
+- parsing / normalization은 deterministic pipeline으로 수행한다.
+- 결과는 MongoDB candidate profile과 Milvus candidate embedding으로 분리 저장한다.
 
-### 작업 원칙
+### 2. Query Understanding Layer
 
-- 구현 중 "이건 나중에 설명해야 할 것 같다" 싶으면 바로 `DECISIONS.md`에 남긴다.
-- 문서 내용은 실제 코드/폴더 구조와 반드시 동기화한다.
-- 발표 필수 아티팩트(README, architecture, data flow, decisions)는 항상 최신 상태로 유지한다.
+- Recruiter Job Description은 deterministic query understanding layer에서 구조화된다.
+- 이 단계는 LLM agent가 아니다.
+- 최소 출력 계약:
+  - `job_category`
+  - `roles`
+  - `required_skills`
+  - `related_skills`
+  - `skill_signals`
+  - `capability_signals`
+  - `seniority_hint`
+  - `filters`
+  - `metadata_filters`
+  - `query_text_for_embedding`
+  - `lexical_query`
+  - `semantic_query_expansion`
+  - `signal_quality`
+  - `confidence`
+  - `fallback_used`
+  - `fallback_reason`
+  - `fallback_rationale`
+  - `fallback_trigger`
 
----
+### 3. Retrieval Layer
 
-## Parsing Strategy (핵심 결정)
+- retrieval은 아래 세 경로의 hybrid 전략을 따른다.
+  - semantic vector search
+  - keyword search
+  - metadata filtering
+- 산출물은 top-K candidate shortlist다.
 
-| 시점 | 파싱 방법 | LLM 사용 |
-|------|---------|--------|
-| **Ingestion (오프라인, 1회)** | rule-based (regex + spaCy) | ❌ 사용 안 함 |
-| **Embedding (인덱싱 단계)** | `embedding_text`를 벡터화하여 Milvus 적재 | ✅ 사용 (Embedding API만) |
-| **RAG Pipeline (매칭 요청 시)** | 구조화 필드 우선 사용. null 필드가 있을 경우 raw_text를 컨텍스트에 포함시켜 Agent가 job description과 함께 판단 | ✅ scoring/explanation에만 |
+### 4. Evaluation Layer
 
-> `ResumeParsingAgent`는 **독립 파싱 Agent로 운용하지 않음**.  
-> 파싱이 불완전한 경우 RAG pipeline에서 raw_text를 컨텍스트로 제공하고, 각 Agent가 자신의 판단에 필요한 범위만 추출.
-> 단, 벡터 검색 품질을 위한 **임베딩 API 호출은 허용**한다(파싱 목적 LLM 호출과 분리).
+후보 shortlist는 아래 4개 agent로 평가한다.
 
----
+- SkillMatchingAgent
+- ExperienceEvaluationAgent
+- TechnicalEvaluationAgent
+- CultureFitAgent
 
-## Current Retrieval Standard (고정안)
+각 agent는 `Evaluation Score Pack`에 자신의 점수와 근거를 남긴다.
 
-`Job Description`  
-→ `OpenAI embedding (OPENAI_EMBEDDING_MODEL, default text-embedding-3-small)`  
-→ `Milvus vector search`  
-→ `Mongo batch enrichment`  
-→ `Deterministic scoring`  
-→ `Top-K response`
+### 5. Negotiation and Ranking Layer
 
-- 이 고정안은 capstone 범위에서 **비용/속도/구현 단순성**을 우선한 기준이다.
-- embedding 기본 모델을 `text-embedding-3-small`로 둔 이유는 대량 재임베딩/반복 실험 시 비용과 지연을 안정적으로 관리하기 위해서다.
-- retrieval / enrichment / scoring 역할을 분리하고, deterministic scoring은 explainable ranking의 핵심 레이어로 유지한다.
-- 정확도 상향이 필요하면 `OPENAI_EMBEDDING_MODEL=text-embedding-3-large`로 즉시 전환 가능하다.
-- BM25/hybrid merge/rerank는 후속 Phase 확장 항목으로 관리한다.
+- RecruiterAgent와 HiringManagerAgent는 서로 다른 관점의 weight proposal을 만든다.
+- WeightNegotiationAgent는 이를 통합해 최종 ranking weight를 만든다.
+- Ranking Engine은 negotiated weight를 적용해 final score를 계산한다.
 
----
+### 6. Explainability and Guardrails
 
-## Structure Choices
+최종 응답은 아래를 포함하는 explainable recommendation이어야 한다.
 
-| 레이어 | 선택 | 핵심 이유 |
-|-------|------|---------|
-| **Backend** | FastAPI + Layered Architecture (`api → services → repositories → core/schemas`) | 계층 분리로 테스트 및 교체 용이 |
-| **Data Store** | MongoDB (도메인 데이터) + Milvus (벡터 인덱스) | 역할 분리, Milvus → FAISS/Chroma 교체 가능한 abstraction 레이어 포함 |
-| **Agent Framework** | OpenAI Agents SDK (Orchestrator + Skill/Exp/Tech/Culture/Ranking + Recruiter/HiringManager A2A) | SDK 표준 패턴 + A2A 가중치 조정 |
-| **Evaluation** | DeepEval (LLM-as-Judge) + LangSmith (runs/datasets/experiments) | 재현성·회귀 분석·자동 품질 루프 |
-| **Frontend** | Vite + React + TypeScript 단일 페이지 | 최소 데모 UI, 백엔드 독립 동작 |
+- final score
+- per-dimension score
+- matched skills
+- relevant experience
+- technical strengths
+- possible gaps
+- weighting summary
 
----
+품질 검증은 DeepEval, LLM-as-Judge, Bias guardrails를 기준으로 확장한다.
 
-## Fixed Contracts
+## 현재 저장소 해석 기준
 
-### 데이터셋
+| 목표 요소 | 현재 상태 | 기준 경로 |
+|----------|----------|----------|
+| Offline ingestion / normalization | 구현됨 | `src/backend/services/ingest_resumes.py` |
+| Deterministic query understanding | v3 baseline 구현 | `src/backend/services/job_profile_extractor.py`, `src/backend/services/matching_service.py`, `src/backend/services/query_fallback_service.py` |
+| Hybrid retrieval | baseline 구현 | `src/backend/repositories/hybrid_retriever.py` |
+| 4-agent evaluation | baseline 구현 | `src/agents/`, `src/backend/services/agent_orchestration_service.py` |
+| Recruiter / Hiring Manager weight negotiation | baseline 구현 | `src/agents/weight_negotiation_agent.py` |
+| Explainable ranking output | baseline 구현 | `src/backend/services/match_result_builder.py`, `src/frontend/src/components/ResultCard.tsx` |
+| DeepEval / LLM-as-Judge | 부분 구현 | `src/eval/` |
+| Bias guardrails | 미구현 | future work |
 
-| 구분 | 데이터셋 | 역할 |
-|------|---------|------|
-| Primary | `snehaanbhawal/resume-dataset` (`ID`, `Resume_str`, `Category`) | 주요 검색·매칭 코퍼스 |
-| Supplementary | `suriyaganesh/resume-dataset-structured` | 구조화 필드 enrichment 레퍼런스 |
+문서에서는 이 상태를 `Implemented`, `Partial`, `Planned`로 일관되게 표시한다.
 
-### Core APIs
+## 작업 원칙
 
-| Method | Endpoint | 설명 |
-|--------|----------|------|
-| `POST` | `/api/ingestion/resumes` | Resume 데이터셋 ingestion |
-| `POST` | `/api/jobs` | Job 등록 |
-| `POST` | `/api/jobs/match` | 매칭 요청 |
-| `GET` | `/api/health` | Mongo·Milvus·OpenAI 상태 체크 |
-| `GET` | `/api/ready` | Readiness 체크 |
+1. Query Understanding은 deterministic layer로 유지한다.
+2. 평가 agent는 shortlist 이후에만 사용하고 retrieval 전 단계로 확장하지 않는다.
+3. ranking은 언제나 explainable output을 반환해야 한다.
+4. 편향 가능성이 있는 속성은 scoring 근거에서 제외한다.
+5. README, architecture, traceability는 서로 같은 상태 값을 사용한다.
 
-### Core Collections
+## 현재 우선순위
 
-| Store | Collection | 설명 |
-|-------|-----------|------|
-| MongoDB | `candidates` | 후보자 도메인 데이터 |
-| MongoDB | `jobs` | Job description 및 파싱 결과 |
-| MongoDB | `match_results` | 매칭 결과 + 점수 + 설명 |
-| Milvus | `candidate_embeddings` | 후보자 임베딩 벡터 |
+1. ontology 기반 role/skill/capability 추출 품질 release gate를 CI에 연결하고 실패 시 배포 차단 정책을 고정
+2. fusion retrieval 가중치 실험 및 calibration
+3. DeepEval / LLM-as-Judge 평가 루프 정리
+4. Bias guardrails와 fairness metric 문서화 및 구현
+5. reviewer demo 시나리오와 evidence 패키지 고정
 
----
+## Reviewer Focus
 
-## Active Scope
+Reviewer가 이 저장소를 볼 때 바로 확인할 수 있어야 하는 질문은 아래와 같다.
 
-- **Requirement 1 (Must)**: R1.1–R1.6 기본 매칭 + FastAPI 엔드포인트 구현.
-- **Requirement 2 (Should)**: Multi-Agent scoring (SkillMatching · ExperienceEval · TechnicalEval · CultureFit · Ranking) · Hybrid retrieval · A2A weight negotiation. **ResumeParsingAgent 제외** (ingestion 시 rule-based 처리로 대체).
-- **Requirement 3 (Should)**: DeepEval 평가 + LangSmith 추적 + golden set.
-- **Requirement 4 (Should)**: React/Vite 데모 UI.
-- **Requirement 5 (Must)**: README · 아키텍처 다이어그램 · TRACEABILITY · Reviewer Checklist.
-
----
-
-## Progress Snapshot
-
-| Phase | 설명 | Status |
-|-------|------|--------|
-| Phase 0 | Scope & Contracts | ✅ Done |
-| Phase 1 | Happy Path (Ingestion + 기본 매칭 API + 최소 UI) | ✅ Done |
-| Phase 2 | Multi-Agent & Hybrid Retrieval | ✅ Done |
-| Phase 3 | Evaluation & Observability | 🔄 In Progress |
-| Phase 4 | Reviewer Layer & Polish | ⬜ Pending |
-
-**Legend**: ✅ Done · 🔄 In Progress · ⬜ Pending
-
-### Phase 1 세부 현황 (2026-03-13)
-
-| 항목 | 상태 | 증거 |
-|------|------|------|
-| MongoDB Ingestion (5,484건) | ✅ 완료 | `ingest_resumes.py` |
-| Normalization v6 (norm-v6-substring) | ✅ 완료 | `core_skills empty 0.5% (25건)` |
-| Skill Taxonomy v5 (260+항목) | ✅ 완료 | `config/skill_taxonomy.yml` |
-| Skill Alias 확장 (11개 canonical merge) | ✅ 완료 | `config/skill_aliases.yml` |
-| Sneha category → core_skills inject | ✅ 완료 | Sneha empty 0.0% |
-| Substring matching (ex. `sql server 2012`→`sql server`) | ✅ 완료 | `skill_ontology.py` |
-| Milvus 벡터 적재 | ✅ 완료 | `ingest_complete: seen=5484, embedded=5484, embed_skipped=0` |
-| 기본 매칭 API (`POST /api/jobs/match`) | ✅ E2E/API 통합 테스트 완료 | `matching_service.py`, `tests/test_api_endpoints.py` |
-| Readiness 엔드포인트 (`GET /api/ready`) | ✅ 구현 완료 | `src/backend/main.py` |
-| Deterministic scoring | ✅ 완료 | `scoring_service.py` |
-| 테스트 스위트 (18개) | ✅ Pass | `python -m pytest -q` |
-
-> **Phase 1 게이트 통과**: `/api/jobs/match` E2E와 `/api/ready` readiness 계약을 코드/테스트 기준으로 고정.
-
-### Phase 2 착수 현황 (2026-03-13)
-
-| 항목 | 상태 | 증거 |
-|------|------|------|
-| Agent I/O 계약 스캐폴드 (Orchestrator/Skill/Experience/Technical/Culture/Ranking) | ✅ 완료 | `src/agents/*.py` |
-| MatchingService ↔ AgentOrchestrationService 어댑터 연결 | ✅ 완료 | `src/backend/services/agent_orchestration_service.py`, `src/backend/services/matching_service.py` |
-| 매칭 응답 스키마에 agent score/explanation 필드 추가 | ✅ 완료 | `src/backend/schemas/job.py`, `src/backend/services/match_result_builder.py` |
-| Agent 계약 테스트 | ✅ 완료 | `tests/test_agent_io_contracts.py`, `tests/test_agent_orchestration_service.py` |
-| Hybrid retrieval fallback (Milvus/OpenAI 실패 시 Mongo 경로) | ✅ 완료 | `src/backend/repositories/hybrid_retriever.py`, `tests/test_retrieval_fallback.py` |
-| Agent SDK 실호출 연결 + 실패 시 heuristic fallback | ✅ 완료 | `src/backend/services/agent_orchestration_service.py` |
-| A2A(Recruiter/HiringManager) weight negotiation + 최종 가중치 주입 | ✅ 완료 | `src/agents/weight_negotiation_agent.py`, `src/backend/services/agent_orchestration_service.py` |
-| Agent weighted score를 최종 랭킹 정책에 반영 | ✅ 완료 | `src/backend/services/scoring_service.py`, `src/backend/services/match_result_builder.py`, `tests/test_ranking_policy.py` |
-
----
-
-## Next Slice
-
-1. Agent prompt 품질 튜닝 및 호출 비용/지연 측정
-2. A2A negotiation 결과에 대한 정책 실험(직군별 weight profile)
-3. 랭킹 정책 회귀 테스트를 API/E2E 레벨로 확대
-
-### 발표 준비 관점의 병행 체크
-
-4. 새 설계 판단이 생기면 `docs/adr/DECISIONS.md`에 즉시 추가
-5. architecture / data flow / folder structure 문서와 실제 구현의 sync 유지
-6. panel 질문 대비용 trade-off 메모를 누적 정리
-
----
-
-## Do-Not-Touch (for now)
-
-- Milvus 외 다른 벡터 DB로의 즉시 교체 (abstraction 레이어만 준비).
-- 요구사항 외 대규모 UI/대시보드 추가.
-
----
-
-## Evidence Locations
-
-| 문서 유형 | 경로 |
-|---------|------|
-| Requirements | `requirements/requirements.md` |
-| Architecture | `docs/architecture/system-architecture.md` |
-| Data Flow | `docs/data-flow/` |
-| Evaluation Plan & Results | (목표 구조) `docs/eval/` · `src/eval/` |
-| Traceability Matrix | `docs/governance/TRACEABILITY.md` |
-| ADR (Architecture Decision Records) | `docs/adr/` |
-| Known Trade-offs | `docs/governance/KNOWN_TRADEOFFS.md` |
+- JD가 어떻게 deterministic query로 변환되는가
+- hybrid retrieval이 어떤 증거를 결합하는가
+- 4개 evaluation agent의 역할이 어떻게 분리되는가
+- recruiter와 hiring manager의 weight 차이를 어떻게 조정하는가
+- 최종 추천이 왜 explainable한가
+- 품질과 공정성을 어떻게 검증하는가
