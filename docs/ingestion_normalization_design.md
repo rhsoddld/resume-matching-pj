@@ -117,12 +117,12 @@
 
 | 파일 | 역할 | Runtime 사용 |
 |------|------|-------------|
-| `skill_aliases.yml` | alias → canonical 매핑 (11개 merge그룹) | ✅ `skill_ontology.py` |
-| `skill_taxonomy.yml` | core skill taxonomy (260+ 항목 / taxonomy-v5-suri) | ✅ `skill_ontology.py` |
-| `skill_role_candidates.yml` | 역할/직위 후보 토큰 | ✅ `skill_ontology.py` |
-| `skill_capability_phrases.yml` | 업무 행위/운영 문구 | ✅ `skill_ontology.py` |
-| `versioned_skills.yml` | 버전 스킬 raw→canonical 매핑 | ✅ `skill_ontology.py` |
-| `skill_review_required.yml` | 자동 판단 보류 토큰 | ✅ `skill_ontology.py` |
+| `skill_aliases.yml` | alias → canonical 매핑 (11개 merge그룹) | ✅ `skill_ontology/runtime.py` |
+| `skill_taxonomy.yml` | core skill taxonomy (260+ 항목 / taxonomy-v5-suri) | ✅ `skill_ontology/runtime.py` |
+| `skill_role_candidates.yml` | 역할/직위 후보 토큰 | ✅ `skill_ontology/runtime.py` |
+| `skill_capability_phrases.yml` | 업무 행위/운영 문구 | ✅ `skill_ontology/runtime.py` |
+| `versioned_skills.yml` | 버전 스킬 raw→canonical 매핑 | ✅ `skill_ontology/runtime.py` |
+| `skill_review_required.yml` | 자동 판단 보류 토큰 | ✅ `skill_ontology/runtime.py` |
 
 > ⚠️ `skill_taxonomy_refined.yml` 및 `skill_review_required_refined.yml`는 **2026-03-13에 삭제**되었다.
 > 전자는 skill_taxonomy.yml로 통합되었고, 후자는 skill_review_required.yml의 중복이었다.
@@ -145,7 +145,7 @@
 
 ## Substring Matching 설계 (V5 도입)
 
-Core: `skill_ontology.py` `normalize()` 함수 내 2-pass 방식.
+Core: `skill_ontology/runtime.py` `normalize()` 함수 내 2-pass 방식.
 
 ```python
 # Pass 1: exact match

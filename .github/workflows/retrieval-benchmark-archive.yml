@@ -1,0 +1,53 @@
+name: Retrieval Benchmark Archive
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 1 * * 1"
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/benchmark_retrieval.py"
+      - "scripts/generate_retrieval_benchmark_archive.py"
+      - "src/backend/repositories/hybrid_retriever.py"
+      - "src/backend/services/retrieval_service.py"
+      - "src/backend/services/job_profile_extractor.py"
+      - "src/eval/golden_set.jsonl"
+      - "requirements.txt"
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate retrieval benchmark archive
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/generate_retrieval_benchmark_archive.py
+
+      - name: Commit updated retrieval benchmark reports
+        run: |
+          if git diff --quiet -- docs/eval/retrieval-benchmark.json docs/eval/retrieval-benchmark.md; then
+            echo "No retrieval benchmark archive changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/eval/retrieval-benchmark.json docs/eval/retrieval-benchmark.md
+          git commit -m "ci: update retrieval benchmark archive"
+          git push

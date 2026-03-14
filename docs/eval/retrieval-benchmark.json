@@ -1,0 +1,30 @@
+{
+  "generated_at_utc": "2026-03-14 23:36:41",
+  "status": "degraded",
+  "reason": "Benchmark execution failed in CI environment.",
+  "return_code": 1,
+  "summary": {
+    "queries": 0,
+    "total_calls": 0,
+    "successful_calls": 0,
+    "failed_calls": 0,
+    "success_rate": 0.0,
+    "total_returned_candidates": 0,
+    "benchmark_elapsed_sec": 0.0,
+    "successful_call_elapsed_sec_sum": 0.0,
+    "candidates_per_sec": 0.0,
+    "calls_per_sec": 0.0,
+    "latency_ms": {
+      "mean": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    }
+  },
+  "errors": [
+    {
+      "error": "Mongo fallback retrieval failed.\nTraceback (most recent call last):\n  File \"/Users/lee/Desktop/resume-matching-pj/src/backend/repositories/hybrid_retriever.py\", line 161, in _search_keyword_candidates\n    docs = list(get_collection(\"candidates\").find(query, projection).limit(scan_limit))\n  File \"/Users/lee/Desktop/resume-matching-pj/.venv/lib/python3.10/site-packages/pymongo/synchronous/cursor.py\", line 1289, in __next__\n    return self.next()\n  File \"/Users/lee/Desktop/resume-matching-pj/.venv/lib/python3.10/site-packages/pymongo/synchronous/cursor.py\", line 1265, in next\n    if len(self._data) or self._refresh():\n  File \"/Users/lee/Desktop/resume-matching-pj/.venv/lib/python3.10/site-packages/pymongo/synchronous/cursor.py\", line 1213, in _refresh\n    self._send_message(q)\n  File \"/Users/lee/Desktop/resume-matching-pj/.venv/lib/python3.10/site-packages/pymongo/synchronous/cursor.py\", line 1108, in _send_message\n    response = client._run_operation(\n  File \"/Users/lee/Desktop/resume-matching-pj/.venv/lib/python3.10/site-packages/pymongo/_csot.py\", line 125, in csot_wrapper\n    return func(self, *args, **kwargs)\n  File \"/Users/lee/Desktop/resume-matching-pj/.venv/lib/python3.10/site-packages/pymongo/synchronous/mongo_client.py\", line 1938, in _run_operation\n    return self._retryable_read(\n  File \"/Users/lee/Desktop/resume-matching-pj/.venv/lib/python3.10/site-packages/pymongo/synchronous/mongo_client.py\", line 2048, in _retryable_read\n    return self._retry_internal(\n  File \"/Users/lee/Desktop/resume-matching-pj/.venv/lib/python3.10/site-packages/pymongo/_csot.py\", line 125, in csot_wrapper\n    return func(self, *args, **kwargs)\n  File \"/Users/lee/Desktop/resume-matching-pj/.venv/lib/python3.10/site-packages/pymongo/synchronous/mongo_client.py\", line 2014, in _retry_internal\n    ).run()\n  File \"/Users/lee/Desktop/resume-matching-pj/.venv/lib/python3.10/site-packages/pymongo/synchronous/mongo_client.py\", line 2763, in run\n    return self._read() if self._is_read else\n...(truncated)"
+    }
+  ]
+}

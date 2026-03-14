@@ -7,7 +7,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from backend.services.agent_orchestration_service import agent_orchestration_service
+from backend.agents import agent_orchestration_service
 from backend.services.job_profile_extractor import JobProfile
 
 

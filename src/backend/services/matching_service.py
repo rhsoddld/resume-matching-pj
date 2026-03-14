@@ -9,7 +9,7 @@ from backend.core.providers import get_skill_ontology
 from backend.core.settings import settings
 from backend.repositories.hybrid_retriever import HybridRetriever
 from backend.schemas.job import FairnessAudit, FairnessWarning, JobMatchCandidate, JobMatchResponse, QueryUnderstandingProfile
-from backend.services.agent_orchestration_service import agent_orchestration_service
+from backend.agents import agent_orchestration_service
 from backend.services.candidate_enricher import enrich_hits
 from backend.services.cross_encoder_rerank_service import cross_encoder_rerank_service
 from backend.services.job_profile_extractor import JobProfile, QuerySignal, build_job_profile

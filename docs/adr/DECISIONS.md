@@ -274,7 +274,7 @@ RAG + Agent 파이프라인의 품질을 정량적으로 측정하고 변경에 
 
 ### 결정 (Decision)
 - `README.md`와 `PLAN.md`의 폴더 구조는 **현재 저장소에 실제 존재하는 파일/디렉토리 기준**으로 우선 맞춘다.
-- 이후 구조 변경 시에는 실제 디렉터리(`src/domain_agents`, `src/eval`, `src/frontend`, `docs/eval`) 기준으로 문서를 갱신한다.
+- 이후 구조 변경 시에는 실제 디렉터리(`src/backend/agents/contracts`, `src/eval`, `src/frontend`, `docs/eval`) 기준으로 문서를 갱신한다.
 - 심사용 문서는 항상 "현재 구현"과 "향후 확장"을 구분해서 기록한다.
 
 ### 결과 (Consequences)

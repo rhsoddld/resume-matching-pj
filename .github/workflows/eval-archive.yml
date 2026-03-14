@@ -7,7 +7,7 @@ on:
       - main
     paths:
       - "src/eval/**"
-      - "src/domain_agents/culture_agent.py"
+      - "src/backend/agents/contracts/culture_agent.py"
       - "docs/eval/llm_judge_softskill_potential_rubric.md"
       - "scripts/generate_eval_results.py"
       - "requirements.txt"

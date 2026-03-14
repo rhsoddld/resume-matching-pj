@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from typing import Any
 
 from backend.core.database import get_collection
@@ -39,6 +40,12 @@ _INDUSTRY_CATEGORY_MAP = {
 }
 
 
+def _compute_candidates_per_sec(*, candidates: int, elapsed_sec: float) -> float:
+    if elapsed_sec <= 0:
+        return 0.0
+    return float(candidates) / elapsed_sec
+
+
 def _normalize_token(value: str | None) -> str:
     if not isinstance(value, str):
         return ""
@@ -67,6 +74,7 @@ class HybridRetriever:
         category: str | None,
         min_experience_years: float | None = None,
     ) -> list[dict[str, Any]]:
+        started_at = time.perf_counter()
         keyword_hits = self._search_keyword_candidates(
             job_description=job_description,
             job_profile=job_profile,
@@ -81,7 +89,7 @@ class HybridRetriever:
                 category=category,
                 min_experience_years=min_experience_years,
             )
-            return self._merge_fusion_hits(
+            merged_hits = self._merge_fusion_hits(
                 vector_hits=vector_hits,
                 keyword_hits=keyword_hits,
                 job_profile=job_profile,
@@ -89,9 +97,31 @@ class HybridRetriever:
                 min_experience_years=min_experience_years,
                 top_k=top_k,
             )
+            elapsed_sec = time.perf_counter() - started_at
+            candidates_processed = len(vector_hits) + len(keyword_hits)
+            logger.info(
+                "hybrid_retrieval_metrics processed=%s vector_hits=%s keyword_hits=%s returned=%s elapsed_ms=%.2f candidates_per_sec=%.2f",
+                candidates_processed,
+                len(vector_hits),
+                len(keyword_hits),
+                len(merged_hits),
+                elapsed_sec * 1000.0,
+                _compute_candidates_per_sec(candidates=candidates_processed, elapsed_sec=elapsed_sec),
+            )
+            return merged_hits
         except ExternalDependencyError:
             logger.warning("Vector retrieval unavailable. Falling back to Mongo lexical retrieval.")
             if keyword_hits:
+                elapsed_sec = time.perf_counter() - started_at
+                logger.info(
+                    "hybrid_retrieval_metrics processed=%s vector_hits=%s keyword_hits=%s returned=%s elapsed_ms=%.2f candidates_per_sec=%.2f fallback=keyword_only",
+                    len(keyword_hits),
+                    0,
+                    len(keyword_hits),
+                    min(len(keyword_hits), top_k),
+                    elapsed_sec * 1000.0,
+                    _compute_candidates_per_sec(candidates=len(keyword_hits), elapsed_sec=elapsed_sec),
+                )
                 return keyword_hits[:top_k]
             raise
 
@@ -104,6 +134,7 @@ class HybridRetriever:
         category: str | None,
         min_experience_years: float | None,
     ) -> list[dict[str, Any]]:
+        started_at = time.perf_counter()
         try:
             terms = self._build_query_terms(job_description=job_description, job_profile=job_profile)
             query = self._build_query(
@@ -141,7 +172,16 @@ class HybridRetriever:
             ]
             scored_hits = [hit for hit in scored_hits if hit["candidate_id"]]
             scored_hits.sort(key=lambda item: item["fusion_score"], reverse=True)
-            return scored_hits[:top_k]
+            limited_hits = scored_hits[:top_k]
+            elapsed_sec = time.perf_counter() - started_at
+            logger.info(
+                "keyword_retrieval_metrics scanned=%s returned=%s elapsed_ms=%.2f candidates_per_sec=%.2f",
+                len(docs),
+                len(limited_hits),
+                elapsed_sec * 1000.0,
+                _compute_candidates_per_sec(candidates=len(docs), elapsed_sec=elapsed_sec),
+            )
+            return limited_hits
         except Exception as exc:
             logger.exception("Mongo fallback retrieval failed.")
             if isinstance(exc, RepositoryError):

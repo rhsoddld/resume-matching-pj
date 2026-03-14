@@ -19,7 +19,7 @@ resume-matching-pj/
 ├── scripts/
 ├── src/
 │   ├── backend/
-│   ├── domain_agents/
+│   │   ├── agents/
 │   ├── eval/
 │   ├── frontend/
 │   └── ops/
@@ -35,7 +35,7 @@ resume-matching-pj/
 | `src/backend/repositories/` | DB access | 쿼리/저장소 접근만 담당 |
 | `src/backend/schemas/` | contracts | Pydantic 요청/응답/내부 계약 정의 |
 | `src/backend/core/` | infra core | 설정/클라이언트/예외/스타트업 공통 처리 |
-| `src/domain_agents/` | agent logic | skill/experience/technical/culture/negotiation/ranking 책임 분리 |
+| `src/backend/agents/contracts/` | agent logic | skill/experience/technical/culture/negotiation/ranking 책임 분리 |
 | `src/eval/` | evaluation code | golden set 기반 품질 평가 코드 |
 | `src/ops/` | observability | structured logging, request-id middleware |
 | `src/frontend/` | UI | API 소비 및 결과 시각화 |

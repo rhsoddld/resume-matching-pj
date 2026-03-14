@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from domain_agents.orchestrator import CandidateAgentResult
+from backend.agents.contracts.orchestrator import CandidateAgentResult
 from backend.core.providers import get_skill_ontology
 from backend.schemas.job import JobMatchCandidate
 from backend.services.job_profile_extractor import JobProfile

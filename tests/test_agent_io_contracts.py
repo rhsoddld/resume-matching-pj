@@ -10,12 +10,12 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from domain_agents.culture_agent import CultureAgentInput, CultureAgentOutput
-from domain_agents.experience_agent import ExperienceAgentInput, ExperienceAgentOutput
-from domain_agents.orchestrator import CandidateContext, OrchestratorRequest
-from domain_agents.ranking_agent import RankingAgentInput, RankingAgentOutput, RankingBreakdown
-from domain_agents.skill_agent import SkillAgentInput, SkillAgentOutput
-from domain_agents.technical_agent import TechnicalAgentInput, TechnicalAgentOutput
+from backend.agents.contracts.culture_agent import CultureAgentInput, CultureAgentOutput
+from backend.agents.contracts.experience_agent import ExperienceAgentInput, ExperienceAgentOutput
+from backend.agents.contracts.orchestrator import CandidateContext, OrchestratorRequest
+from backend.agents.contracts.ranking_agent import RankingAgentInput, RankingAgentOutput, RankingBreakdown
+from backend.agents.contracts.skill_agent import SkillAgentInput, SkillAgentOutput
+from backend.agents.contracts.technical_agent import TechnicalAgentInput, TechnicalAgentOutput
 
 
 JOB_DESCRIPTION = "Looking for a senior data engineer with Python, SQL, and large-scale ETL ownership."

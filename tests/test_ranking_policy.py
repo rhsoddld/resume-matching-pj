@@ -7,13 +7,13 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from domain_agents.culture_agent import CultureAgentOutput
-from domain_agents.experience_agent import ExperienceAgentOutput
-from domain_agents.orchestrator import CandidateAgentResult
-from domain_agents.ranking_agent import AgentWeights, RankingAgentInput, RankingAgentOutput, RankingBreakdown
-from domain_agents.skill_agent import SkillAgentOutput
-from domain_agents.technical_agent import TechnicalAgentOutput
-from domain_agents.weight_negotiation_agent import WeightNegotiationOutput, WeightProposal
+from backend.agents.contracts.culture_agent import CultureAgentOutput
+from backend.agents.contracts.experience_agent import ExperienceAgentOutput
+from backend.agents.contracts.orchestrator import CandidateAgentResult
+from backend.agents.contracts.ranking_agent import AgentWeights, RankingAgentInput, RankingAgentOutput, RankingBreakdown
+from backend.agents.contracts.skill_agent import SkillAgentOutput
+from backend.agents.contracts.technical_agent import TechnicalAgentOutput
+from backend.agents.contracts.weight_negotiation_agent import WeightNegotiationOutput, WeightProposal
 from backend.services.job_profile_extractor import JobProfile
 from backend.services.match_result_builder import build_match_candidate
 from backend.services.scoring_service import compute_final_ranking_score

@@ -144,8 +144,9 @@ JD Query Understanding은 다음 정보를 공통 Query 객체로 만든다.
 | Multi-agent evaluation | Implemented baseline (custom orchestration) | Skill / Experience / Technical / Culture agent 계약 및 heuristic/live orchestration 존재 (OpenAI Agents SDK runtime은 아직 미적용) |
 | Recruiter / Hiring Manager weight proposal | Implemented baseline (custom orchestration) | `WeightNegotiationAgent`와 orchestration 경로 존재 (OpenAI Agents SDK runtime은 아직 미적용) |
 | Explainable recommendation | Implemented v2 baseline | `possible_gaps`, `weighting_summary`, `relevant_experience`를 API 응답과 UI에서 확인 가능 |
+| Retrieval performance benchmark (R2.6) | Partial | `scripts/benchmark_retrieval.py` + `.github/workflows/retrieval-benchmark-archive.yml`로 자동 아카이브 경로는 구현, 고부하 성능 테스트 자동화는 추가 필요 |
 | DeepEval / LLM-as-Judge | Implemented | diversity/custom/culture+potential metric + rubric + CI 결과 아카이빙(`docs/eval/eval-results.md`, `.github/workflows/eval-archive.yml`) |
-| Bias guardrails | Planned | 민감속성 금지, explanation auditing, fairness metrics는 문서화 후 구현 필요 |
+| Bias guardrails | Implemented (backend v1) | `matching_service`에서 fairness guardrail 검사 및 `fairness.warnings`/`bias_warnings` 응답 반영, 남은 갭은 fairness metric 운영 대시보드/정책 튜닝 |
 
 ## 기술 스택
 
@@ -192,7 +193,8 @@ pip install -r requirements.txt
 
 ```bash
 source .venv/bin/activate
-./scripts/run_local_tests.sh
+./scripts/run_local_tests.sh full   # 전체 테스트
+./scripts/run_local_tests.sh smoke  # 핵심 스모크 테스트
 ```
 
 ### 3-2. Query Fallback 임계치 (선택)
@@ -228,7 +230,20 @@ PYTHONPATH=src python src/backend/services/ingest_resumes.py \
 PYTHONPATH=src uvicorn backend.main:app --reload --port 8000
 ```
 
-### 6. Backend 컨테이너 Python 버전 (3.10)
+### 6. Retrieval 벤치마크 실행 (R2.6)
+
+```bash
+./.venv/bin/python scripts/benchmark_retrieval.py \
+  --iterations 10 \
+  --warmup-rounds 2 \
+  --workers 4 \
+  --top-k 30
+```
+
+- 기본 입력: `src/eval/golden_set.jsonl`
+- 결과 리포트: `docs/eval/retrieval-benchmark.json`, `docs/eval/retrieval-benchmark.md`
+
+### 7. Backend 컨테이너 Python 버전 (3.10)
 
 ```bash
 docker compose build backend
@@ -261,5 +276,5 @@ docker compose exec -T backend python -V
 1. 4개 평가 agent + recruiter/hiring-manager + negotiation 체인을 OpenAI Agents SDK runtime으로 마이그레이션한다.
 2. query understanding release gate와 fallback 정책을 CI 배포 게이트에 연결한다.
 3. retrieval fusion weight를 직군별로 튜닝하고 offline ranking metric으로 calibration한다.
-4. Bias guardrails 정책(민감속성 배제, explanation audit, fairness metric)을 코드 경로와 연결한다.
-5. Eval 결과의 추세 비교(주간/모델 버전별)를 CI 리포트로 확장한다.
+4. Bias guardrails 운영 고도화(공정성 지표 대시보드, 임계치 정책 튜닝, 경고 triage 체계)를 진행한다.
+5. Eval/benchmark 결과 추세 비교(주간/모델 버전별)를 CI 리포트로 확장한다.

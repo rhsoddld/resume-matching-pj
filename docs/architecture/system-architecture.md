@@ -194,7 +194,7 @@ culture_score * weight_culture
 |------|------|------|
 | DeepEval | ranking quality, reasoning consistency, explanation quality 검증 | Partial |
 | LLM-as-Judge | candidate-job alignment, recommendation justification, explanation clarity 평가 | Partial |
-| Bias Guardrails | 민감속성 배제, skill-centered scoring, explanation auditing, fairness metric 분석 | Partial |
+| Bias Guardrails | 민감속성 배제, skill-centered scoring, explanation auditing, fairness metric 분석 | Implemented (backend v1) |
 
 Bias guardrail 백엔드 정책(v1)에서는 아래 검사를 수행한다.
 
@@ -212,8 +212,8 @@ Bias guardrail 백엔드 정책(v1)에서는 아래 검사를 수행한다.
 | Offline ingestion pipeline | `src/backend/services/ingest_resumes.py` | Implemented |
 | Deterministic JD parsing | `src/backend/services/job_profile_extractor.py` | Implemented v3 baseline |
 | Hybrid retriever | `src/backend/repositories/hybrid_retriever.py` | Implemented v2 baseline |
-| Multi-agent orchestration | `src/backend/services/agent_orchestration_service.py`, `src/agents/*.py` | Implemented baseline |
-| Weight negotiation | `src/agents/weight_negotiation_agent.py` | Implemented baseline |
+| Multi-agent orchestration | `src/backend/agents/runtime/service.py`, `src/backend/agents/contracts/*.py` | Implemented baseline |
+| Weight negotiation | `src/backend/agents/contracts/weight_negotiation_agent.py` | Implemented baseline |
 | Deterministic + hybrid scoring | `src/backend/services/scoring_service.py` | Implemented current policy |
 | Explainable response builder | `src/backend/services/match_result_builder.py` | Partial |
 | Eval assets | `src/eval/` | Partial |
@@ -225,5 +225,5 @@ Bias guardrail 백엔드 정책(v1)에서는 아래 검사를 수행한다.
 1. Query Understanding v3의 role/skill/capability strength 정확도를 직군별 golden set으로 상시 검증해야 한다.
 2. Hybrid retrieval fusion weight(벡터/키워드/메타데이터)를 직군별로 calibration해야 한다.
 3. Explainable recommendation 문장 품질과 근거 일관성을 DeepEval/LLM-as-Judge로 자동 평가해야 한다.
-4. DeepEval / LLM-as-Judge 결과를 CI evidence로 축적하는 경로가 아직 약하다.
-5. Bias guardrails와 fairness metrics는 문서화 대비 코드/로그 파이프라인 연결이 부족하다.
+4. DeepEval/LLM-as-Judge CI 아카이브는 연결되어 있으며, 남은 갭은 LLM-as-Judge 실키 실행(키/인프라 보장 환경) 증거 강화다.
+5. Bias guardrails backend v1은 구현되었고, 남은 갭은 fairness metrics 운영 대시보드/정책 튜닝 고도화다.

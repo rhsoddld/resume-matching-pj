@@ -40,7 +40,7 @@ todos:
     status: completed
   - id: bias-guardrails
     content: bias guardrails와 fairness metric 분석 경로를 문서화하고 구현하기
-    status: pending
+    status: completed
   - id: docs-sync-v2
     content: README, architecture, traceability, ADR를 목표 설계 기준으로 지속 동기화하기
     status: in_progress
@@ -70,7 +70,7 @@ isProject: false
 | Multi-agent evaluation | Done baseline (custom orchestration) | 4-agent 계약과 orchestration 존재 (Agents SDK runtime 미적용) |
 | Weight negotiation | Done baseline (custom orchestration) | recruiter / hiring manager / final weight 구조 존재 (Agents SDK runtime 미적용) |
 | Explainable ranking output | Done baseline | `possible_gaps`, `weighting_summary`, `relevant_experience` 응답/화면 노출 완료 |
-| Eval / guardrails | Partial | DeepEval/LLM-as-Judge(quality/diversity/custom/potential) + CI 아카이빙 구현, bias guardrails는 미구현 |
+| Eval / guardrails | Partial | DeepEval/LLM-as-Judge(quality/diversity/custom/potential) + CI 아카이빙 + bias guardrails backend v1 구현 완료, 남은 작업은 fairness metric 운영 고도화 |
 
 ## 다음 구현 우선순위 (requirements/requirements.md 기준)
 
@@ -82,7 +82,7 @@ isProject: false
 
 ### Priority 2. Advanced Eval & Guardrails
 
-- `R2.7`: bias detection guardrail 백엔드 정책/로그/차단 규칙 구현
+- `R2.7`: bias detection guardrail 운영 고도화(대시보드/임계치/triage)
 - `D.2`: bias mitigation 근거를 설계 문서에 연결
 
 ### Priority 3. Ranking and Performance
@@ -90,7 +90,7 @@ isProject: false
 - `R2.3`: fine-tuned embedding rerank 운영 고도화(모델 버전관리/A-B/rollback/runbook)
 - `HCR.3`: cross-encoder rerank 지연시간 최적화
 - `R2.5`: token usage optimization (요청 예산/캐시/배치)
-- `R2.6`: candidates/sec 벤치마크와 부하 테스트 자동화
+- `R2.6`: candidates/sec 벤치마크 결과 자동 아카이브 유지 + 고부하 부하 테스트 자동화
 
 ### Priority 4. Hiring Intelligence Expansion
 
@@ -104,7 +104,7 @@ isProject: false
 아래 조건을 만족하면 목표 설계와 현재 구현이 충분히 수렴했다고 본다.
 
 1. `requirements/requirements.md`의 모든 ID가 TRACEABILITY에 증거 링크를 가진다.
-2. `R1.9`, `R2.5~R2.7`, `AHI.2~AHI.4`가 Planned에서 최소 Partial 이상으로 상승한다.
+2. `R1.9`, `R2.5~R2.6`, `AHI.2~AHI.4`가 Planned에서 최소 Partial 이상으로 상승한다.
 3. 최소 1회 이상 평가 실행 결과가 `docs/eval/eval-results.md`로 기록된다.
 4. README, AGENT, TRACEABILITY, ADR의 상태 표기가 동일한 기준(Implemented/Partial/Planned)을 유지한다.
 5. 제출물 기준으로 `D.1`(JPEG/PDF 아키텍처), `D.4`(발표 자료)가 준비된다.
@@ -121,4 +121,4 @@ isProject: false
 | BL-06 | query fallback 운영 대시보드(비율/원인/품질 개선효과) | Medium |
 | BL-07 | Agents SDK observability tracing 표준화 | Medium |
 | BL-08 | ingestion API endpoint + 인증/레이트리밋 설계 | High |
-| BL-09 | candidates/sec 벤치마크 스크립트 및 CI 리포트 | High |
+| BL-09 | candidates/sec 고부하 부하 테스트 자동화 및 CI 리포트 고도화 | High |

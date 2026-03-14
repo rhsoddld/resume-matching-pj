@@ -11,5 +11,27 @@ fi
 
 source .venv/bin/activate
 
-python -m pytest -q tests/test_job_profile_extractor.py tests/test_retrieval_fallback.py tests/test_ranking_policy.py tests/test_skill_overlap_scoring.py tests/test_query_fallback_policy.py tests/test_rerank_pipeline.py
-python -m pytest -q src/eval/test_query_understanding_quality.py
+MODE="${1:-full}"
+
+case "${MODE}" in
+  smoke)
+    python3 -m pytest -q \
+      tests/test_job_profile_extractor.py \
+      tests/test_retrieval_fallback.py \
+      tests/test_ranking_policy.py \
+      tests/test_skill_overlap_scoring.py \
+      tests/test_query_fallback_policy.py \
+      tests/test_rerank_pipeline.py \
+      tests/test_matching_service_fairness.py \
+      tests/test_api_endpoints.py \
+      src/eval/test_query_understanding_quality.py
+    ;;
+  full)
+    python3 -m pytest -q
+    ;;
+  *)
+    echo "Unknown mode: ${MODE}"
+    echo "Usage: ./scripts/run_local_tests.sh [smoke|full]"
+    exit 1
+    ;;
+esac
