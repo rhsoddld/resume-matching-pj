@@ -36,10 +36,10 @@
 |------|----------|------|---------|
 | Embedding model | `text-embedding-3-small` | `text-embedding-3-large` | capstone 범위에서 비용/속도/구현 단순성 우선 |
 | Lexical retrieval | BM25 skill search | 벡터 검색 단독 | exact skill 매칭 보완 |
-| Rerank model | `gpt-4o-mini` | 별도 cross-encoder reranker | 설명 생성(explanation)과 연계가 쉬움 |
+| Rerank strategy | `embedding`(default) + `llm`(optional) | `RERANK_MODE` 기반 이중 경로 reranker | 기본은 embedding 비용/지연 최적화, 필요 시 LLM으로 전환 가능 |
 
 **Current baseline pipeline (fixed)**  
-`Job Description` → `OpenAI embedding (text-embedding-3-small)` → `Milvus vector search` → `BM25 skill search` → `Hybrid merge` → `Top 30` → `Feature extraction` → `Deterministic scoring` → `Top 10` → `LLM rerank (gpt-4o-mini)` → `Top 5 candidates`
+`Job Description` → `OpenAI embedding (text-embedding-3-small)` → `Milvus vector search` → `BM25 skill search` → `Hybrid merge` → `Top 30` → `Feature extraction` → `Deterministic scoring` → `Top 10` → `Embedding rerank (default)` / `LLM rerank (optional)` → `Top 5 candidates`
 
 현재 프로젝트는 capstone 범위와 개발 속도를 고려해 `text-embedding-3-small`을 기본 embedding 모델로 사용한다.  
 이 선택은 비용, 속도, 구현 단순성을 우선한 결정이다.  
@@ -63,7 +63,7 @@
 설계 원칙:
 - Vector similarity + BM25는 recall-oriented retrieval에 사용
 - Deterministic scoring은 explainable initial ranking을 담당
-- LLM rerank는 final ranking refinement + reasoning 생성을 담당
+- Embedding rerank는 기본 final ranking refinement 경로, LLM rerank는 고비용 고해석 필요 케이스에 선택 적용
 
 ---
 
@@ -81,14 +81,14 @@
 
 ## 4. Agent Framework
 
-| 항목 | OpenAI Agents SDK ✅ | LangChain | Custom |
-|------|---------------------|-----------|--------|
-| A2A 지원 | ✅ 내장 | 별도 구성 | 직접 구현 |
-| Structured output | ✅ Pydantic 통합 | 가능 | 직접 구현 |
-| Tool 기반 DB 접근 | ✅ | ✅ | 직접 구현 |
-| Orchestration 내장 | ✅ | ✅ | ❌ |
-| LangSmith 연계 | 가능 | ✅ 네이티브 | ❌ |
-| **선택 이유** | Orchestrator→Sub-agent 패턴과 A2A(Recruiter↔HiringManager)를 SDK 표준 방식으로 구현 가능. Pydantic 구조화 출력 기본 지원 | — | — |
+| 항목 | Custom Orchestration ✅(현재) | OpenAI Agents SDK (목표) | LangChain |
+|------|-------------------------------|---------------------------|-----------|
+| 현재 코드 반영도 | ✅ 높음 | Partial (migration 예정) | ❌ |
+| A2A 지원 | ✅ 구현됨 | ✅ 내장 | 별도 구성 |
+| Structured output | ✅ Pydantic | ✅ Pydantic 통합 | 가능 |
+| 운영 복잡도 | 중간 | 중간 | 높음 |
+| LangSmith 연계 | 제한적 | 가능 | ✅ 네이티브 |
+| **선택 이유** | 제출 안정성과 현재 코드 정합성을 우선해 custom orchestration을 기본 경로로 유지하고, SDK는 단계적 마이그레이션 대상으로 관리 | — | — |
 
 ---
 

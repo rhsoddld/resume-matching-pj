@@ -194,7 +194,16 @@ culture_score * weight_culture
 |------|------|------|
 | DeepEval | ranking quality, reasoning consistency, explanation quality 검증 | Partial |
 | LLM-as-Judge | candidate-job alignment, recommendation justification, explanation clarity 평가 | Partial |
-| Bias Guardrails | 민감속성 배제, skill-centered scoring, explanation auditing, fairness metric 분석 | Planned |
+| Bias Guardrails | 민감속성 배제, skill-centered scoring, explanation auditing, fairness metric 분석 | Partial |
+
+Bias guardrail 백엔드 정책(v1)에서는 아래 검사를 수행한다.
+
+- JD/설명 텍스트 민감속성 키워드 탐지(`sensitive_term_scan`)
+- 협업/문화 점수 가중치 과대 여부 검사(`culture_weight_cap`)
+- must-have 미달 + culture 고신뢰 조합 경고(`must_have_vs_culture_gate`)
+- JD seniority 조건 미지정 시 Top-K seniority 쏠림 검사(`topk_seniority_distribution`)
+
+경고는 API 응답의 `fairness.warnings`와 후보별 `bias_warnings`로 전달되며, 서버 로그에는 `fairness_guardrail_triggered` 이벤트로 기록된다.
 
 ## 9. 현재 저장소 매핑
 

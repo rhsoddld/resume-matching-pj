@@ -7,7 +7,7 @@
 | Entry point | `POST /api/jobs/match` |
 | Primary orchestrator | `src/backend/services/matching_service.py` |
 | Retrieval path | `RetrievalService` (Milvus vector search) + `HybridRetriever` Mongo lexical fallback |
-| Agent path | `AgentOrchestrationService` + `src/agents/*.py` |
+| Agent path | `AgentOrchestrationService` + `src/domain_agents/*.py` |
 | Response builder | `src/backend/services/match_result_builder.py` |
 
 > 이 문서는 **현재 코드 경로**를 설명한다.  
@@ -81,13 +81,13 @@ flowchart TD
 - Docker Compose 기본값은 응답 속도를 위해 `false`다.
 - 구현 위치:
   - `src/backend/services/agent_orchestration_service.py`
-  - `src/agents/orchestrator.py`
+  - `src/domain_agents/orchestrator.py`
 
 ### 5. A2A weight negotiation
 
 - Recruiter 관점과 Hiring Manager 관점의 weight proposal을 만들고, 최종 weight를 합의한다.
 - 최종 weight는 `skill`, `experience`, `technical`, `culture` 합이 1.0인 구조를 강제한다.
-- 구현 위치: `src/agents/weight_negotiation_agent.py`
+- 구현 위치: `src/domain_agents/weight_negotiation_agent.py`
 
 ### 6. Final ranking
 

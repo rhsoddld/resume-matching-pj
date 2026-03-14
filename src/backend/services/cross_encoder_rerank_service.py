@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from typing import Any
 
 from backend.core.providers import get_openai_client
@@ -52,6 +53,41 @@ class CrossEncoderRerankService:
         return [(hit, doc) for hit, doc, _ in reranked[:top_k]]
 
     def _score_candidates(self, *, job_description: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        mode = (settings.rerank_mode or "embedding").strip().lower()
+        if mode == "llm":
+            return self._score_candidates_llm(job_description=job_description, candidates=candidates)
+        return self._score_candidates_embedding(job_description=job_description, candidates=candidates)
+
+    def _score_candidates_embedding(self, *, job_description: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if not candidates:
+            return []
+        try:
+            client = get_openai_client()
+            candidate_texts = [self._candidate_text_for_embedding(item) for item in candidates]
+            # One batch request keeps latency predictable and enables a fine-tuned embedding model swap via env.
+            response = client.embeddings.create(
+                model=settings.rerank_embedding_model,
+                input=[job_description, *candidate_texts],
+            )
+            vectors = [row.embedding for row in response.data]
+            if len(vectors) != len(candidate_texts) + 1:
+                return []
+            query_vector = vectors[0]
+            out: list[dict[str, Any]] = []
+            for idx, candidate in enumerate(candidates):
+                candidate_id = candidate.get("candidate_id")
+                if not isinstance(candidate_id, str) or not candidate_id:
+                    continue
+                similarity = self._cosine_similarity(query_vector, vectors[idx + 1])
+                # Cosine [-1,1] -> [0,1]
+                relevance = max(0.0, min(1.0, (similarity + 1.0) / 2.0))
+                out.append({"candidate_id": candidate_id, "relevance": round(relevance, 6)})
+            return out
+        except Exception:
+            logger.exception("embedding_rerank_failed")
+            return []
+
+    def _score_candidates_llm(self, *, job_description: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
         system_prompt = (
             "You are a retrieval reranker for hiring. "
             "Score each candidate for relevance to the job description from 0.0 to 1.0. "
@@ -102,6 +138,30 @@ class CrossEncoderRerankService:
         except Exception:
             logger.exception("cross_encoder_rerank_failed")
             return []
+
+    @staticmethod
+    def _candidate_text_for_embedding(candidate: dict[str, Any]) -> str:
+        skills = candidate.get("skills") or []
+        if not isinstance(skills, list):
+            skills = []
+        skill_text = " ".join(str(skill).strip().lower() for skill in skills if isinstance(skill, str) and skill.strip())
+        summary = str(candidate.get("summary") or "").strip()
+        category = str(candidate.get("category") or "").strip()
+        seniority = str(candidate.get("seniority_level") or "").strip()
+        experience = candidate.get("experience_years")
+        exp_text = str(experience) if isinstance(experience, (int, float)) else ""
+        return " ".join(part for part in [summary, skill_text, category, seniority, exp_text] if part).strip()
+
+    @staticmethod
+    def _cosine_similarity(a: list[float], b: list[float]) -> float:
+        if not a or not b or len(a) != len(b):
+            return 0.0
+        dot = sum(float(x) * float(y) for x, y in zip(a, b))
+        norm_a = math.sqrt(sum(float(x) * float(x) for x in a))
+        norm_b = math.sqrt(sum(float(y) * float(y) for y in b))
+        if norm_a == 0.0 or norm_b == 0.0:
+            return 0.0
+        return max(-1.0, min(1.0, dot / (norm_a * norm_b)))
 
     @staticmethod
     def _build_candidates_payload(enriched_hits: list[tuple[dict[str, Any], dict[str, Any]]]) -> list[dict[str, Any]]:

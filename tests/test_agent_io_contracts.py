@@ -10,12 +10,12 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from agents.culture_agent import CultureAgentInput, CultureAgentOutput
-from agents.experience_agent import ExperienceAgentInput, ExperienceAgentOutput
-from agents.orchestrator import CandidateContext, OrchestratorRequest
-from agents.ranking_agent import RankingAgentInput, RankingAgentOutput, RankingBreakdown
-from agents.skill_agent import SkillAgentInput, SkillAgentOutput
-from agents.technical_agent import TechnicalAgentInput, TechnicalAgentOutput
+from domain_agents.culture_agent import CultureAgentInput, CultureAgentOutput
+from domain_agents.experience_agent import ExperienceAgentInput, ExperienceAgentOutput
+from domain_agents.orchestrator import CandidateContext, OrchestratorRequest
+from domain_agents.ranking_agent import RankingAgentInput, RankingAgentOutput, RankingBreakdown
+from domain_agents.skill_agent import SkillAgentInput, SkillAgentOutput
+from domain_agents.technical_agent import TechnicalAgentInput, TechnicalAgentOutput
 
 
 JOB_DESCRIPTION = "Looking for a senior data engineer with Python, SQL, and large-scale ETL ownership."
@@ -81,9 +81,10 @@ def test_culture_agent_contract():
         target_signals=["ownership", "collaboration"],
         candidate_signals=["ownership"],
     )
-    output = CultureAgentOutput(score=0.7, alignment=0.7)
+    output = CultureAgentOutput(score=0.7, alignment=0.7, potential_score=0.65, potential_level="emerging")
     assert payload.target_signals[0] == "ownership"
     assert output.score == pytest.approx(0.7)
+    assert output.potential_score == pytest.approx(0.65)
 
 
 def test_ranking_agent_contract():
@@ -112,4 +113,3 @@ def test_ranking_agent_contract():
 def test_agent_contract_rejects_out_of_range_scores():
     with pytest.raises(ValidationError):
         SkillAgentOutput(score=1.5)
-

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 
@@ -103,6 +104,7 @@ class ResumeExtraction:
     skills: list[str] = field(default_factory=list)
     education: list[EducationRecord] = field(default_factory=list)
     experience: list[ExperienceRecord] = field(default_factory=list)
+    career_trajectory: dict = field(default_factory=dict)
     sections: dict[str, str] = field(default_factory=dict)
 
 
@@ -363,6 +365,77 @@ def _dedupe_experience(records: list[ExperienceRecord]) -> list[ExperienceRecord
     return out
 
 
+def _to_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    token = value.strip().lower()
+    if token in {"present", "current", "now"}:
+        return datetime.utcnow()
+    for fmt in ("%Y-%m", "%Y/%m", "%Y"):
+        try:
+            return datetime.strptime(token, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def build_career_trajectory(experience: list[ExperienceRecord]) -> dict:
+    if not experience:
+        return {"has_trajectory": False, "progression": "insufficient-data", "moves": []}
+
+    timeline: list[dict] = []
+    for item in experience:
+        timeline.append(
+            {
+                "title": _clean_line(item.title or "") or None,
+                "company": _clean_line(item.company or "") or None,
+                "start_date": item.start_date,
+                "end_date": item.end_date,
+                "start_dt": _to_datetime(item.start_date),
+            }
+        )
+    timeline.sort(key=lambda row: row.get("start_dt") or datetime.min)
+    moves: list[dict] = []
+    for idx, row in enumerate(timeline):
+        if idx == 0:
+            continue
+        prev = timeline[idx - 1]
+        if row.get("title") == prev.get("title") and row.get("company") == prev.get("company"):
+            continue
+        moves.append(
+            {
+                "from_title": prev.get("title"),
+                "to_title": row.get("title"),
+                "from_company": prev.get("company"),
+                "to_company": row.get("company"),
+                "at": row.get("start_date"),
+            }
+        )
+
+    progression = "stable"
+    if len(moves) >= 2:
+        progression = "growth"
+    if moves and any(move.get("from_company") != move.get("to_company") for move in moves):
+        progression = "transition"
+
+    return {
+        "has_trajectory": True,
+        "progression": progression,
+        "first_role": {
+            "title": timeline[0].get("title"),
+            "company": timeline[0].get("company"),
+            "start_date": timeline[0].get("start_date"),
+        },
+        "latest_role": {
+            "title": timeline[-1].get("title"),
+            "company": timeline[-1].get("company"),
+            "start_date": timeline[-1].get("start_date"),
+            "end_date": timeline[-1].get("end_date"),
+        },
+        "moves": moves[:6],
+    }
+
+
 def _extract_with_spacy(text: str) -> dict:
     global _SPACY_NLP, _SPACY_LOAD_ATTEMPTED, _SPACY_RUNTIME_DISABLED
     if _SPACY_RUNTIME_DISABLED:
@@ -469,6 +542,7 @@ def parse_resume_text(text: str, *, parser_mode: str = "hybrid") -> ResumeExtrac
         extraction.education = _extract_education_global(text)
     if not extraction.experience:
         extraction.experience = _extract_experience_global(text)
+    extraction.career_trajectory = build_career_trajectory(extraction.experience)
 
     if parser_mode == "rule":
         return extraction

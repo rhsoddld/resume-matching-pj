@@ -56,3 +56,50 @@ def test_cross_encoder_rerank_reorders_by_relevance(monkeypatch):
     assert len(out) == 2
     assert out[0][0]["candidate_id"] == "b"
     assert out[0][0]["rerank_score"] == 0.95
+
+
+def test_embedding_rerank_reorders_by_similarity(monkeypatch):
+    service = CrossEncoderRerankService()
+    enriched_hits = [
+        (
+            {"candidate_id": "a", "fusion_score": 0.8, "score": 0.8, "category": "it", "experience_years": 5, "seniority_level": "mid"},
+            {"parsed": {"summary": "python backend", "normalized_skills": ["python", "api"]}},
+        ),
+        (
+            {"candidate_id": "b", "fusion_score": 0.7, "score": 0.7, "category": "it", "experience_years": 6, "seniority_level": "senior"},
+            {"parsed": {"summary": "distributed systems", "normalized_skills": ["go", "kubernetes"]}},
+        ),
+    ]
+
+    class _EmbRow:
+        def __init__(self, embedding):
+            self.embedding = embedding
+
+    class _EmbResp:
+        def __init__(self, rows):
+            self.data = rows
+
+    class _EmbApi:
+        @staticmethod
+        def create(**kwargs):
+            # input shape: [query, cand-a, cand-b]
+            # query is more similar to cand-b than cand-a
+            return _EmbResp(
+                [
+                    _EmbRow([1.0, 0.0]),   # query
+                    _EmbRow([0.1, 0.99]),  # cand-a
+                    _EmbRow([0.95, 0.05]), # cand-b
+                ]
+            )
+
+    class _Client:
+        embeddings = _EmbApi()
+
+    monkeypatch.setattr(settings, "rerank_mode", "embedding")
+    monkeypatch.setattr(settings, "rerank_embedding_model", "text-embedding-3-small")
+    monkeypatch.setattr("backend.services.cross_encoder_rerank_service.get_openai_client", lambda: _Client())
+
+    out = service.rerank(job_description="backend microservices kubernetes", enriched_hits=enriched_hits, top_k=2)
+    assert len(out) == 2
+    assert out[0][0]["candidate_id"] == "b"
+    assert out[0][0]["rerank_score"] > out[1][0]["rerank_score"]

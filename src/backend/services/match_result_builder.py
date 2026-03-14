@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
-from agents.orchestrator import CandidateAgentResult
+from domain_agents.orchestrator import CandidateAgentResult
+from backend.core.providers import get_skill_ontology
 from backend.schemas.job import JobMatchCandidate
 from backend.services.job_profile_extractor import JobProfile
 from backend.services.scoring_service import (
@@ -32,6 +34,117 @@ def _extract_relevant_experience(parsed: dict[str, Any], *, experience_years: fl
     return highlights
 
 
+def _parse_date_token(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    token = value.strip().lower()
+    if token in {"present", "current", "now"}:
+        return datetime.utcnow()
+    for fmt in ("%Y-%m", "%Y/%m", "%Y"):
+        try:
+            return datetime.strptime(token, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _build_career_trajectory(parsed: dict[str, Any], *, seniority_level: str | None, experience_years: float | None) -> dict[str, Any]:
+    items = parsed.get("experience_items") or []
+    if not isinstance(items, list) or not items:
+        return {
+            "has_trajectory": False,
+            "seniority_level": seniority_level,
+            "total_experience_years": experience_years,
+            "progression": "insufficient-data",
+            "moves": [],
+        }
+
+    normalized: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "").strip()
+        company = str(item.get("company") or "").strip()
+        start = _parse_date_token(item.get("start_date"))
+        end = _parse_date_token(item.get("end_date"))
+        normalized.append(
+            {
+                "title": title or None,
+                "company": company or None,
+                "start_date": item.get("start_date"),
+                "end_date": item.get("end_date"),
+                "start_dt": start,
+                "end_dt": end,
+            }
+        )
+
+    normalized.sort(key=lambda row: row.get("start_dt") or datetime.min)
+    moves: list[dict[str, Any]] = []
+    for idx, row in enumerate(normalized):
+        if idx == 0:
+            continue
+        prev = normalized[idx - 1]
+        if row.get("title") == prev.get("title") and row.get("company") == prev.get("company"):
+            continue
+        moves.append(
+            {
+                "from_title": prev.get("title"),
+                "to_title": row.get("title"),
+                "from_company": prev.get("company"),
+                "to_company": row.get("company"),
+                "at": row.get("start_date"),
+            }
+        )
+
+    first = normalized[0]
+    last = normalized[-1]
+    progression = "stable"
+    if len(moves) >= 2:
+        progression = "growth"
+    if moves and any(move.get("from_company") != move.get("to_company") for move in moves):
+        progression = "transition"
+
+    return {
+        "has_trajectory": True,
+        "seniority_level": seniority_level,
+        "total_experience_years": experience_years,
+        "first_role": {"title": first.get("title"), "company": first.get("company"), "start_date": first.get("start_date")},
+        "latest_role": {"title": last.get("title"), "company": last.get("company"), "start_date": last.get("start_date"), "end_date": last.get("end_date")},
+        "progression": progression,
+        "moves": moves[:6],
+    }
+
+
+def _compute_adjacent_skill_score(*, job_profile: JobProfile, parsed: dict[str, Any]) -> tuple[float, list[str]]:
+    related = {skill.strip().lower() for skill in (job_profile.related_skills or []) if isinstance(skill, str) and skill.strip()}
+    required = {skill.strip().lower() for skill in (job_profile.required_skills or []) if isinstance(skill, str) and skill.strip()}
+    target_adjacent = related.difference(required)
+    if not target_adjacent:
+        return 0.0, []
+
+    candidate_terms: set[str] = set()
+    for key in ("skills", "normalized_skills", "core_skills", "expanded_skills"):
+        values = parsed.get(key) or []
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            if isinstance(value, str) and value.strip():
+                candidate_terms.add(value.strip().lower())
+
+    ontology = get_skill_ontology()
+    if ontology is not None:
+        score, matches = ontology.adjacent_match_score(
+            job_related_skills=target_adjacent,
+            candidate_skills=candidate_terms,
+            limit=8,
+        )
+        return score, matches
+
+    matches = sorted(target_adjacent.intersection(candidate_terms))
+    score = round(len(matches) / float(len(target_adjacent)), 4)
+    return score, matches[:8]
+
+
 def _build_weighting_summary(agent_result: CandidateAgentResult | None) -> str | None:
     if agent_result is None or agent_result.weight_negotiation is None:
         return None
@@ -46,6 +159,21 @@ def _build_weighting_summary(agent_result: CandidateAgentResult | None) -> str |
         "| Final negotiated "
         f"(S:{final.skill:.2f}, E:{final.experience:.2f}, T:{final.technical:.2f}, C:{final.culture:.2f})"
     )
+
+
+def _compute_parsing_score(parsed: dict[str, Any]) -> float:
+    score = 0.0
+    if parsed.get("summary"):
+        score += 0.25
+    if len(parsed.get("normalized_skills") or []) >= 3:
+        score += 0.25
+    if parsed.get("experience_years") is not None:
+        score += 0.2
+    if len(parsed.get("experience_items") or []) > 0:
+        score += 0.15
+    if len(parsed.get("education") or []) > 0:
+        score += 0.15
+    return round(max(0.0, min(1.0, score)), 4)
 
 
 def _compute_must_have_penalty(
@@ -110,11 +238,52 @@ def build_match_candidate(
     )
     weighting_summary = _build_weighting_summary(agent_result)
     must_have_match_rate, must_have_penalty = _compute_must_have_penalty(job_profile=job_profile, parsed=parsed)
+    adjacent_skill_score, adjacent_skill_matches = _compute_adjacent_skill_score(job_profile=job_profile, parsed=parsed)
+    career_trajectory = _build_career_trajectory(
+        parsed,
+        seniority_level=hit.get("seniority_level"),
+        experience_years=hit.get("experience_years"),
+    )
     rank_score = compute_final_ranking_score(
         deterministic_score=float(final_score),
         agent_weighted_score=agent_weighted_score,
     )
     rank_score = max(0.0, min(1.0, rank_score * (1.0 - must_have_penalty)))
+    parsing_score = _compute_parsing_score(parsed)
+
+    if agent_result is not None:
+        confidence_scores = {
+            "parsing": parsing_score,
+            "skill": agent_result.skill_output.score,
+            "experience": agent_result.experience_output.score,
+            "technical": agent_result.technical_output.score,
+            "culture": agent_result.culture_output.score,
+        }
+        evidence_map = {
+            "parsing": ["Structured resume sections available." if parsing_score >= 0.6 else "Partial parsing coverage detected."],
+            "skill": list(agent_result.skill_output.evidence[:4]),
+            "experience": list(agent_result.experience_output.evidence[:4]),
+            "technical": list(agent_result.technical_output.evidence[:4]),
+            "culture": list(agent_result.culture_output.evidence[:4]),
+        }
+        agent_scores: dict[str, Any] = {
+            **confidence_scores,
+            "weighted": agent_result.ranking_output.final_score,
+            "weights": agent_result.ranking_input.weights.model_dump(),
+            "weight_negotiation": (
+                agent_result.weight_negotiation.model_dump()
+                if agent_result.weight_negotiation is not None
+                else None
+            ),
+            "confidence": confidence_scores,
+            "evidence": evidence_map,
+        }
+    else:
+        agent_scores = {
+            "parsing": parsing_score,
+            "confidence": {"parsing": parsing_score},
+            "evidence": {"parsing": ["No agent outputs available; deterministic-only match."]},
+        }
 
     return JobMatchCandidate(
         candidate_id=hit["candidate_id"],
@@ -139,6 +308,7 @@ def build_match_candidate(
             "retrieval_metadata": round(float(hit.get("metadata_score")), 4) if hit.get("metadata_score") is not None else None,
             "must_have_match_rate": must_have_match_rate,
             "must_have_penalty": must_have_penalty,
+            "adjacent_skill_score": adjacent_skill_score,
             "agent_weighted": round(float(agent_weighted_score), 4) if agent_weighted_score is not None else None,
             "rank_policy": (
                 "hybrid(deterministic:0.55,agent:0.45,must-have-penalty:max0.25)"
@@ -151,25 +321,15 @@ def build_match_candidate(
             "expanded_overlap": round(float(skill_overlap_detail["expanded_overlap"]), 4),
             "normalized_overlap": round(float(skill_overlap_detail["normalized_overlap"]), 4),
         },
-        agent_scores=(
-            {
-                "skill": agent_result.skill_output.score,
-                "experience": agent_result.experience_output.score,
-                "technical": agent_result.technical_output.score,
-                "culture": agent_result.culture_output.score,
-                "weighted": agent_result.ranking_output.final_score,
-                "weights": agent_result.ranking_input.weights.model_dump(),
-                "weight_negotiation": (
-                    agent_result.weight_negotiation.model_dump()
-                    if agent_result.weight_negotiation is not None
-                    else None
-                ),
-            }
-            if agent_result is not None
-            else {}
-        ),
+        agent_scores=agent_scores,
         agent_explanation=agent_result.ranking_output.explanation if agent_result is not None else None,
         relevant_experience=relevant_experience,
+        career_trajectory=(
+            agent_result.experience_output.career_trajectory
+            if agent_result is not None and isinstance(agent_result.experience_output.career_trajectory, dict)
+            else career_trajectory
+        ),
+        adjacent_skill_matches=adjacent_skill_matches,
         possible_gaps=possible_gaps,
         weighting_summary=weighting_summary,
     )

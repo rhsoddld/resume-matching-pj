@@ -171,6 +171,8 @@ class JobProfile:
     lexical_query: str = ""
     semantic_query_expansion: list[str] = field(default_factory=list)
     metadata_filters: dict[str, str | float] = field(default_factory=dict)
+    transferable_skill_score: float = 0.0
+    transferable_skill_evidence: list[str] = field(default_factory=list)
     signal_quality: dict[str, float | int] = field(default_factory=dict)
     fallback_used: bool = False
     fallback_reason: str | None = None
@@ -489,6 +491,47 @@ def _compute_signal_quality(skill_signals: list[QuerySignal], capability_signals
     }
 
 
+def _compute_transferable_skill_insight(
+    *,
+    required_skills: list[str],
+    related_skills: list[str],
+    capability_signals: list[QuerySignal],
+    ontology: RuntimeSkillOntology | None,
+) -> tuple[float, list[str], list[str]]:
+    strength_scores = {
+        "must have": 1.0,
+        "main focus": 0.85,
+        "nice to have": 0.65,
+        "familiarity": 0.45,
+        "unknown": 0.35,
+    }
+    capability_score = 0.0
+    capability_evidence: list[str] = []
+    if capability_signals:
+        capability_values = [strength_scores.get(signal.strength, 0.35) for signal in capability_signals]
+        capability_score = sum(capability_values) / float(len(capability_values))
+        capability_evidence = [
+            f"{signal.name} ({signal.strength}) indicates adjacent capability."
+            for signal in capability_signals[:6]
+            if signal.name
+        ]
+
+    adjacent_skills: list[str] = []
+    ontology_evidence: list[str] = []
+    if ontology is not None:
+        adjacent_skills, ontology_evidence = ontology.find_adjacent_skills(required_skills, limit=10)
+
+    related_score = min(1.0, len(set(related_skills)) / 8.0) if related_skills else 0.0
+    adjacent_score = min(1.0, len(set(adjacent_skills)) / 6.0) if adjacent_skills else 0.0
+    transferable_score = round(
+        max(0.0, min(1.0, (capability_score * 0.5) + (adjacent_score * 0.35) + (related_score * 0.15))),
+        3,
+    )
+
+    evidence = dedupe_preserve([*capability_evidence, *ontology_evidence])[:8]
+    return transferable_score, adjacent_skills, evidence
+
+
 def _compute_query_confidence(
     *,
     required_skills: list[str],
@@ -519,6 +562,9 @@ def build_job_profile(
     *,
     category_override: str | None = None,
     min_experience_years: float | None = None,
+    education_override: str | None = None,
+    region_override: str | None = None,
+    industry_override: str | None = None,
 ) -> JobProfile:
     parsed_sentences = _sentences(job_description)
     raw_candidates = _extract_job_skill_candidates(job_description)
@@ -553,11 +599,24 @@ def build_job_profile(
         filters["category"] = category_override
     if min_experience_years is not None:
         filters["min_experience_years"] = float(min_experience_years)
+    if education_override:
+        filters["education"] = education_override
+    if region_override:
+        filters["region"] = region_override
+    if industry_override:
+        filters["industry"] = industry_override
     if preferred_seniority is not None:
         filters["seniority_hint"] = preferred_seniority
     metadata_filters = dict(filters)
     skill_signals = _build_skill_signals(required_skills, parsed_sentences)
     capability_signals = _extract_capability_signals(job_description, parsed_sentences, ontology)
+    transferable_skill_score, adjacent_skills, transferable_skill_evidence = _compute_transferable_skill_insight(
+        required_skills=required_skills,
+        related_skills=related_skills,
+        capability_signals=capability_signals,
+        ontology=ontology,
+    )
+    related_skills = dedupe_preserve([*related_skills, *adjacent_skills])
     lexical_query = _build_lexical_query(
         roles=roles,
         skill_signals=skill_signals,
@@ -570,6 +629,8 @@ def build_job_profile(
         capability_signals=capability_signals,
     )
     signal_quality = _compute_signal_quality(skill_signals, capability_signals)
+    signal_quality["transferable_score"] = transferable_skill_score
+    signal_quality["transferable_evidence_count"] = len(transferable_skill_evidence)
     query_text_for_embedding = _build_query_text_for_embedding(
         role_phrase=role_phrase,
         job_category=job_category,
@@ -602,5 +663,7 @@ def build_job_profile(
         lexical_query=lexical_query,
         semantic_query_expansion=semantic_query_expansion,
         metadata_filters=metadata_filters,
+        transferable_skill_score=transferable_skill_score,
+        transferable_skill_evidence=transferable_skill_evidence,
         signal_quality=signal_quality,
     )

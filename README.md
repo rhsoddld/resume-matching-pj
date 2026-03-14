@@ -141,10 +141,10 @@ JD Query Understanding은 다음 정보를 공통 Query 객체로 만든다.
 | Offline ingestion / normalization | Implemented | `src/backend/services/ingest_resumes.py` 기반으로 MongoDB + Milvus 적재 |
 | Deterministic query understanding | Implemented v3 baseline | ontology-aligned role/skill/capability normalization + 저신뢰 구간 constrained LLM fallback + `query_profile` 확장 필드 제공 |
 | Hybrid retrieval | Implemented v2 baseline | `src/backend/repositories/hybrid_retriever.py`에서 vector + keyword + metadata fusion score 기반 shortlist 생성 |
-| Multi-agent evaluation | Implemented baseline | Skill / Experience / Technical / Culture agent 계약 및 heuristic/live orchestration 존재 |
-| Recruiter / Hiring Manager weight proposal | Implemented baseline | `WeightNegotiationAgent`와 orchestration 경로 존재 |
+| Multi-agent evaluation | Implemented baseline (custom orchestration) | Skill / Experience / Technical / Culture agent 계약 및 heuristic/live orchestration 존재 (OpenAI Agents SDK runtime은 아직 미적용) |
+| Recruiter / Hiring Manager weight proposal | Implemented baseline (custom orchestration) | `WeightNegotiationAgent`와 orchestration 경로 존재 (OpenAI Agents SDK runtime은 아직 미적용) |
 | Explainable recommendation | Implemented v2 baseline | `possible_gaps`, `weighting_summary`, `relevant_experience`를 API 응답과 UI에서 확인 가능 |
-| DeepEval / LLM-as-Judge | Partial | `src/eval/` 골격 존재, 실행 결과 문서화와 rubric 확장 필요 |
+| DeepEval / LLM-as-Judge | Implemented | diversity/custom/culture+potential metric + rubric + CI 결과 아카이빙(`docs/eval/eval-results.md`, `.github/workflows/eval-archive.yml`) |
 | Bias guardrails | Planned | 민감속성 금지, explanation auditing, fairness metrics는 문서화 후 구현 필요 |
 
 ## 기술 스택
@@ -152,7 +152,7 @@ JD Query Understanding은 다음 정보를 공통 Query 객체로 만든다.
 | 구분 | 선택 |
 |------|------|
 | Backend | Python 3.10+, FastAPI, Uvicorn |
-| Agents / LLM | OpenAI Agents SDK, OpenAI Chat / Embedding API |
+| Agents / LLM | OpenAI Chat / Embedding API + custom agent orchestration (Agents SDK migration planned) |
 | Vector DB | Milvus |
 | Document DB | MongoDB 7 |
 | Evaluation | DeepEval, LLM-as-Judge, LangSmith |
@@ -165,6 +165,10 @@ JD Query Understanding은 다음 정보를 공통 Query 객체로 만든다.
 
 ```bash
 # .env 파일에 OPENAI_API_KEY, MONGODB_URI, MILVUS_URI 등을 설정합니다.
+# ingestion API 보호 옵션 (선택)
+# INGESTION_API_KEY=your-secret
+# INGESTION_RATE_LIMIT_PER_MINUTE=3
+# INGESTION_ALLOW_ASYNC=true
 ```
 
 ### 2. Docker Compose 기동
@@ -238,8 +242,9 @@ docker compose exec -T backend python -V
 |--------|------|------|
 | `POST` | `/api/jobs/match` | JD 입력으로 Top-K 후보 매칭 |
 | `GET` | `/api/candidates/{candidate_id}` | 후보 상세 조회 |
-| `GET` | `/api/health` | Mongo / Milvus / OpenAI 상태 확인 |
-| `GET` | `/api/ready` | 서비스 준비 상태 확인 |
+| `POST` | `/api/ingestion/resumes` | 이력서 ingestion 파이프라인 실행 (동기/비동기, dry-run 지원) |
+| `GET` | `/api/health` | liveness 확인 (`{"status":"ok"}`) |
+| `GET` | `/api/ready` | Mongo/Milvus readiness 확인 (준비 상태 상세) |
 
 ## 문서 진입점
 
@@ -253,8 +258,8 @@ docker compose exec -T backend python -V
 
 ## 다음에 해야 할 일
 
-1. query understanding release gate와 fallback 정책을 CI 배포 게이트에 연결한다.
-2. retrieval fusion weight를 직군별로 튜닝하고 offline ranking metric으로 calibration한다.
-3. DeepEval / LLM-as-Judge 결과 artifact를 CI에서 자동 생성해 문서 증거로 누적한다.
+1. 4개 평가 agent + recruiter/hiring-manager + negotiation 체인을 OpenAI Agents SDK runtime으로 마이그레이션한다.
+2. query understanding release gate와 fallback 정책을 CI 배포 게이트에 연결한다.
+3. retrieval fusion weight를 직군별로 튜닝하고 offline ranking metric으로 calibration한다.
 4. Bias guardrails 정책(민감속성 배제, explanation audit, fairness metric)을 코드 경로와 연결한다.
-5. fallback 사용 비율/원인/품질개선 효과 운영 대시보드를 추가한다.
+5. Eval 결과의 추세 비교(주간/모델 버전별)를 CI 리포트로 확장한다.

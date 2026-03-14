@@ -33,8 +33,17 @@ def test_agent_orchestration_service_returns_candidate_agent_result():
             "core_skills": ["python"],
             "expanded_skills": ["python", "sql", "airflow"],
             "capability_phrases": ["ownership", "collaboration"],
+            "experience_items": [
+                {"title": "Data Engineer", "company": "A", "start_date": "2019-01", "end_date": "2021-12"},
+                {"title": "Senior Data Engineer", "company": "B", "start_date": "2022-01", "end_date": "Present"},
+            ],
         },
-        "raw": {"resume_text": "Built ETL pipelines with Python and SQL."},
+        "raw": {
+            "resume_text": (
+                "Built ETL pipelines with Python and SQL for analytics platforms. "
+                "Designed data architecture and optimized batch workloads."
+            )
+        },
     }
 
     result = agent_orchestration_service.run_for_candidate(
@@ -52,4 +61,6 @@ def test_agent_orchestration_service_returns_candidate_agent_result():
     assert 0.0 <= result.culture_output.score <= 1.0
     assert 0.0 <= result.ranking_output.final_score <= 1.0
     assert result.ranking_output.explanation
-
+    assert any("python" in line.lower() or "sql" in line.lower() for line in result.skill_output.evidence)
+    assert any("architecture" in line.lower() or "designed" in line.lower() for line in result.technical_output.evidence)
+    assert result.experience_output.career_trajectory.get("has_trajectory") is True

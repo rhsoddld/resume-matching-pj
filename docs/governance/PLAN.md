@@ -14,6 +14,9 @@ todos:
   - id: agent-evaluation-baseline
     content: Skill / Experience / Technical / Culture agent와 weight negotiation baseline 유지
     status: completed
+  - id: agents-sdk-migration
+    content: 4개 평가 agent + recruiter/hiring manager + negotiation orchestration을 OpenAI Agents SDK runtime으로 전환하기
+    status: pending
   - id: query-understanding-v2
     content: deterministic structured query object v2를 정의하고 구현하기
     status: completed
@@ -34,7 +37,7 @@ todos:
     status: completed
   - id: deepeval-judge
     content: DeepEval 및 LLM-as-Judge 평가 루브릭과 실행 결과를 정리하기
-    status: pending
+    status: completed
   - id: bias-guardrails
     content: bias guardrails와 fairness metric 분석 경로를 문서화하고 구현하기
     status: pending
@@ -64,69 +67,47 @@ isProject: false
 | Offline ingestion / indexing | Done | MongoDB + Milvus 적재 경로와 normalization pipeline 존재 |
 | Deterministic JD parsing | Done v3 baseline | query_profile에 roles/signals/metadata filters/lexical-query/semantic-expansion/confidence + fallback 메타데이터를 포함해 응답 제공 |
 | Hybrid retrieval | Done baseline | vector + keyword + metadata fusion score 기반 shortlist 적용 |
-| Multi-agent evaluation | Done baseline | 4-agent 계약과 orchestration 존재 |
-| Weight negotiation | Done baseline | recruiter / hiring manager / final weight 구조 존재 |
+| Multi-agent evaluation | Done baseline (custom orchestration) | 4-agent 계약과 orchestration 존재 (Agents SDK runtime 미적용) |
+| Weight negotiation | Done baseline (custom orchestration) | recruiter / hiring manager / final weight 구조 존재 (Agents SDK runtime 미적용) |
 | Explainable ranking output | Done baseline | `possible_gaps`, `weighting_summary`, `relevant_experience` 응답/화면 노출 완료 |
-| Eval / guardrails | Partial | DeepEval stub 존재, bias guardrails는 미구현 |
+| Eval / guardrails | Partial | DeepEval/LLM-as-Judge(quality/diversity/custom/potential) + CI 아카이빙 구현, bias guardrails는 미구현 |
 
-## 다음 구현 우선순위
+## 다음 구현 우선순위 (requirements/requirements.md 기준)
 
-### Priority 1. Query Understanding v2
+### Priority 1. API/Core Gap Closing
 
-- `job_category`, `required_skills`, `related_skills`, `seniority_hint`, `filters`, `query_text_for_embedding`를 명시한 구조체 도입
-- skill taxonomy mapping / alias normalization / role inference / keyword extraction / seniority heuristic 정리
-- retrieval / agent / explanation이 동일 Query 객체를 사용하도록 계약 통일
+- `R1.9`: ingestion 기능을 API endpoint로 노출 (완료: `POST /api/ingestion/resumes`)
+- `PO.4`: PDF/포트폴리오 링크 처리 경로 보강
+- `D.3`: README의 실행/운영 시나리오를 API 중심으로 갱신
 
-### Priority 1-1. Query Understanding v3 Hardening
+### Priority 2. Advanced Eval & Guardrails
 
-- ingestion과 동일 ontology/alias 기준으로 JD term extraction 일치율 측정
-- role / skill / capability strength(`must have`, `main focus`, `nice to have`, `familiarity`) 정확도 보정
-- `signal_quality.unknown_ratio`와 `confidence` 임계치 운영 정책 수립
+- `R2.7`: bias detection guardrail 백엔드 정책/로그/차단 규칙 구현
+- `D.2`: bias mitigation 근거를 설계 문서에 연결
 
-### Priority 1-2. Deterministic-First Fallback Ops
+### Priority 3. Ranking and Performance
 
-- 저신뢰 JD에서만 동작하는 constrained LLM fallback 운영 로그/모니터링 추가
-- fallback 비율, 이유(low_confidence / high_unknown_ratio), 개선 효과를 주간 리포트로 추적
-- fallback 결과의 ontology normalization drift 점검 규칙 추가
+- `R2.3`: fine-tuned embedding rerank 운영 고도화(모델 버전관리/A-B/rollback/runbook)
+- `HCR.3`: cross-encoder rerank 지연시간 최적화
+- `R2.5`: token usage optimization (요청 예산/캐시/배치)
+- `R2.6`: candidates/sec 벤치마크와 부하 테스트 자동화
 
-### Priority 2. Hybrid Retrieval v2
+### Priority 4. Hiring Intelligence Expansion
 
-- vector search 점수
-- keyword overlap 점수
-- metadata filter / boost
-- shortlist merge policy
-
-이 4개를 한 retrieval spec으로 문서화하고 구현한다.
-
-### Priority 3. Explainable Recommendation v2
-
-- candidate summary
-- per-agent score
-- matched skills / missing skills
-- relevant experience
-- technical strengths
-- possible gaps
-- recruiter vs hiring manager weighting summary
-
-응답 계약과 UI 표시 항목을 함께 고정한다.
-
-### Priority 4. Evaluation and Guardrails
-
-- DeepEval ranking quality metric
-- LLM-as-Judge explanation clarity / justification metric
-- fairness metric 정의
-- 민감속성 배제 규칙
-- explanation auditing 방식
+- `AHI.2`: recruiter feedback loop 데이터 모델/API 추가
+- `AHI.3`: hiring analytics dashboard 구현
+- `AHI.4`: interview scheduling agent handoff 경로 추가
+- `AHI.5`: A2A negotiation audit trail 강화
 
 ## 완료 기준
 
 아래 조건을 만족하면 목표 설계와 현재 구현이 충분히 수렴했다고 본다.
 
-1. Query object v2가 코드, API, 문서에 동일하게 반영된다.
-2. hybrid retrieval이 fallback이 아니라 다중 신호 결합 구조로 동작한다.
-3. explainable recommendation이 recruiter와 hiring manager 관점 차이를 보여준다.
-4. 최소 1회 이상 DeepEval / LLM-as-Judge 결과가 문서화된다.
-5. Bias guardrails 정책이 문서뿐 아니라 코드 경로와 연결된다.
+1. `requirements/requirements.md`의 모든 ID가 TRACEABILITY에 증거 링크를 가진다.
+2. `R1.9`, `R2.5~R2.7`, `AHI.2~AHI.4`가 Planned에서 최소 Partial 이상으로 상승한다.
+3. 최소 1회 이상 평가 실행 결과가 `docs/eval/eval-results.md`로 기록된다.
+4. README, AGENT, TRACEABILITY, ADR의 상태 표기가 동일한 기준(Implemented/Partial/Planned)을 유지한다.
+5. 제출물 기준으로 `D.1`(JPEG/PDF 아키텍처), `D.4`(발표 자료)가 준비된다.
 
 ## Backlog
 
@@ -138,3 +119,6 @@ isProject: false
 | BL-04 | reviewer demo용 canned dataset 및 시나리오 추가 | Medium |
 | BL-05 | feedback loop 기반 랭킹 보정 | Medium |
 | BL-06 | query fallback 운영 대시보드(비율/원인/품질 개선효과) | Medium |
+| BL-07 | Agents SDK observability tracing 표준화 | Medium |
+| BL-08 | ingestion API endpoint + 인증/레이트리밋 설계 | High |
+| BL-09 | candidates/sec 벤치마크 스크립트 및 CI 리포트 | High |

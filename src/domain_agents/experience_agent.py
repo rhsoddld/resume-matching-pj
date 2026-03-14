@@ -19,6 +19,6 @@ class ExperienceAgentOutput(BaseModel):
     score: float = Field(..., ge=0.0, le=1.0)
     experience_fit: float = Field(..., ge=0.0, le=1.0)
     seniority_fit: float = Field(..., ge=0.0, le=1.0)
+    career_trajectory: dict = Field(default_factory=dict)
     evidence: list[str] = Field(default_factory=list)
     rationale: str = ""
-

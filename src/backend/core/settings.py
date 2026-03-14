@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -12,6 +14,9 @@ class Settings(BaseSettings):
 
     # HTTP
     api_prefix: str = "/api"
+    ingestion_api_key: str | None = Field(None, env="INGESTION_API_KEY")
+    ingestion_rate_limit_per_minute: int = Field(3, env="INGESTION_RATE_LIMIT_PER_MINUTE")
+    ingestion_allow_async: bool = Field(True, env="INGESTION_ALLOW_ASYNC")
 
     # OpenAI / model
     openai_api_key: str = Field(..., env="OPENAI_API_KEY")
@@ -19,13 +24,25 @@ class Settings(BaseSettings):
     openai_embedding_model: str = Field("text-embedding-3-small", env="OPENAI_EMBEDDING_MODEL")
     openai_agent_model: str = Field("gpt-4.1-mini", env="OPENAI_AGENT_MODEL")
     openai_agent_live_mode: bool = Field(True, env="OPENAI_AGENT_LIVE_MODE")
+    openai_agents_sdk_enabled: bool = Field(True, env="OPENAI_AGENTS_SDK_ENABLED")
     query_fallback_model: str = Field("gpt-4.1-mini", env="QUERY_FALLBACK_MODEL")
     query_fallback_enabled: bool = Field(True, env="QUERY_FALLBACK_ENABLED")
     query_fallback_confidence_threshold: float = Field(0.62, env="QUERY_FALLBACK_CONFIDENCE_THRESHOLD")
     query_fallback_unknown_ratio_threshold: float = Field(0.55, env="QUERY_FALLBACK_UNKNOWN_RATIO_THRESHOLD")
     rerank_enabled: bool = Field(False, env="RERANK_ENABLED")
     rerank_model: str = Field("gpt-4.1-mini", env="RERANK_MODEL")
+    rerank_mode: str = Field("embedding", env="RERANK_MODE")
+    rerank_embedding_model: str = Field("text-embedding-3-small", env="RERANK_EMBEDDING_MODEL")
     rerank_top_n: int = Field(50, env="RERANK_TOP_N")
+    fairness_guardrails_enabled: bool = Field(True, env="FAIRNESS_GUARDRAILS_ENABLED")
+    fairness_policy_version: str = Field("v1", env="FAIRNESS_POLICY_VERSION")
+    fairness_sensitive_term_enabled: bool = Field(True, env="FAIRNESS_SENSITIVE_TERM_ENABLED")
+    fairness_max_culture_weight: float = Field(0.2, env="FAIRNESS_MAX_CULTURE_WEIGHT")
+    fairness_min_must_have_match_rate: float = Field(0.5, env="FAIRNESS_MIN_MUST_HAVE_MATCH_RATE")
+    fairness_high_culture_confidence: float = Field(0.7, env="FAIRNESS_HIGH_CULTURE_CONFIDENCE")
+    fairness_rank_score_floor: float = Field(0.7, env="FAIRNESS_RANK_SCORE_FLOOR")
+    fairness_topk_distribution_min: int = Field(5, env="FAIRNESS_TOPK_DISTRIBUTION_MIN")
+    fairness_seniority_concentration_threshold: float = Field(0.85, env="FAIRNESS_SENIORITY_CONCENTRATION_THRESHOLD")
 
     # Mongo
     mongodb_uri: str = Field(..., env="MONGODB_URI")

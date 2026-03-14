@@ -12,6 +12,7 @@ if str(SRC) not in sys.path:
 from backend.core.exceptions import ExternalDependencyError
 from backend.services.job_profile_extractor import JobProfile
 from backend.repositories.hybrid_retriever import HybridRetriever
+from backend.schemas.job import normalize_industry_label
 
 
 def _job_profile() -> JobProfile:
@@ -110,3 +111,24 @@ def test_hybrid_retriever_raises_when_vector_and_keyword_both_fail(monkeypatch):
             category="Data",
             min_experience_years=5.0,
         )
+
+
+def test_industry_standard_dictionary_alias_normalization():
+    assert normalize_industry_label("IT") == "technology"
+    assert normalize_industry_label("e-commerce") == "e commerce"
+    assert normalize_industry_label("health care") == "healthcare"
+
+
+def test_hybrid_retriever_build_query_uses_industry_standard_dictionary():
+    query = HybridRetriever._build_query(
+        terms=["python"],
+        category=None,
+        min_experience_years=None,
+        industry="IT",
+    )
+
+    assert "$and" in query
+    industry_clause = query["$and"][0]
+    assert "$or" in industry_clause
+    category_regexes = [item["category"]["$regex"] for item in industry_clause["$or"]]
+    assert any("information\\ technology" in regex for regex in category_regexes)

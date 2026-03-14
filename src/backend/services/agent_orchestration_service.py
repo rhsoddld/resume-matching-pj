@@ -1,25 +1,56 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+import importlib
 import json
 import logging
 import os
+import re
 from typing import Any
 
-from agents.culture_agent import CultureAgentInput, CultureAgentOutput
-from agents.experience_agent import ExperienceAgentInput, ExperienceAgentOutput
-from agents.orchestrator import CandidateAgentResult
-from agents.ranking_agent import AgentWeights, RankingAgentInput, RankingAgentOutput, RankingBreakdown
-from agents.skill_agent import SkillAgentInput, SkillAgentOutput
-from agents.technical_agent import TechnicalAgentInput, TechnicalAgentOutput
-from agents.weight_negotiation_agent import WeightNegotiationOutput, WeightProposal
+from domain_agents.culture_agent import CultureAgentInput, CultureAgentOutput
+from domain_agents.experience_agent import ExperienceAgentInput, ExperienceAgentOutput
+from domain_agents.orchestrator import CandidateAgentResult
+from domain_agents.ranking_agent import AgentWeights, RankingAgentInput, RankingAgentOutput, RankingBreakdown
+from domain_agents.skill_agent import SkillAgentInput, SkillAgentOutput
+from domain_agents.technical_agent import TechnicalAgentInput, TechnicalAgentOutput
+from domain_agents.weight_negotiation_agent import WeightNegotiationOutput, WeightProposal
 from backend.core.collections import dedupe_preserve
 from backend.core.providers import get_openai_client
 from backend.core.settings import settings
 from backend.services.job_profile_extractor import JobProfile
+from pydantic import BaseModel, Field
 
 
 logger = logging.getLogger(__name__)
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+class _RawWeightProposal(BaseModel):
+    skill: float = Field(..., ge=0.0, le=1.0)
+    experience: float = Field(..., ge=0.0, le=1.0)
+    technical: float = Field(..., ge=0.0, le=1.0)
+    culture: float = Field(..., ge=0.0, le=1.0)
+
+
+class _ScorePackOutput(BaseModel):
+    skill_output: SkillAgentOutput
+    experience_output: ExperienceAgentOutput
+    technical_output: TechnicalAgentOutput
+    culture_output: CultureAgentOutput
+    ranking_explanation: str = ""
+
+
+class _ViewpointProposalOutput(BaseModel):
+    proposal: _RawWeightProposal
+    rationale: str = ""
+
+
+class _NegotiationOutput(BaseModel):
+    final: _RawWeightProposal
+    rationale: str = ""
+    ranking_explanation: str = ""
 
 
 @dataclass
@@ -96,7 +127,7 @@ class AgentOrchestrationService:
         )
 
         if self._should_use_live_agent_calls():
-            live_result = self._run_live_agents(
+            sdk_result = self._run_agents_sdk_runtime(
                 job_description=job_description,
                 job_profile=job_profile,
                 hit=hit,
@@ -106,20 +137,35 @@ class AgentOrchestrationService:
                 culture_input=culture_input,
                 category_filter=category_filter,
             )
-            if live_result is not None:
-                skill_output, experience_output, technical_output, culture_output, weight_negotiation, ranking_explanation = live_result
+            if sdk_result is not None:
+                skill_output, experience_output, technical_output, culture_output, weight_negotiation, ranking_explanation = sdk_result
             else:
-                skill_output, experience_output, technical_output, culture_output, weight_negotiation, ranking_explanation = self._run_heuristic_agents(
+                live_result = self._run_live_agents(
+                    job_description=job_description,
+                    job_profile=job_profile,
                     hit=hit,
                     skill_input=skill_input,
                     experience_input=experience_input,
                     technical_input=technical_input,
                     culture_input=culture_input,
-                    job_profile=job_profile,
                     category_filter=category_filter,
                 )
+                if live_result is not None:
+                    skill_output, experience_output, technical_output, culture_output, weight_negotiation, ranking_explanation = live_result
+                else:
+                    skill_output, experience_output, technical_output, culture_output, weight_negotiation, ranking_explanation = self._run_heuristic_agents(
+                        parsed=parsed,
+                        hit=hit,
+                        skill_input=skill_input,
+                        experience_input=experience_input,
+                        technical_input=technical_input,
+                        culture_input=culture_input,
+                        job_profile=job_profile,
+                        category_filter=category_filter,
+                    )
         else:
             skill_output, experience_output, technical_output, culture_output, weight_negotiation, ranking_explanation = self._run_heuristic_agents(
+                parsed=parsed,
                 hit=hit,
                 skill_input=skill_input,
                 experience_input=experience_input,
@@ -162,6 +208,198 @@ class AgentOrchestrationService:
             ranking_output=ranking_output,
             weight_negotiation=weight_negotiation,
         )
+
+    def _run_agents_sdk_runtime(
+        self,
+        *,
+        job_description: str,
+        job_profile: JobProfile,
+        hit: dict[str, Any],
+        skill_input: SkillAgentInput,
+        experience_input: ExperienceAgentInput,
+        technical_input: TechnicalAgentInput,
+        culture_input: CultureAgentInput,
+        category_filter: str | None,
+    ) -> tuple[
+        SkillAgentOutput,
+        ExperienceAgentOutput,
+        TechnicalAgentOutput,
+        CultureAgentOutput,
+        WeightNegotiationOutput,
+        str,
+    ] | None:
+        if not settings.openai_agents_sdk_enabled:
+            return None
+
+        runtime = self._load_agents_sdk_runtime()
+        if runtime is None:
+            return None
+        AgentCls, RunnerCls = runtime
+
+        payload = {
+            "job_description": job_description,
+            "job_profile": {
+                "required_skills": job_profile.required_skills,
+                "expanded_skills": job_profile.expanded_skills,
+                "required_experience_years": job_profile.required_experience_years,
+                "preferred_seniority": job_profile.preferred_seniority,
+            },
+            "retrieval_context": {
+                "vector_score": round(float(hit.get("score", 0.0)), 4),
+                "category": hit.get("category"),
+                "category_filter": category_filter,
+                "experience_years": hit.get("experience_years"),
+                "seniority_level": hit.get("seniority_level"),
+            },
+            "candidate": {
+                "skill_input": skill_input.model_dump(),
+                "experience_input": experience_input.model_dump(),
+                "technical_input": technical_input.model_dump(),
+                "culture_input": culture_input.model_dump(),
+            },
+        }
+        payload_json = json.dumps(payload, ensure_ascii=False)
+
+        try:
+            model = settings.openai_agent_model
+
+            skill_agent = AgentCls(
+                name="SkillEvalAgent",
+                model=model,
+                instructions=(
+                    "You are SkillEvalAgent. Score required/preferred skill alignment from 0 to 1. "
+                    "Ground evidence in candidate inputs only."
+                ),
+                output_type=SkillAgentOutput,
+            )
+            experience_agent = AgentCls(
+                name="ExperienceEvalAgent",
+                model=model,
+                instructions=(
+                    "You are ExperienceEvalAgent. Evaluate experience_fit and seniority_fit (0..1) and final score. "
+                    "Use job profile and candidate experience fields only."
+                ),
+                output_type=ExperienceAgentOutput,
+            )
+            technical_agent = AgentCls(
+                name="TechnicalEvalAgent",
+                model=model,
+                instructions=(
+                    "You are TechnicalEvalAgent. Evaluate stack_coverage and depth_signal (0..1) and final score. "
+                    "Use technical evidence from the payload only."
+                ),
+                output_type=TechnicalAgentOutput,
+            )
+            culture_agent = AgentCls(
+                name="CultureEvalAgent",
+                model=model,
+                instructions=(
+                    "You are CultureEvalAgent. Evaluate collaboration/communication/ownership signals. "
+                    "Return alignment, risk_flags, and score between 0 and 1."
+                ),
+                output_type=CultureAgentOutput,
+            )
+
+            skill_output = RunnerCls.run_sync(skill_agent, payload_json).final_output
+            experience_output = RunnerCls.run_sync(experience_agent, payload_json).final_output
+            technical_output = RunnerCls.run_sync(technical_agent, payload_json).final_output
+            culture_output = RunnerCls.run_sync(culture_agent, payload_json).final_output
+
+            score_pack_agent = AgentCls(
+                name="ScorePackAgent",
+                model=model,
+                instructions=(
+                    "You are ScorePackAgent. Consolidate four agent outputs into a coherent score pack. "
+                    "Do not change score meaning; keep evidence concise and grounded."
+                ),
+                output_type=_ScorePackOutput,
+            )
+            score_pack_input = json.dumps(
+                {
+                    "payload": payload,
+                    "skill_output": skill_output.model_dump(),
+                    "experience_output": experience_output.model_dump(),
+                    "technical_output": technical_output.model_dump(),
+                    "culture_output": culture_output.model_dump(),
+                },
+                ensure_ascii=False,
+            )
+            score_pack = RunnerCls.run_sync(score_pack_agent, score_pack_input).final_output
+
+            recruiter_agent = AgentCls(
+                name="RecruiterAgent",
+                model=model,
+                instructions=(
+                    "You are RecruiterAgent. Propose weights over skill/experience/technical/culture that sum to 1.0. "
+                    "Recruiter should slightly prioritize experience and culture for delivery/readiness."
+                ),
+                output_type=_ViewpointProposalOutput,
+            )
+            hiring_manager_agent = AgentCls(
+                name="HiringManagerAgent",
+                model=model,
+                instructions=(
+                    "You are HiringManagerAgent. Propose weights over skill/experience/technical/culture that sum to 1.0. "
+                    "Hiring manager should slightly prioritize technical depth and required skill fit."
+                ),
+                output_type=_ViewpointProposalOutput,
+            )
+            viewpoint_input = json.dumps(
+                {"payload": payload, "score_pack": score_pack.model_dump()},
+                ensure_ascii=False,
+            )
+            recruiter_view = RunnerCls.run_sync(recruiter_agent, viewpoint_input).final_output
+            hiring_manager_view = RunnerCls.run_sync(hiring_manager_agent, viewpoint_input).final_output
+
+            negotiation_agent = AgentCls(
+                name="WeightNegotiationAgent",
+                model=model,
+                instructions=(
+                    "You are WeightNegotiationAgent. Negotiate final weights from recruiter and hiring manager proposals. "
+                    "Return balanced final weights summing to 1.0, rationale, and ranking_explanation."
+                ),
+                output_type=_NegotiationOutput,
+            )
+            negotiation_input = json.dumps(
+                {
+                    "payload": payload,
+                    "score_pack": score_pack.model_dump(),
+                    "recruiter": recruiter_view.model_dump(),
+                    "hiring_manager": hiring_manager_view.model_dump(),
+                },
+                ensure_ascii=False,
+            )
+            negotiation = RunnerCls.run_sync(negotiation_agent, negotiation_input).final_output
+
+            recruiter = WeightProposal.model_validate(
+                self._normalize_weight_payload(recruiter_view.proposal.model_dump())
+            )
+            hiring_manager = WeightProposal.model_validate(
+                self._normalize_weight_payload(hiring_manager_view.proposal.model_dump())
+            )
+            final = WeightProposal.model_validate(self._normalize_weight_payload(negotiation.final.model_dump()))
+            weight_negotiation = WeightNegotiationOutput(
+                recruiter=recruiter,
+                hiring_manager=hiring_manager,
+                final=final,
+                rationale=(negotiation.rationale or "").strip(),
+            )
+            ranking_explanation = (
+                (negotiation.ranking_explanation or "").strip()
+                or (score_pack.ranking_explanation or "").strip()
+                or "Agent weighted ranking from negotiated A2A policy."
+            )
+            return (
+                score_pack.skill_output,
+                score_pack.experience_output,
+                score_pack.technical_output,
+                score_pack.culture_output,
+                weight_negotiation,
+                ranking_explanation,
+            )
+        except Exception:
+            logger.exception("Agents SDK runtime scoring failed; fallback to legacy live/heuristic path.")
+            return None
 
     def _run_live_agents(
         self,
@@ -358,6 +596,7 @@ class AgentOrchestrationService:
     def _run_heuristic_agents(
         self,
         *,
+        parsed: dict[str, Any],
         hit: dict[str, Any],
         skill_input: SkillAgentInput,
         experience_input: ExperienceAgentInput,
@@ -376,11 +615,16 @@ class AgentOrchestrationService:
         skill_score = self._compute_skill_score(skill_input.required_skills, skill_input.candidate_normalized_skills)
         matched_skills = sorted(set(skill_input.required_skills).intersection(skill_input.candidate_normalized_skills))
         missing_skills = sorted(set(skill_input.required_skills).difference(skill_input.candidate_normalized_skills))
+        skill_evidence = self._extract_evidence_sentences(
+            text=skill_input.raw_resume_text or skill_input.candidate_summary or "",
+            terms=[*skill_input.required_skills, *matched_skills],
+            limit=4,
+        )
         skill_output = SkillAgentOutput(
             score=skill_score,
             matched_skills=matched_skills,
             missing_skills=missing_skills,
-            evidence=matched_skills[:6],
+            evidence=skill_evidence or matched_skills[:6],
             rationale="Fallback: required-vs-normalized skill overlap.",
         )
 
@@ -392,21 +636,37 @@ class AgentOrchestrationService:
             preferred_seniority=experience_input.preferred_seniority,
             candidate_seniority=experience_input.candidate_seniority_level,
         )
+        career_trajectory = self._build_career_trajectory(
+            parsed=parsed,
+            candidate_experience_years=experience_input.candidate_experience_years,
+            candidate_seniority_level=experience_input.candidate_seniority_level,
+        )
+        experience_evidence = self._extract_evidence_sentences(
+            text=experience_input.raw_resume_text or experience_input.candidate_summary or "",
+            terms=[experience_input.preferred_seniority or "", "promotion", "lead", "manager", "senior"],
+            limit=4,
+        )
         experience_output = ExperienceAgentOutput(
             score=round((experience_fit + seniority_fit) / 2.0, 4),
             experience_fit=experience_fit,
             seniority_fit=seniority_fit,
-            evidence=(experience_input.candidate_experience_items or [])[:4],
+            career_trajectory=career_trajectory,
+            evidence=experience_evidence or (experience_input.candidate_experience_items or [])[:4],
             rationale="Fallback: experience-year and seniority heuristics.",
         )
 
         stack_coverage = self._compute_skill_score(technical_input.required_stack, technical_input.candidate_skills)
         depth_signal = round(min(1.0, stack_coverage * 0.8 + float(hit.get("score", 0.0)) * 0.2), 4)
+        technical_evidence = self._extract_evidence_sentences(
+            text=technical_input.raw_resume_text or technical_input.candidate_summary or "",
+            terms=[*technical_input.required_stack, "architecture", "designed", "implemented", "optimized", "built"],
+            limit=4,
+        )
         technical_output = TechnicalAgentOutput(
             score=round((stack_coverage + depth_signal) / 2.0, 4),
             stack_coverage=stack_coverage,
             depth_signal=depth_signal,
-            evidence=(technical_input.candidate_projects or [])[:4],
+            evidence=technical_evidence or (technical_input.candidate_projects or [])[:4],
             rationale="Fallback: stack coverage blended with vector similarity.",
         )
 
@@ -487,6 +747,19 @@ class AgentOrchestrationService:
         return True
 
     @staticmethod
+    def _load_agents_sdk_runtime() -> tuple[Any, Any] | None:
+        try:
+            mod = importlib.import_module("agents")
+        except Exception:
+            return None
+
+        AgentCls = getattr(mod, "Agent", None)
+        RunnerCls = getattr(mod, "Runner", None)
+        if AgentCls is None or RunnerCls is None:
+            return None
+        return AgentCls, RunnerCls
+
+    @staticmethod
     def _safe_json_load(content: Any) -> dict[str, Any]:
         if not content:
             return {}
@@ -531,6 +804,115 @@ class AgentOrchestrationService:
             if isinstance(description, str) and description.strip():
                 out.append(description.strip()[:180])
         return dedupe_preserve(out)
+
+    @staticmethod
+    def _extract_evidence_sentences(*, text: str, terms: list[str], limit: int = 4) -> list[str]:
+        if not isinstance(text, str) or not text.strip():
+            return []
+        normalized_terms = [term.strip().lower() for term in terms if isinstance(term, str) and term.strip()]
+        if not normalized_terms:
+            return []
+        sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(text) if s and s.strip()]
+        scored: list[tuple[int, str]] = []
+        for sentence in sentences:
+            lowered = sentence.lower()
+            hits = sum(1 for term in normalized_terms if term in lowered)
+            if hits <= 0:
+                continue
+            if len(sentence) < 25:
+                continue
+            scored.append((hits, sentence[:220]))
+        scored.sort(key=lambda item: item[0], reverse=True)
+        return dedupe_preserve([sentence for _, sentence in scored])[:limit]
+
+    @staticmethod
+    def _parse_date_token(value: Any) -> datetime | None:
+        if not isinstance(value, str) or not value.strip():
+            return None
+        token = value.strip().lower()
+        if token in {"present", "current", "now"}:
+            return datetime.utcnow()
+        for fmt in ("%Y-%m", "%Y/%m", "%Y"):
+            try:
+                return datetime.strptime(token, fmt)
+            except ValueError:
+                continue
+        return None
+
+    def _build_career_trajectory(
+        self,
+        *,
+        parsed: dict[str, Any],
+        candidate_experience_years: float | None,
+        candidate_seniority_level: str | None,
+    ) -> dict[str, Any]:
+        items = parsed.get("experience_items") or []
+        if not isinstance(items, list) or not items:
+            return {
+                "has_trajectory": False,
+                "seniority_level": candidate_seniority_level,
+                "total_experience_years": candidate_experience_years,
+                "progression": "insufficient-data",
+                "moves": [],
+            }
+
+        normalized: list[dict[str, Any]] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            normalized.append(
+                {
+                    "title": str(item.get("title") or "").strip() or None,
+                    "company": str(item.get("company") or "").strip() or None,
+                    "start_date": item.get("start_date"),
+                    "end_date": item.get("end_date"),
+                    "start_dt": self._parse_date_token(item.get("start_date")),
+                }
+            )
+        normalized.sort(key=lambda row: row.get("start_dt") or datetime.min)
+        if not normalized:
+            return {
+                "has_trajectory": False,
+                "seniority_level": candidate_seniority_level,
+                "total_experience_years": candidate_experience_years,
+                "progression": "insufficient-data",
+                "moves": [],
+            }
+
+        moves: list[dict[str, Any]] = []
+        for idx, row in enumerate(normalized):
+            if idx == 0:
+                continue
+            prev = normalized[idx - 1]
+            if row.get("title") == prev.get("title") and row.get("company") == prev.get("company"):
+                continue
+            moves.append(
+                {
+                    "from_title": prev.get("title"),
+                    "to_title": row.get("title"),
+                    "from_company": prev.get("company"),
+                    "to_company": row.get("company"),
+                    "at": row.get("start_date"),
+                }
+            )
+
+        progression = "stable"
+        if len(moves) >= 2:
+            progression = "growth"
+        if moves and any(move.get("from_company") != move.get("to_company") for move in moves):
+            progression = "transition"
+
+        first = normalized[0]
+        last = normalized[-1]
+        return {
+            "has_trajectory": True,
+            "seniority_level": candidate_seniority_level,
+            "total_experience_years": candidate_experience_years,
+            "first_role": {"title": first.get("title"), "company": first.get("company"), "start_date": first.get("start_date")},
+            "latest_role": {"title": last.get("title"), "company": last.get("company"), "start_date": last.get("start_date"), "end_date": last.get("end_date")},
+            "progression": progression,
+            "moves": moves[:6],
+        }
 
     @staticmethod
     def _compute_skill_score(required_skills: list[str], candidate_skills: list[str]) -> float:

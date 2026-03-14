@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, model_validator
 
-from agents.ranking_agent import AgentWeights
+from domain_agents.ranking_agent import AgentWeights
 
 
 class WeightProposal(BaseModel):

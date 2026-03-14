@@ -14,6 +14,17 @@ import os
 from pathlib import Path
 
 import pytest
+from eval.eval_metrics import (
+    build_diversity_report,
+    build_synthetic_candidate,
+    extract_culture_targets,
+    extract_expected_skills,
+    extract_min_experience_years,
+    score_culture_fit,
+    score_custom_quality,
+    score_experience_fit,
+    score_skill_coverage,
+)
 
 # ---------------------------------------------------------------------------
 # Try importing deepeval; skip gracefully if not installed.
@@ -120,3 +131,64 @@ def test_match_quality_bad_job_low_relevance() -> None:
     metric.measure(test_case)
     assert metric.score is not None
     # In a real test: assert metric.score < 0.5 (low relevance expected)
+
+
+def test_match_quality_custom_eval_release_gate() -> None:
+    """R2.2: deterministic custom quality metric across skill/exp/culture."""
+    entries = load_golden_set()
+    assert len(entries) >= 10
+
+    grouped: dict[str, list[float]] = {"good": [], "neutral": [], "bad": []}
+    for entry in entries:
+        candidate = build_synthetic_candidate(entry)
+        expected_skills = extract_expected_skills(entry)
+        required_exp = extract_min_experience_years(entry["job_description"])
+        target_culture = extract_culture_targets(entry)
+
+        skill_score = score_skill_coverage(expected_skills, candidate["candidate_skills"])
+        exp_score = score_experience_fit(required_exp, candidate["candidate_experience_years"])
+        culture_score = score_culture_fit(
+            target_signals=target_culture,
+            candidate_signals=candidate["candidate_culture_signals"],
+            candidate_summary=candidate["candidate_summary"],
+        )
+        quality = score_custom_quality(
+            skill_score=skill_score,
+            experience_score=exp_score,
+            culture_score=culture_score,
+        )
+        label = str(entry.get("expected_label") or "neutral").lower()
+        grouped.setdefault(label, []).append(quality)
+
+    avg_good = sum(grouped.get("good", [])) / max(1, len(grouped.get("good", [])))
+    avg_neutral = sum(grouped.get("neutral", [])) / max(1, len(grouped.get("neutral", [])))
+    avg_bad = sum(grouped.get("bad", [])) / max(1, len(grouped.get("bad", [])))
+
+    report = {
+        "avg_quality": {
+            "good": round(avg_good, 4),
+            "neutral": round(avg_neutral, 4),
+            "bad": round(avg_bad, 4),
+        },
+        "counts": {k: len(v) for k, v in grouped.items()},
+    }
+    print("custom_quality_report=" + json.dumps(report, ensure_ascii=False))
+
+    assert avg_good >= 0.72, "good set quality must clear release gate"
+    if grouped.get("neutral"):
+        assert avg_bad < avg_neutral < avg_good, "neutral quality must sit between good and bad"
+    assert avg_bad <= 0.45, "bad set should remain low quality"
+    assert (avg_good - avg_bad) >= 0.25, "quality separation between good and bad is too small"
+
+
+def test_golden_set_diversity_release_gate() -> None:
+    """R2.1: formal diversity metric and reporting for eval set health."""
+    entries = load_golden_set()
+    report = build_diversity_report(entries)
+    print("diversity_report=" + json.dumps(report, ensure_ascii=False))
+
+    assert report["total_entries"] >= 10
+    assert report["family_count"] >= 6, "golden set needs broad role-family coverage"
+    assert report["family_entropy_normalized"] >= 0.75, "family distribution is too concentrated"
+    assert report["skill_vocabulary_size"] >= 45, "skill vocabulary diversity is too narrow"
+    assert report["label_distribution"].get("bad", 0) >= 2, "at least two contrastive bad cases required"

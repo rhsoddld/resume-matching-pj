@@ -4,12 +4,12 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from agents.culture_agent import CultureAgentInput, CultureAgentOutput
-from agents.experience_agent import ExperienceAgentInput, ExperienceAgentOutput
-from agents.ranking_agent import RankingAgentInput, RankingAgentOutput
-from agents.skill_agent import SkillAgentInput, SkillAgentOutput
-from agents.technical_agent import TechnicalAgentInput, TechnicalAgentOutput
-from agents.weight_negotiation_agent import WeightNegotiationOutput
+from domain_agents.culture_agent import CultureAgentInput, CultureAgentOutput
+from domain_agents.experience_agent import ExperienceAgentInput, ExperienceAgentOutput
+from domain_agents.ranking_agent import RankingAgentInput, RankingAgentOutput
+from domain_agents.skill_agent import SkillAgentInput, SkillAgentOutput
+from domain_agents.technical_agent import TechnicalAgentInput, TechnicalAgentOutput
+from domain_agents.weight_negotiation_agent import WeightNegotiationOutput
 
 
 class CandidateContext(BaseModel):

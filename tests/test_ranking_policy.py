@@ -7,13 +7,13 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from agents.culture_agent import CultureAgentOutput
-from agents.experience_agent import ExperienceAgentOutput
-from agents.orchestrator import CandidateAgentResult
-from agents.ranking_agent import AgentWeights, RankingAgentInput, RankingAgentOutput, RankingBreakdown
-from agents.skill_agent import SkillAgentOutput
-from agents.technical_agent import TechnicalAgentOutput
-from agents.weight_negotiation_agent import WeightNegotiationOutput, WeightProposal
+from domain_agents.culture_agent import CultureAgentOutput
+from domain_agents.experience_agent import ExperienceAgentOutput
+from domain_agents.orchestrator import CandidateAgentResult
+from domain_agents.ranking_agent import AgentWeights, RankingAgentInput, RankingAgentOutput, RankingBreakdown
+from domain_agents.skill_agent import SkillAgentOutput
+from domain_agents.technical_agent import TechnicalAgentOutput
+from domain_agents.weight_negotiation_agent import WeightNegotiationOutput, WeightProposal
 from backend.services.job_profile_extractor import JobProfile
 from backend.services.match_result_builder import build_match_candidate
 from backend.services.scoring_service import compute_final_ranking_score
@@ -86,6 +86,50 @@ def test_build_match_candidate_applies_agent_weighted_ranking_policy():
 
     assert candidate.score == pytest.approx(0.84)
     assert candidate.score_detail.rank_policy == "hybrid(deterministic:0.55,agent:0.45,must-have-penalty:max0.25)"
+    assert "parsing" in candidate.agent_scores
     assert candidate.agent_scores["weights"]["skill"] == 0.35
     assert candidate.agent_scores["weight_negotiation"]["final"]["experience"] == 0.3
+
+
+def test_build_match_candidate_exposes_adjacent_skill_score_and_trajectory():
+    hit = {
+        "candidate_id": "cand-2",
+        "score": 0.7,
+        "category": "Data",
+        "experience_years": 4.0,
+        "seniority_level": "mid",
+    }
+    candidate_doc = {
+        "parsed": {
+            "summary": "Backend/data engineer with API and orchestration experience.",
+            "skills": ["python", "sql", "airflow", "fastapi"],
+            "normalized_skills": ["python", "sql", "airflow", "fastapi"],
+            "core_skills": ["python", "sql"],
+            "expanded_skills": ["python", "sql", "airflow", "fastapi"],
+            "experience_items": [
+                {"title": "Engineer", "company": "A", "start_date": "2020-01", "end_date": "2021-12"},
+                {"title": "Senior Engineer", "company": "B", "start_date": "2022-01", "end_date": "Present"},
+            ],
+        }
+    }
+    job_profile = JobProfile(
+        required_skills=["python", "sql"],
+        expanded_skills=["python", "sql", "airflow", "kafka"],
+        related_skills=["airflow", "kafka"],
+        required_experience_years=3.0,
+        preferred_seniority="mid",
+    )
+
+    candidate = build_match_candidate(
+        hit=hit,
+        candidate_doc=candidate_doc,
+        job_profile=job_profile,
+        category="Data",
+        agent_result=None,
+    )
+
+    assert candidate.score_detail.adjacent_skill_score is not None
+    assert candidate.score_detail.adjacent_skill_score >= 0.0
+    assert "airflow" in candidate.adjacent_skill_matches
+    assert candidate.career_trajectory.get("has_trajectory") is True
 import pytest

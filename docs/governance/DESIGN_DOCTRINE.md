@@ -89,7 +89,7 @@ API 오류 응답 (503) + request_id 포함 로그
 |------|------|
 | **입력 검증** | 모든 API 입력은 Pydantic 스키마 통과 필수, 길이 제한 적용 |
 | **request_id 전파** | HTTP 헤더 →서비스 로그 → LangSmith trace까지 동일 ID 유지 |
-| **Health / Ready 분리** | `/health`(인프라 연결 상태) ≠ `/ready`(인덱싱 완료 등 비즈니스 준비 상태) |
+| **Health / Ready 분리** | `/api/health`는 liveness, `/api/ready`는 Mongo/Milvus readiness를 반환한다 |
 | **환경 변수 격리** | API Key 등 민감 설정은 `.env` + `Settings` Pydantic model로만 관리 |
 | **Connection Pooling 기본값** | MongoDB는 pool 설정(`max/min pool`)을 고정하고, Milvus는 alias pool 기반으로 분산 연결 |
 | **Cold Start Warmup** | 앱 시작 시 Mongo client/index 초기화 + Milvus collection preload로 첫 검색 지연 최소화 |

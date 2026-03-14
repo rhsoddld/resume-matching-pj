@@ -13,4 +13,7 @@ def match_jobs(request: JobMatchRequest):
         top_k=request.top_k,
         category=request.category,
         min_experience_years=request.min_experience_years,
+        education=request.education,
+        region=request.region,
+        industry=request.industry,
     )

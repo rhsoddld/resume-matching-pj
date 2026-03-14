@@ -5,6 +5,9 @@ export interface JobMatchRequest {
   top_k: number;
   category?: string;
   min_experience_years?: number;
+  education?: string;
+  region?: string;
+  industry?: string;
 }
 
 export interface QueryUnderstandingProfile {
@@ -17,6 +20,8 @@ export interface QueryUnderstandingProfile {
   seniority_hint?: string;
   filters: Record<string, string | number>;
   metadata_filters: Record<string, string | number>;
+  transferable_skill_score?: number;
+  transferable_skill_evidence?: string[];
   signal_quality: Record<string, string | number>;
   lexical_query: string;
   semantic_query_expansion: string[];
@@ -38,6 +43,7 @@ export interface ScoreDetail {
   retrieval_metadata?: number;
   must_have_match_rate?: number;
   must_have_penalty?: number;
+  adjacent_skill_score?: number;
   agent_weighted?: number;
   rank_policy?: string;
 }
@@ -66,11 +72,30 @@ export interface JobMatchCandidate {
   agent_scores: Record<string, unknown>;
   agent_explanation?: string;
   relevant_experience: string[];
+  career_trajectory?: Record<string, unknown>;
+  adjacent_skill_matches?: string[];
   possible_gaps: string[];
+  bias_warnings?: string[];
   weighting_summary?: string;
+}
+
+export interface FairnessWarning {
+  code: string;
+  severity: string;
+  message: string;
+  candidate_ids: string[];
+  metrics: Record<string, string | number | boolean | string[]>;
+}
+
+export interface FairnessAudit {
+  enabled: boolean;
+  policy_version: string;
+  checks_run: string[];
+  warnings: FairnessWarning[];
 }
 
 export interface JobMatchResponse {
   query_profile: QueryUnderstandingProfile;
   matches: JobMatchCandidate[];
+  fairness: FairnessAudit;
 }

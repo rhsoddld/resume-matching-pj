@@ -18,8 +18,8 @@ JD
 -> Explainable output
 ```
 
-현재 랭킹 경로에는 LLM rerank 단계가 없다.  
-LLM은 저신뢰 query understanding fallback과 optional rerank 단계에서만 제한적으로 사용한다.
+현재 rerank는 `RERANK_MODE`에 따라 embedding 또는 LLM 경로를 선택한다.  
+기본값은 embedding rerank이며, LLM rerank는 선택적으로 전환 가능하다.
 
 ## 2. Query Understanding Quality Gate
 
@@ -57,7 +57,7 @@ fusion_score =
 
 `fusion_score`는 shortlist 정렬 기준이며, 이후 deterministic scoring/agent scoring의 입력으로 사용된다.
 
-### 3-1. Optional Cross-Encoder Rerank
+### 3-1. Optional Rerank (Embedding / LLM)
 
 `RERANK_ENABLED=true`일 때만 동작한다.
 
@@ -71,6 +71,8 @@ cross-encoder rerank -> top-K
 
 - `RERANK_ENABLED=false`
 - `RERANK_TOP_N=50`
+- `RERANK_MODE=embedding`
+- `RERANK_EMBEDDING_MODEL=text-embedding-3-small`
 - `RERANK_MODEL=gpt-4.1-mini`
 
 ## 4. Deterministic Score

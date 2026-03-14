@@ -15,7 +15,9 @@ class CultureAgentInput(BaseModel):
 class CultureAgentOutput(BaseModel):
     score: float = Field(..., ge=0.0, le=1.0)
     alignment: float = Field(..., ge=0.0, le=1.0)
+    potential_score: float = Field(0.0, ge=0.0, le=1.0)
+    potential_level: str = "unknown"
     risk_flags: list[str] = Field(default_factory=list)
     evidence: list[str] = Field(default_factory=list)
+    potential_evidence: list[str] = Field(default_factory=list)
     rationale: str = ""
-

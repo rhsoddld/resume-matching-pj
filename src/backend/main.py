@@ -7,7 +7,7 @@ from backend.core.startup import warmup_infrastructure
 from backend.core.exceptions import AppError
 from backend.core.database import get_mongo_client
 from backend.core.settings import settings
-from backend.api import candidates, jobs
+from backend.api import candidates, ingestion, jobs
 from ops.logging import configure_logging, get_logger
 from ops.middleware import RequestIdMiddleware
 from pymilvus import connections, utility
@@ -49,6 +49,7 @@ def unhandled_exception_handler(_: Request, exc: Exception):
 
 app.include_router(candidates.router, prefix=settings.api_prefix)
 app.include_router(jobs.router, prefix=settings.api_prefix)
+app.include_router(ingestion.router, prefix=settings.api_prefix)
 
 
 def _check_mongo_ready() -> tuple[bool, str | None]:

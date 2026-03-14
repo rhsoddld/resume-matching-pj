@@ -6,6 +6,7 @@ from typing import Any
 
 from backend.core.database import get_collection
 from backend.core.exceptions import ExternalDependencyError, RepositoryError
+from backend.schemas.job import INDUSTRY_STANDARD_DICTIONARY, normalize_industry_label
 from backend.services.retrieval_service import RetrievalService
 from backend.services.job_profile_extractor import JobProfile
 
@@ -32,6 +33,19 @@ _STOPWORDS = {
     "senior",
     "junior",
 }
+_INDUSTRY_CATEGORY_MAP = {
+    canonical: [term.strip().lower() for term in payload.get("category_terms", []) if isinstance(term, str)]
+    for canonical, payload in INDUSTRY_STANDARD_DICTIONARY.items()
+}
+
+
+def _normalize_token(value: str | None) -> str:
+    if not isinstance(value, str):
+        return ""
+    token = value.strip().lower()
+    token = re.sub(r"[-_]+", " ", token)
+    token = re.sub(r"\s+", " ", token)
+    return token
 
 
 class HybridRetriever:
@@ -92,12 +106,18 @@ class HybridRetriever:
     ) -> list[dict[str, Any]]:
         try:
             terms = self._build_query_terms(job_description=job_description, job_profile=job_profile)
-            query = self._build_query(terms=terms, category=category, min_experience_years=min_experience_years)
+            query = self._build_query(
+                terms=terms,
+                category=category,
+                min_experience_years=min_experience_years,
+                industry=job_profile.metadata_filters.get("industry") if isinstance(job_profile.metadata_filters, dict) else None,
+            )
             projection = {
                 "_id": 0,
                 "candidate_id": 1,
                 "source_dataset": 1,
                 "category": 1,
+                "metadata.location": 1,
                 "parsed.summary": 1,
                 "parsed.skills": 1,
                 "parsed.normalized_skills": 1,
@@ -113,6 +133,7 @@ class HybridRetriever:
                     doc=doc,
                     terms=terms,
                     category=category,
+                    industry=job_profile.metadata_filters.get("industry") if isinstance(job_profile.metadata_filters, dict) else None,
                     min_experience_years=min_experience_years,
                     preferred_seniority=job_profile.preferred_seniority,
                 )
@@ -147,6 +168,7 @@ class HybridRetriever:
             vector_score = self._normalize_vector_similarity(raw_vector_score)
             metadata_score = self._metadata_score(
                 category=category,
+                industry=job_profile.metadata_filters.get("industry") if isinstance(job_profile.metadata_filters, dict) else None,
                 min_experience_years=min_experience_years,
                 preferred_seniority=job_profile.preferred_seniority,
                 candidate_category=hit.get("category"),
@@ -251,23 +273,56 @@ class HybridRetriever:
         return deduped[:24]
 
     @staticmethod
-    def _build_query(*, terms: list[str], category: str | None, min_experience_years: float | None) -> dict[str, Any]:
-        query: dict[str, Any] = {}
+    def _industry_key(industry: str | None) -> str:
+        return normalize_industry_label(industry) or _normalize_token(industry)
+
+    @classmethod
+    def _build_query(
+        cls,
+        *,
+        terms: list[str],
+        category: str | None,
+        min_experience_years: float | None,
+        industry: str | None = None,
+    ) -> dict[str, Any]:
+        clauses: list[dict[str, Any]] = []
         if category:
-            query["category"] = category
+            clauses.append({"category": {"$regex": f"^{re.escape(str(category).strip())}$", "$options": "i"}})
+        else:
+            industry_key = cls._industry_key(industry)
+            industry_terms = _INDUSTRY_CATEGORY_MAP.get(industry_key, [])
+            if industry_terms:
+                clauses.append(
+                    {
+                        "$or": [
+                            {"category": {"$regex": re.escape(term), "$options": "i"}}
+                            for term in industry_terms
+                        ]
+                    }
+                )
         if min_experience_years is not None:
-            query["parsed.experience_years"] = {"$gte": float(min_experience_years)}
+            clauses.append({"parsed.experience_years": {"$gte": float(min_experience_years)}})
         if not terms:
-            return query
+            if not clauses:
+                return {}
+            if len(clauses) == 1:
+                return clauses[0]
+            return {"$and": clauses}
         regex = "|".join(re.escape(term) for term in terms[:8])
-        query["$or"] = [
-            {"parsed.normalized_skills": {"$in": terms}},
-            {"parsed.core_skills": {"$in": terms}},
-            {"parsed.expanded_skills": {"$in": terms}},
-            {"parsed.skills": {"$in": terms}},
-            {"parsed.summary": {"$regex": regex, "$options": "i"}},
-        ]
-        return query
+        clauses.append(
+            {
+                "$or": [
+                    {"parsed.normalized_skills": {"$in": terms}},
+                    {"parsed.core_skills": {"$in": terms}},
+                    {"parsed.expanded_skills": {"$in": terms}},
+                    {"parsed.skills": {"$in": terms}},
+                    {"parsed.summary": {"$regex": regex, "$options": "i"}},
+                ]
+            }
+        )
+        if len(clauses) == 1:
+            return clauses[0]
+        return {"$and": clauses}
 
     @staticmethod
     def _doc_to_hit(
@@ -275,6 +330,7 @@ class HybridRetriever:
         doc: dict[str, Any],
         terms: list[str],
         category: str | None,
+        industry: str | None,
         min_experience_years: float | None,
         preferred_seniority: str | None,
     ) -> dict[str, Any]:
@@ -295,6 +351,7 @@ class HybridRetriever:
         metadata_score = round(
             HybridRetriever._metadata_score(
                 category=category,
+                industry=industry,
                 min_experience_years=min_experience_years,
                 preferred_seniority=preferred_seniority,
                 candidate_category=doc.get("category"),
@@ -338,15 +395,31 @@ class HybridRetriever:
     def _metadata_score(
         *,
         category: str | None,
+        industry: str | None,
         min_experience_years: float | None,
         preferred_seniority: str | None,
         candidate_category: str | None,
         candidate_experience_years: float | None,
         candidate_seniority_level: str | None,
     ) -> float:
+        normalized_candidate_category = _normalize_token(candidate_category)
         category_score = 0.5
         if category:
-            category_score = 1.0 if candidate_category == category else 0.0
+            category_score = 1.0 if normalized_candidate_category == _normalize_token(category) else 0.0
+
+        industry_score = 0.5
+        normalized_industry = HybridRetriever._industry_key(industry)
+        if normalized_industry:
+            industry_terms = {_normalize_token(term) for term in _INDUSTRY_CATEGORY_MAP.get(normalized_industry, [])}
+            industry_terms = {term for term in industry_terms if term}
+            if not industry_terms:
+                industry_score = 0.5
+            else:
+                industry_score = (
+                    1.0
+                    if any(term in normalized_candidate_category for term in industry_terms)
+                    else 0.0
+                )
 
         experience_score = 0.5
         if min_experience_years is not None:
@@ -366,4 +439,6 @@ class HybridRetriever:
             else:
                 seniority_score = 0.4
 
+        if normalized_industry:
+            return (category_score * 0.4) + (industry_score * 0.15) + (experience_score * 0.3) + (seniority_score * 0.15)
         return (category_score * 0.5) + (experience_score * 0.35) + (seniority_score * 0.15)

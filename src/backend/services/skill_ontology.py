@@ -262,3 +262,110 @@ class RuntimeSkillOntology:
             taxonomy_applied=taxonomy_applied,
         )
 
+    def find_adjacent_skills(self, skills: Iterable[str], *, limit: int = 12) -> tuple[list[str], list[str]]:
+        seeds = [_clean_token(s) for s in skills]
+        canonical_seeds = _dedupe_preserve(
+            [
+                self.alias_to_canonical.get(token, token)
+                for token in seeds
+                if token is not None and self.alias_to_canonical.get(token, token) in self.core_taxonomy
+            ]
+        )
+        if not canonical_seeds:
+            return [], []
+
+        adjacent: list[str] = []
+        evidence: list[str] = []
+        seed_set = set(canonical_seeds)
+        for seed in canonical_seeds:
+            seed_meta = self.core_taxonomy.get(seed)
+            if not isinstance(seed_meta, dict):
+                continue
+            seed_domain = _clean_token(seed_meta.get("domain"))
+            seed_family = _clean_token(seed_meta.get("family"))
+            seed_parents = {_clean_token(parent) for parent in seed_meta.get("parents", [])}
+            seed_parents = {parent for parent in seed_parents if parent}
+
+            for skill, meta in self.core_taxonomy.items():
+                if skill in seed_set or skill == seed:
+                    continue
+                if not isinstance(meta, dict):
+                    continue
+                domain = _clean_token(meta.get("domain"))
+                family = _clean_token(meta.get("family"))
+                parents = {_clean_token(parent) for parent in meta.get("parents", [])}
+                parents = {parent for parent in parents if parent}
+
+                reason: str | None = None
+                if seed_domain and domain and domain == seed_domain:
+                    reason = f"shared domain '{seed_domain}'"
+                elif seed_family and family and family == seed_family:
+                    reason = f"shared family '{seed_family}'"
+                elif seed_parents and parents and len(seed_parents.intersection(parents)) > 0:
+                    common_parent = sorted(seed_parents.intersection(parents))[0]
+                    reason = f"shared parent '{common_parent}'"
+                if reason is None:
+                    continue
+
+                adjacent.append(skill)
+                evidence.append(f"{skill} is adjacent to {seed} via {reason}.")
+                if len(adjacent) >= limit:
+                    return _dedupe_preserve(adjacent), _dedupe_preserve(evidence)
+
+        return _dedupe_preserve(adjacent), _dedupe_preserve(evidence)
+
+    def adjacent_match_score(
+        self,
+        *,
+        job_related_skills: Iterable[str],
+        candidate_skills: Iterable[str],
+        limit: int = 10,
+    ) -> tuple[float, list[str]]:
+        related = [_clean_token(skill) for skill in job_related_skills]
+        candidate = [_clean_token(skill) for skill in candidate_skills]
+        related_norm = {
+            self.alias_to_canonical.get(token, token)
+            for token in related
+            if token is not None and self.alias_to_canonical.get(token, token)
+        }
+        candidate_norm = {
+            self.alias_to_canonical.get(token, token)
+            for token in candidate
+            if token is not None and self.alias_to_canonical.get(token, token)
+        }
+        if not related_norm:
+            return 0.0, []
+
+        matches: list[str] = []
+        for candidate_skill in sorted(candidate_norm):
+            if candidate_skill in related_norm:
+                matches.append(candidate_skill)
+                continue
+            candidate_meta = self.core_taxonomy.get(candidate_skill)
+            if not isinstance(candidate_meta, dict):
+                continue
+            c_domain = _clean_token(candidate_meta.get("domain"))
+            c_family = _clean_token(candidate_meta.get("family"))
+            c_parents = {_clean_token(parent) for parent in candidate_meta.get("parents", [])}
+            c_parents = {parent for parent in c_parents if parent}
+            for related_skill in related_norm:
+                related_meta = self.core_taxonomy.get(related_skill)
+                if not isinstance(related_meta, dict):
+                    continue
+                r_domain = _clean_token(related_meta.get("domain"))
+                r_family = _clean_token(related_meta.get("family"))
+                r_parents = {_clean_token(parent) for parent in related_meta.get("parents", [])}
+                r_parents = {parent for parent in r_parents if parent}
+                if c_domain and r_domain and c_domain == r_domain:
+                    matches.append(candidate_skill)
+                    break
+                if c_family and r_family and c_family == r_family:
+                    matches.append(candidate_skill)
+                    break
+                if c_parents and r_parents and c_parents.intersection(r_parents):
+                    matches.append(candidate_skill)
+                    break
+
+        deduped_matches = _dedupe_preserve(matches)[:limit]
+        score = round(len(deduped_matches) / float(len(related_norm)), 4)
+        return max(0.0, min(1.0, score)), deduped_matches

@@ -1,0 +1,49 @@
+name: Eval Archive
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/eval/**"
+      - "src/domain_agents/culture_agent.py"
+      - "docs/eval/llm_judge_softskill_potential_rubric.md"
+      - "scripts/generate_eval_results.py"
+      - "requirements.txt"
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate eval archive
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/generate_eval_results.py
+
+      - name: Commit updated eval results
+        run: |
+          if git diff --quiet -- docs/eval/eval-results.md; then
+            echo "No eval archive changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/eval/eval-results.md
+          git commit -m "ci: update eval results archive"
+          git push
