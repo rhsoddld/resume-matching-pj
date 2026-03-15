@@ -70,7 +70,7 @@ isProject: false
 | Multi-agent evaluation | Done baseline (hybrid runtime) | score pack 생성은 SDK/live/heuristic 경로를 지원하며 서비스 레벨 fallback 유지 |
 | Weight negotiation | Done baseline (SDK handoff + fallback) | negotiation 구간은 `Recruiter -> HiringManager -> WeightNegotiation` handoff를 시도하고 실패 시 degrade |
 | Explainable ranking output | Done v3 baseline | UI에서 runtime mode/fallback reason/recruiter·hiring·final policy까지 노출 |
-| Eval / guardrails | Partial | DeepEval/LLM-as-Judge(quality/diversity/custom/potential) + live judge 아카이빙 + bias guardrails backend v1 구현 완료. Confident AI 연동은 optional/검토 보류(2026-03-15)이며 기본 경로는 로컬/CI 아카이브. 남은 작업은 fairness metric 운영 고도화와 Grafana 메트릭 파이프라인 설계 확정 |
+| Eval / guardrails | Partial | DeepEval/LLM-as-Judge(quality/diversity/custom/potential) + live judge 아카이빙 + bias guardrails backend v1 구현 완료. fairness metric 모니터링은 LangSmith로 대체(Resolved). |
 
 ## 다음 구현 우선순위 (requirements/requirements.md 기준)
 
@@ -82,7 +82,7 @@ isProject: false
 
 ### Priority 2. Advanced Eval & Guardrails
 
-- `R2.7`: bias detection guardrail 운영 고도화(대시보드/임계치/triage)
+- `R2.7`: bias detection guardrail 운영 고도화 (대시보드는 LangSmith로 대체 완료)
 - `D.2`: bias mitigation 근거를 설계 문서에 연결
 
 ### Priority 3. Ranking and Performance
@@ -95,9 +95,7 @@ isProject: false
 
 ### Priority 4. Hiring Intelligence Expansion
 
-- `AHI.2`: recruiter feedback loop 데이터 모델/API 추가
-- `AHI.3`: hiring analytics dashboard 구현
-- `AHI.4`: interview scheduling agent handoff 경로 추가
+- `AHI.3`: hiring analytics dashboard (LangSmith 대시보드로 대체 완료)
 - `AHI.5`: A2A negotiation audit trail 강화
 
 ## 완료 기준
@@ -114,7 +112,9 @@ isProject: false
 
 | ID | 항목 | 우선순위 |
 |----|------|---------|
-| BL-01 | fairness dashboard / bias monitoring 시각화 | Low |
+| BL-01 | fairness dashboard / bias monitoring 시각화 | Low (Resolved via LangSmith) |
+| BL-01a | AHI.2: recruiter feedback loop | Low |
+| BL-01b | AHI.4: interview scheduling handoff | Low |
 | BL-02 | retrieval fusion weight 실험 자동화 | Medium |
 | BL-03 | role-specific weight profiles 저장 / 버전 관리 | Medium |
 | BL-04 | reviewer demo용 canned dataset 및 시나리오 추가 | Medium |

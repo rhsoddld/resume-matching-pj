@@ -15,6 +15,7 @@ from backend.agents.contracts.weight_negotiation_agent import WeightNegotiationO
 from .helpers import normalize_weight_payload, safe_json_load
 from .prompts import PROMPTS
 from .types import AgentExecutionResult
+from backend.core.observability import traceable_op
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +117,7 @@ LIVE_OUTPUT_SCHEMA: dict[str, Any] = {
 }
 
 
+@traceable_op(name="agents.live_runner", run_type="chain", tags=["agents", "live_json"])
 def run_live_agents(
     *,
     client: OpenAI,

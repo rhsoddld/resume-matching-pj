@@ -1,0 +1,237 @@
+{
+  "run_at": "2026-03-15T11:41:29Z",
+  "top_k": 10,
+  "label_filter": "good",
+  "evaluated_entries": 28,
+  "avg_precision_at_k": 0.0073,
+  "avg_recall_at_k": 0.4725,
+  "f1_at_k": 0.0144,
+  "target_overlap_at_k": 0.5,
+  "target_met": false,
+  "results": [
+    {
+      "id": "gs-001",
+      "label": "good",
+      "precision_at_k": 0.0095,
+      "recall_at_k": 0.75,
+      "expected_skill_count": 8,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-002",
+      "label": "good",
+      "precision_at_k": 0.0114,
+      "recall_at_k": 1.0,
+      "expected_skill_count": 5,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-003",
+      "label": "good",
+      "precision_at_k": 0.0099,
+      "recall_at_k": 0.8571,
+      "expected_skill_count": 7,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-004",
+      "label": "good",
+      "precision_at_k": 0.0099,
+      "recall_at_k": 0.6667,
+      "expected_skill_count": 6,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-005",
+      "label": "good",
+      "precision_at_k": 0.0081,
+      "recall_at_k": 0.6667,
+      "expected_skill_count": 6,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-006",
+      "label": "good",
+      "precision_at_k": 0.0056,
+      "recall_at_k": 0.3333,
+      "expected_skill_count": 6,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-008",
+      "label": "good",
+      "precision_at_k": 0.012,
+      "recall_at_k": 0.625,
+      "expected_skill_count": 8,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-009",
+      "label": "good",
+      "precision_at_k": 0.0042,
+      "recall_at_k": 0.3333,
+      "expected_skill_count": 6,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-010",
+      "label": "good",
+      "precision_at_k": 0.0062,
+      "recall_at_k": 0.5714,
+      "expected_skill_count": 7,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-011",
+      "label": "good",
+      "precision_at_k": 0.0064,
+      "recall_at_k": 0.5,
+      "expected_skill_count": 6,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-013",
+      "label": "good",
+      "precision_at_k": 0.0085,
+      "recall_at_k": 0.5,
+      "expected_skill_count": 6,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-014",
+      "label": "good",
+      "precision_at_k": 0.005,
+      "recall_at_k": 0.3333,
+      "expected_skill_count": 6,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-016",
+      "label": "good",
+      "precision_at_k": 0.0083,
+      "recall_at_k": 0.75,
+      "expected_skill_count": 8,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-017",
+      "label": "good",
+      "precision_at_k": 0.0087,
+      "recall_at_k": 0.5,
+      "expected_skill_count": 8,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-018",
+      "label": "good",
+      "precision_at_k": 0.0156,
+      "recall_at_k": 0.7143,
+      "expected_skill_count": 7,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-019",
+      "label": "good",
+      "precision_at_k": 0.0071,
+      "recall_at_k": 0.375,
+      "expected_skill_count": 8,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-020",
+      "label": "good",
+      "precision_at_k": 0.0078,
+      "recall_at_k": 0.5,
+      "expected_skill_count": 8,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-021",
+      "label": "good",
+      "precision_at_k": 0.0116,
+      "recall_at_k": 0.4286,
+      "expected_skill_count": 7,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-022",
+      "label": "good",
+      "precision_at_k": 0.0,
+      "recall_at_k": 0.0,
+      "expected_skill_count": 7,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-023",
+      "label": "good",
+      "precision_at_k": 0.0035,
+      "recall_at_k": 0.125,
+      "expected_skill_count": 8,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-024",
+      "label": "good",
+      "precision_at_k": 0.0081,
+      "recall_at_k": 0.5,
+      "expected_skill_count": 8,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-025",
+      "label": "good",
+      "precision_at_k": 0.0103,
+      "recall_at_k": 0.5714,
+      "expected_skill_count": 7,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-026",
+      "label": "good",
+      "precision_at_k": 0.0057,
+      "recall_at_k": 0.4286,
+      "expected_skill_count": 7,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-027",
+      "label": "good",
+      "precision_at_k": 0.0043,
+      "recall_at_k": 0.2857,
+      "expected_skill_count": 7,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-028",
+      "label": "good",
+      "precision_at_k": 0.0081,
+      "recall_at_k": 0.2857,
+      "expected_skill_count": 7,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-029",
+      "label": "good",
+      "precision_at_k": 0.004,
+      "recall_at_k": 0.2,
+      "expected_skill_count": 10,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-030",
+      "label": "good",
+      "precision_at_k": 0.0,
+      "recall_at_k": 0.0,
+      "expected_skill_count": 7,
+      "retrieved_candidate_count": 10
+    },
+    {
+      "id": "gs-031",
+      "label": "good",
+      "precision_at_k": 0.0045,
+      "recall_at_k": 0.4286,
+      "expected_skill_count": 7,
+      "retrieved_candidate_count": 10
+    }
+  ]
+}

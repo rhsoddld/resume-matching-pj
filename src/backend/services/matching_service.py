@@ -1,8 +1,15 @@
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, OrderedDict
+import hashlib
 import logging
 import re
+import time
+
+try:
+    from langsmith import get_current_run_tree
+except ImportError:
+    get_current_run_tree = None
 
 from backend.core.collections import dedupe_preserve
 from backend.core.model_routing import resolve_rerank_model
@@ -59,10 +66,44 @@ _SENSITIVE_TERM_PATTERN = re.compile(
 )
 
 
+class _LRUCache:
+    """Simple LRU cache for match_jobs responses (R2.5 token cache)."""
+
+    def __init__(self, max_size: int = 128, ttl_sec: int = 300) -> None:
+        self._store: OrderedDict[str, tuple[object, float]] = OrderedDict()
+        self._max_size = max(1, max_size)
+        self._ttl = float(ttl_sec)
+
+    def _make_key(self, **kwargs: object) -> str:
+        raw = "|".join(f"{k}={v}" for k, v in sorted([(str(k), str(v)) for k, v in kwargs.items()]))
+        return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+    def get(self, key: str) -> object | None:
+        if key not in self._store:
+            return None
+        response, ts = self._store[key]  # type: ignore[misc]
+        if time.monotonic() - ts > self._ttl:
+            del self._store[key]
+            return None
+        self._store.move_to_end(key)
+        return response
+
+    def set(self, key: str, response: object) -> None:
+        if key in self._store:
+            self._store.move_to_end(key)
+        self._store[key] = (response, time.monotonic())
+        if len(self._store) > self._max_size:
+            self._store.popitem(last=False)
+
+
 class MatchingService:
     def __init__(self) -> None:
         self.hybrid_retriever = HybridRetriever()
         self.rerank_service = cross_encoder_rerank_service
+        self._cache = _LRUCache(
+            max_size=settings.token_cache_max_size,
+            ttl_sec=settings.token_cache_ttl_sec,
+        )
 
     @traceable_op(name="matching.match_jobs", run_type="chain", tags=["matching", "pipeline"])
     def match_jobs(
@@ -76,6 +117,24 @@ class MatchingService:
         region: str | None = None,
         industry: str | None = None,
     ) -> JobMatchResponse:
+        # --- Token cache lookup (R2.5) ---
+        cache_key: str | None = None
+        if settings.token_cache_enabled:
+            cache_key = self._cache._make_key(
+                job_description=job_description,
+                top_k=top_k,
+                category=category,
+                min_experience_years=min_experience_years,
+                education=education,
+                region=region,
+                industry=industry,
+            )
+            cached = self._cache.get(cache_key)
+            if cached is not None:
+                logger.info("token_cache_hit key=%s", cache_key)
+                return cached
+            logger.info("token_cache_miss key=%s", cache_key)
+
         job_profile = self._build_query_profile(
             job_description=job_description,
             category_override=category,
@@ -119,7 +178,22 @@ class MatchingService:
             matches=results,
             top_k=top_k,
         )
-        return JobMatchResponse(
+
+        if get_current_run_tree is not None:
+            run_tree = get_current_run_tree()
+            if run_tree:
+                run_tree.add_metadata({
+                    "job_category": job_profile.job_category,
+                    "industry": industry or "unknown",
+                    "fairness_enabled": fairness_audit.enabled,
+                    "fairness_warnings_count": len(fairness_audit.warnings),
+                })
+                if fairness_audit.warnings:
+                    run_tree.add_tags(["fairness_warnings_detected"])
+                if job_profile.job_category:
+                    run_tree.add_tags([f"category:{job_profile.job_category}"])
+
+        response = JobMatchResponse(
             query_profile=QueryUnderstandingProfile(
                 job_category=job_profile.job_category,
                 roles=job_profile.roles,
@@ -159,6 +233,10 @@ class MatchingService:
             matches=results,
             fairness=fairness_audit,
         )
+        # --- Token cache store (R2.5) ---
+        if settings.token_cache_enabled and cache_key is not None:
+            self._cache.set(cache_key, response)
+        return response
 
     @traceable_op(name="matching.build_query_profile", run_type="chain", tags=["matching", "query"])
     def _build_query_profile(
@@ -606,10 +684,30 @@ class MatchingService:
         requested = max(1, int(settings.rerank_top_n))
         return max(top_k, min(requested, max_pool))
 
-    @staticmethod
-    def _resolve_agent_eval_top_n(top_k: int) -> int:
+    def _resolve_agent_eval_top_n(self, top_k: int) -> int:
         requested = max(0, int(settings.agent_eval_top_n))
-        return min(top_k, requested)
+        capped = min(top_k, requested)
+        if not settings.token_budget_enabled:
+            return capped
+        # Dynamic token budget adjustment (R2.5):
+        # estimate how many agent evals fit within the per-request token budget
+        budget = max(0, int(settings.token_budget_per_request))
+        cost_per_candidate = max(1, int(settings.token_estimated_per_agent_call))
+        # Reserve 30% of budget for retrieval/query understanding
+        available_for_agents = int(budget * 0.70)
+        budget_cap = max(0, available_for_agents // cost_per_candidate)
+        adjusted = min(capped, budget_cap)
+        if adjusted != capped:
+            logger.info(
+                "token_budget_agent_eval_adjusted original=%s budget_cap=%s adjusted=%s "
+                "budget=%s cost_per_candidate=%s",
+                capped,
+                budget_cap,
+                adjusted,
+                budget,
+                cost_per_candidate,
+            )
+        return adjusted
 
     def _should_apply_rerank(
         self,

@@ -1,7 +1,7 @@
 # Eval Results Archive
 
-- Generated at (UTC): `2026-03-15 08:33:11`
-- Commit: `ea8d94f39c1c`
+- Generated at (UTC): `2026-03-15 11:37:28`
+- Commit: `8b7567c7c48e`
 - Golden set: `src/eval/golden_set.jsonl`
 - Rubric: `docs/eval/llm_judge_softskill_potential_rubric.md`
 
@@ -10,31 +10,31 @@
 ```json
 {
   "counts": {
-    "good": 12,
-    "neutral": 1,
-    "bad": 2
+    "good": 28,
+    "neutral": 8,
+    "bad": 14
   },
   "by_label_avg": {
     "good": {
-      "skill": 0.9554,
-      "experience": 0.7932,
+      "skill": 0.9046,
+      "experience": 0.8471,
       "culture": 1.0,
-      "potential": 1.0,
-      "quality": 0.9201
+      "potential": 0.75,
+      "quality": 0.891
     },
     "neutral": {
-      "skill": 0.4,
-      "experience": 0.875,
-      "culture": 0.6667,
-      "potential": 0.0,
-      "quality": 0.5558
+      "skill": 0.3774,
+      "experience": 0.713,
+      "culture": 0.9167,
+      "potential": 1.0,
+      "quality": 0.6482
     },
     "bad": {
       "skill": 0.0,
       "experience": 0.0,
-      "culture": 0.0,
+      "culture": 0.6667,
       "potential": 0.0,
-      "quality": 0.0
+      "quality": 0.1333
     }
   }
 }
@@ -44,26 +44,26 @@
 
 ```json
 {
-  "total_entries": 15,
+  "total_entries": 50,
   "label_distribution": {
-    "bad": 2,
-    "good": 12,
-    "neutral": 1
+    "bad": 14,
+    "good": 28,
+    "neutral": 8
   },
   "family_distribution": {
-    "backend": 2,
-    "data": 3,
-    "devops_cloud": 2,
-    "frontend": 1,
-    "mobile_blockchain": 2,
-    "non_tech": 2,
-    "product_business": 2,
-    "security": 1
+    "backend": 10,
+    "data": 8,
+    "devops_cloud": 4,
+    "frontend": 2,
+    "mobile_blockchain": 3,
+    "non_tech": 14,
+    "product_business": 6,
+    "security": 3
   },
   "family_count": 8,
-  "family_entropy": 2.9232,
-  "family_entropy_normalized": 0.9744,
-  "skill_vocabulary_size": 81
+  "family_entropy": 2.733,
+  "family_entropy_normalized": 0.911,
+  "skill_vocabulary_size": 282
 }
 ```
 
@@ -74,23 +74,265 @@
   "status": "ok",
   "model": "gpt-4o",
   "model_version": "judge-v1",
-  "sample_size": 3,
-  "average_score": 0.3842,
+  "sample_size": 50,
+  "average_score": 0.5667,
+  "per_label_avg": {
+    "bad": 0.1695,
+    "good": 0.8128,
+    "neutral": 0.4001
+  },
+  "score_dispersion": 0.6433,
+  "dispersion_interpretation": "excellent",
   "samples": [
     {
       "id": "gs-001",
       "label": "good",
-      "score": 0.2864
+      "score": 0.8363
     },
     {
       "id": "gs-002",
       "label": "good",
-      "score": 0.4159
+      "score": 0.8346
     },
     {
       "id": "gs-003",
       "label": "good",
-      "score": 0.4504
+      "score": 0.8176
+    },
+    {
+      "id": "gs-004",
+      "label": "good",
+      "score": 0.8755
+    },
+    {
+      "id": "gs-005",
+      "label": "good",
+      "score": 0.7464
+    },
+    {
+      "id": "gs-006",
+      "label": "good",
+      "score": 0.874
+    },
+    {
+      "id": "gs-007",
+      "label": "bad",
+      "score": 0.2316
+    },
+    {
+      "id": "gs-008",
+      "label": "good",
+      "score": 0.8672
+    },
+    {
+      "id": "gs-009",
+      "label": "good",
+      "score": 0.7988
+    },
+    {
+      "id": "gs-010",
+      "label": "good",
+      "score": 0.8225
+    },
+    {
+      "id": "gs-011",
+      "label": "good",
+      "score": 0.8092
+    },
+    {
+      "id": "gs-012",
+      "label": "neutral",
+      "score": 0.4188
+    },
+    {
+      "id": "gs-013",
+      "label": "good",
+      "score": 0.7024
+    },
+    {
+      "id": "gs-014",
+      "label": "good",
+      "score": 0.6894
+    },
+    {
+      "id": "gs-015",
+      "label": "bad",
+      "score": 0.2022
+    },
+    {
+      "id": "gs-016",
+      "label": "good",
+      "score": 0.8874
+    },
+    {
+      "id": "gs-017",
+      "label": "good",
+      "score": 0.8345
+    },
+    {
+      "id": "gs-018",
+      "label": "good",
+      "score": 0.7167
+    },
+    {
+      "id": "gs-019",
+      "label": "good",
+      "score": 0.8796
+    },
+    {
+      "id": "gs-020",
+      "label": "good",
+      "score": 0.7754
+    },
+    {
+      "id": "gs-021",
+      "label": "good",
+      "score": 0.8686
+    },
+    {
+      "id": "gs-022",
+      "label": "good",
+      "score": 0.8121
+    },
+    {
+      "id": "gs-023",
+      "label": "good",
+      "score": 0.7061
+    },
+    {
+      "id": "gs-024",
+      "label": "good",
+      "score": 0.7666
+    },
+    {
+      "id": "gs-025",
+      "label": "good",
+      "score": 0.8516
+    },
+    {
+      "id": "gs-026",
+      "label": "good",
+      "score": 0.8022
+    },
+    {
+      "id": "gs-027",
+      "label": "good",
+      "score": 0.797
+    },
+    {
+      "id": "gs-028",
+      "label": "good",
+      "score": 0.8114
+    },
+    {
+      "id": "gs-029",
+      "label": "good",
+      "score": 0.8806
+    },
+    {
+      "id": "gs-030",
+      "label": "good",
+      "score": 0.8844
+    },
+    {
+      "id": "gs-031",
+      "label": "good",
+      "score": 0.8111
+    },
+    {
+      "id": "gs-032",
+      "label": "neutral",
+      "score": 0.3955
+    },
+    {
+      "id": "gs-033",
+      "label": "neutral",
+      "score": 0.4694
+    },
+    {
+      "id": "gs-034",
+      "label": "neutral",
+      "score": 0.3731
+    },
+    {
+      "id": "gs-035",
+      "label": "neutral",
+      "score": 0.3679
+    },
+    {
+      "id": "gs-036",
+      "label": "neutral",
+      "score": 0.3868
+    },
+    {
+      "id": "gs-037",
+      "label": "neutral",
+      "score": 0.3976
+    },
+    {
+      "id": "gs-038",
+      "label": "neutral",
+      "score": 0.3917
+    },
+    {
+      "id": "gs-039",
+      "label": "bad",
+      "score": 0.1993
+    },
+    {
+      "id": "gs-040",
+      "label": "bad",
+      "score": 0.1854
+    },
+    {
+      "id": "gs-041",
+      "label": "bad",
+      "score": 0.1329
+    },
+    {
+      "id": "gs-042",
+      "label": "bad",
+      "score": 0.1711
+    },
+    {
+      "id": "gs-043",
+      "label": "bad",
+      "score": 0.1432
+    },
+    {
+      "id": "gs-044",
+      "label": "bad",
+      "score": 0.1722
+    },
+    {
+      "id": "gs-045",
+      "label": "bad",
+      "score": 0.128
+    },
+    {
+      "id": "gs-046",
+      "label": "bad",
+      "score": 0.1655
+    },
+    {
+      "id": "gs-047",
+      "label": "bad",
+      "score": 0.1629
+    },
+    {
+      "id": "gs-048",
+      "label": "bad",
+      "score": 0.1205
+    },
+    {
+      "id": "gs-049",
+      "label": "bad",
+      "score": 0.1544
+    },
+    {
+      "id": "gs-050",
+      "label": "bad",
+      "score": 0.2038
     }
   ]
 }

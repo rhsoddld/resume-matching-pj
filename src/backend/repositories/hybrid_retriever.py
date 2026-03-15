@@ -8,6 +8,7 @@ from typing import Any
 from backend.core.database import get_collection
 from backend.core.exceptions import ExternalDependencyError, RepositoryError
 from backend.core.observability import traceable_op
+from backend.core.settings import settings
 from backend.schemas.job import INDUSTRY_STANDARD_DICTIONARY, normalize_industry_label
 from backend.services.retrieval_service import RetrievalService
 from backend.services.job_profile_extractor import JobProfile
@@ -433,7 +434,12 @@ class HybridRetriever:
 
     @staticmethod
     def _fusion_score(*, vector_score: float, keyword_score: float, metadata_score: float) -> float:
-        return max(0.0, min(1.0, (vector_score * 0.55) + (keyword_score * 0.30) + (metadata_score * 0.15)))
+        v_w = max(0.0, float(settings.retrieval_vector_weight))
+        k_w = max(0.0, float(settings.retrieval_keyword_weight))
+        m_w = max(0.0, float(settings.retrieval_metadata_weight))
+        # Normalize weights to sum to 1
+        total = v_w + k_w + m_w or 1.0
+        return max(0.0, min(1.0, (vector_score * v_w + keyword_score * k_w + metadata_score * m_w) / total))
 
     @staticmethod
     def _metadata_score(

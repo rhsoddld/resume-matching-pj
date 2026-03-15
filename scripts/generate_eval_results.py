@@ -153,7 +153,8 @@ def _run_optional_llm_judge(entries: list[dict[str, Any]]) -> dict[str, Any]:
     )
 
     scores: list[dict[str, Any]] = []
-    for entry in entries[:3]:
+    judge_sample_size = int(os.getenv("LLM_JUDGE_SAMPLE_SIZE", str(len(entries))))
+    for entry in entries[:judge_sample_size]:
         candidate = build_synthetic_candidate(entry)
         output = (
             f"Candidate summary: {candidate['candidate_summary']} "
@@ -174,12 +175,34 @@ def _run_optional_llm_judge(entries: list[dict[str, Any]]) -> dict[str, Any]:
         )
 
     avg_score = round(sum(s["score"] for s in scores) / float(len(scores)), 4) if scores else 0.0
+
+    # Per-label averages: clearer signal than global avg
+    from collections import defaultdict
+    label_buckets: dict[str, list[float]] = defaultdict(list)
+    for s in scores:
+        label_buckets[str(s.get("label") or "unknown")].append(float(s["score"]))
+    per_label_avg = {
+        lbl: round(sum(vals) / len(vals), 4)
+        for lbl, vals in sorted(label_buckets.items())
+    }
+    good_avg = per_label_avg.get("good", 0.0)
+    bad_avg = per_label_avg.get("bad", 0.0)
+    score_dispersion = round(good_avg - bad_avg, 4)
+
     return {
         "status": "ok",
         "model": judge_model.model,
         "model_version": judge_model.version,
         "sample_size": len(scores),
         "average_score": avg_score,
+        "per_label_avg": per_label_avg,
+        "score_dispersion": score_dispersion,
+        "dispersion_interpretation": (
+            "excellent" if score_dispersion >= 0.60
+            else "good" if score_dispersion >= 0.45
+            else "fair" if score_dispersion >= 0.30
+            else "weak"
+        ),
         "samples": scores,
     }
 

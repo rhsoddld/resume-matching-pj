@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """Central application settings (12-factor style)."""
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # App
     app_name: str = "resume-matching-api"
@@ -84,6 +84,19 @@ class Settings(BaseSettings):
     langsmith_endpoint: str = "https://api.smith.langchain.com"
     langsmith_api_key: str | None = None
     langsmith_project: str | None = None
+
+    # Token Budget & Cache (R2.5)
+    token_budget_enabled: bool = False
+    token_budget_per_request: int = 20000  # max estimated tokens per match_jobs call
+    token_estimated_per_agent_call: int = 800  # estimated tokens per single agent LLM call
+    token_cache_enabled: bool = True  # cache match_jobs result by JD hash + params
+    token_cache_ttl_sec: int = 300  # in-memory cache TTL (5 minutes)
+    token_cache_max_size: int = 128  # LRU cache max entries
+
+    # Retrieval Fusion Weights (R2.2 / HCR.1)
+    retrieval_vector_weight: float = 0.55   # Milvus embedding similarity weight
+    retrieval_keyword_weight: float = 0.30  # MongoDB lexical keyword score weight
+    retrieval_metadata_weight: float = 0.15 # Metadata filter match weight
 
     # Misc
     log_level: str = "INFO"

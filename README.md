@@ -14,6 +14,8 @@ AI-powered Resume Intelligence & Candidate Matching system built with FastAPI, M
 - explainable ranking
 - DeepEval / LLM-as-Judge / Bias guardrails
 
+![Architecture Diagram](docs/architecture/system-architecture.png)
+
 ```mermaid
 flowchart LR
 
@@ -146,8 +148,9 @@ JD Query Understanding은 다음 정보를 공통 Query 객체로 만든다.
 | Recruiter / Hiring Manager weight proposal | Implemented baseline (A2A handoff in SDK path) | Negotiation 구간은 OpenAI Agents SDK handoff(`Recruiter -> HiringManager -> WeightNegotiation`)를 시도하고 실패 시 live/heuristic으로 degrade |
 | Explainable recommendation | Implemented v3 baseline | `possible_gaps`, `weighting_summary`, `relevant_experience` + runtime mode/fallback reason + recruiter/hiring/final policy를 API/UI에서 확인 가능 |
 | Retrieval performance benchmark (R2.6) | Partial | 실측 baseline 확보(`success_rate=1.0`, `candidates/sec=72.7834`) + 자동 아카이브 경로 구현. 남은 갭은 고부하 성능 테스트 자동화와 환경별 기준선 운영 |
-| DeepEval / LLM-as-Judge | Implemented | diversity/custom/culture+potential metric + rubric + live judge archive(`docs/eval/eval-results.md`) + CI 아카이브 경로(`.github/workflows/eval-archive.yml`) |
-| Bias guardrails | Implemented (backend v1) | `matching_service`에서 fairness guardrail 검사 및 `fairness.warnings`/`bias_warnings` 응답 반영, 남은 갭은 fairness metric 운영 대시보드/정책 튜닝 |
+| DeepEval / LLM-as-Judge | Implemented | diversity/custom/culture+potential metric + rubric + live judge archive(`docs/eval/eval-results.md`) + CI 아카이브 경로(`.github/workflows/eval-archive.yml`). golden set 50건(good:28, neutral:8, bad:14)으로 확대 완료 |
+| Bias guardrails | Implemented (backend v1) | `matching_service`에서 fairness guardrail 검사 및 `fairness.warnings`/`bias_warnings` 응답 반영. fairness metric 모니터링은 LangSmith로 대체 완료. |
+| Token Budget & Cache (R2.5) | Partial | `matching_service.py`에 JD hash 기반 LRU 캐시(TTL 300s, max 128 entries) + token budget 동적 `agent_eval_top_n` 조정. `settings.py`에 `TOKEN_BUDGET_ENABLED`, `TOKEN_CACHE_ENABLED`, `TOKEN_CACHE_TTL_SEC` 등 설정 추가 |
 
 ## 기술 스택
 
@@ -325,7 +328,25 @@ export RERANK_MODEL=gpt-4.1-mini
   - `RERANK_GATE_UNKNOWN_RATIO_THRESHOLD=0.5`
   - `AGENT_EVAL_TOP_N=5` (rerank 후 상위 5명만 A2A 평가, 나머지는 deterministic 점수)
 
-### 3-5. Agent Runtime Mode (선택)
+### 3-5. Token Budget & Cache (R2.5)
+
+```bash
+# Token cache: 동일 JD + 파라미터 조합에 대해 LRU 캐시 (기본: 활성화)
+export TOKEN_CACHE_ENABLED=true
+export TOKEN_CACHE_TTL_SEC=300       # 캐시 TTL (초)
+export TOKEN_CACHE_MAX_SIZE=128      # LRU 최대 항목 수
+
+# Token budget: agent_eval_top_n을 예산 기반으로 동적 조정 (기본: 비활성화)
+export TOKEN_BUDGET_ENABLED=true
+export TOKEN_BUDGET_PER_REQUEST=20000    # 요청당 최대 예상 토큰
+export TOKEN_ESTIMATED_PER_AGENT_CALL=800  # 에이전트 호출당 예상 토큰
+```
+
+동작 방식:
+- 같은 JD + 파라미터로 재요청 시 캐시에서 즉시 반환 (`token_cache_hit key=...` 로그)
+- `TOKEN_BUDGET_ENABLED=true` 시 예산 내에서 최대 몇 명을 agent 평가할지 자동 계산
+
+### 3-6. Agent Runtime Mode (선택)
 
 ```bash
 # live 호출 게이트 (false면 heuristic fallback 사용)
@@ -412,5 +433,5 @@ docker compose exec -T backend python -V
 1. 현재 SDK handoff가 적용된 negotiation 구간을 4개 평가 agent 실행 경로까지 확대해 handoff-native orchestration으로 전환한다.
 2. query understanding release gate와 fallback 정책을 CI 배포 게이트에 연결한다.
 3. retrieval fusion weight를 직군별로 튜닝하고 offline ranking metric으로 calibration한다.
-4. Bias guardrails 운영 고도화(공정성 지표 대시보드, 임계치 정책 튜닝, 경고 triage 체계)를 진행한다.
+4. Bias guardrails 운영 고도화(임계치 정책 튜닝, 경고 triage 체계) 및 LangSmith 메타데이터 추적 보강.
 5. Eval/benchmark 결과 추세 비교(주간/모델 버전별)를 CI 리포트로 확장한다.

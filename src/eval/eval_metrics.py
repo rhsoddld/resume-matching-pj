@@ -199,6 +199,106 @@ def score_custom_quality(
     return round(max(0.0, min(1.0, weighted)), 4)
 
 
+def _build_evidence_summary(label: str, entry: dict[str, Any], expected_skills: list[str]) -> str:
+    """Build a job-specific, concrete evidence summary for LLM-as-Judge scoring."""
+    jd = str(entry.get("job_description") or "").lower()
+    family = str(entry.get("job_family") or infer_job_family(jd))
+    notes = str(entry.get("notes") or "")
+
+    # Extract experience context
+    required_exp = extract_min_experience_years(jd)
+    exp_context = f"{int(required_exp) + 2}+ years" if required_exp else "several years"
+
+    # Top skills for evidence specificity
+    top_skills = expected_skills[:5] if len(expected_skills) >= 3 else expected_skills
+    skill_list = ", ".join(top_skills[:3]) if top_skills else "relevant technologies"
+
+    _FAMILY_EVIDENCE: dict[str, str] = {
+        "data": (
+            f"Led end-to-end ML pipeline development using {skill_list} over {exp_context}. "
+            "Improved model accuracy by 18% through iterative feature engineering. "
+            "Collaborated with cross-functional teams to deploy models to production; "
+            "mentored two junior data scientists and drove quarterly OKR planning."
+        ),
+        "frontend": (
+            f"Built and shipped production-grade web UIs using {skill_list} over {exp_context}. "
+            "Reduced page load time by 40% via code splitting and lazy loading. "
+            "Cooperated closely with UX and backend teams, adopted Git workflows, "
+            "and adapted to shifting product requirements in fast-paced startup environments."
+        ),
+        "backend": (
+            f"Architected and maintained scalable backend services with {skill_list} over {exp_context}. "
+            "Reduced P99 latency by 30% through async refactoring and connection pooling. "
+            "Took full ownership of API contract design; drove incident response and postmortems."
+        ),
+        "devops_cloud": (
+            f"Designed and operated cloud infrastructure using {skill_list} over {exp_context}. "
+            "Automated provisioning with IaC, cutting deployment time by 60%. "
+            "Led on-call rotations, built observability dashboards, and mentored teammates on SRE best practices."
+        ),
+        "security": (
+            f"Performed security assessments and incident response using {skill_list} over {exp_context}. "
+            "Identified and remediated critical vulnerabilities; established playbooks adopted across the org. "
+            "Communicated risk findings clearly to both technical and executive stakeholders."
+        ),
+        "product_business": (
+            f"Drove product and business outcomes leveraging {skill_list} over {exp_context}. "
+            "Defined and communicated roadmaps, aligned cross-functional stakeholders, "
+            "and translated customer insights into measurable feature improvements."
+        ),
+        "mobile_blockchain": (
+            f"Built and shipped production mobile or blockchain applications using {skill_list} over {exp_context}. "
+            "Achieved high App Store ratings through iterative user feedback loops. "
+            "Demonstrated ownership in navigating complex deployment pipelines and debugging production issues."
+        ),
+        "non_tech": (
+            "Background is primarily in administrative, clinical, or trades-focused work. "
+            "Limited software engineering experience or transferable technical skills. "
+            "Professional communication skills present."
+        ),
+    }
+
+    # Sub-family specialization based on notes/skills for better evidence specificity
+    sub_evidence: str | None = None
+    skill_str = " ".join(expected_skills).lower()
+    notes_str = notes.lower()
+    if family == "backend":
+        if any(k in skill_str or k in notes_str for k in ("embedded", "rtos", "firmware", "c++", "iot", "uart")):
+            sub_evidence = (
+                f"Developed production-grade firmware and embedded software using {skill_str[:60] or 'C/C++ and RTOS'} over {exp_context}. "
+                "Integrated hardware peripherals (UART, SPI, I2C) and optimized interrupt-driven routines, "
+                "reducing power consumption by 22%. Took full ownership of board bring-up and cross-functional "
+                "collaboration with hardware engineers to meet tight release deadlines."
+            )
+        elif any(k in skill_str or k in notes_str for k in ("qa", "selenium", "pytest", "test automation", "jmeter", "locust", "sdet")):
+            sub_evidence = (
+                f"Built and maintained end-to-end test automation frameworks using {skill_str[:60] or 'pytest and Selenium'} over {exp_context}. "
+                "Achieved 94% regression coverage, reducing manual QA time by 60%. "
+                "Integrated automation into CI/CD pipelines and communicated quality risk findings clearly to "
+                "engineering leads and product managers. Demonstrated ownership by driving defect prevention initiatives."
+            )
+
+    if label == "good":
+        base = sub_evidence or _FAMILY_EVIDENCE.get(family, (
+            f"Demonstrated strong expertise in {skill_list} over {exp_context}. "
+            "Consistently delivered high-quality work with clear ownership and collaboration. "
+            "Showed continuous learning trajectory and mentored colleagues."
+        ))
+        return base
+    elif label == "bad":
+        return (
+            "Profile background does not align with the technical requirements of this role. "
+            "No relevant software engineering or domain-specific skills identified. "
+            "Soft-skill evidence is limited to generic communication and teamwork references."
+        )
+    else:  # neutral
+        return (
+            f"Has partial exposure to {skill_list}. Experience level is below the required threshold. "
+            "Shows collaborative attitude and communication ability, but evidence for growth trajectory "
+            "and ownership in the target domain is limited or circumstantial."
+        )
+
+
 def build_synthetic_candidate(entry: dict[str, Any]) -> dict[str, Any]:
     label = str(entry.get("expected_label") or "neutral").lower()
     expected_skills = sorted(extract_expected_skills(entry))
@@ -209,17 +309,17 @@ def build_synthetic_candidate(entry: dict[str, Any]) -> dict[str, Any]:
         chosen = set(expected_skills[: max(2, math.ceil(len(expected_skills) * 0.85))])
         years = (required_exp or 3.0) + 1.0
         culture = set(culture_targets)
-        summary = "Strong collaboration, ownership, and communication. Demonstrates initiative, growth, and mentorship."
+        summary = _build_evidence_summary("good", entry, expected_skills)
     elif label == "bad":
         chosen = {"python", "sql"} if "python" not in expected_skills else {"excel", "scheduling"}
         years = None
         culture = set()
-        summary = "Generic profile with little soft-skill evidence."
+        summary = _build_evidence_summary("bad", entry, expected_skills)
     else:
         chosen = set(expected_skills[: max(1, int(len(expected_skills) * 0.45))])
         years = max(0.0, (required_exp or 2.0) - 0.5)
         culture = {"communication", "collaboration"}
-        summary = "Partial alignment with team communication and collaboration."
+        summary = _build_evidence_summary("neutral", entry, expected_skills)
 
     return {
         "candidate_skills": chosen,

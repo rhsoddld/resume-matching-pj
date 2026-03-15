@@ -2,12 +2,12 @@
 
 ## Run Metadata
 
-- Generated at (UTC): `2026-03-15 08:08:05`
+- Generated at (UTC): `2026-03-15 11:07:09`
 - Input dataset: `/Users/lee/Desktop/resume-matching-pj/src/eval/golden_set.jsonl`
-- Query count: `10`
+- Query count: `50`
 - Iterations: `3`
 - Workers: `4`
-- Warmup rounds: `1` (calls: `10`)
+- Warmup rounds: `1` (calls: `50`)
 - top_k: `30`
 - Category override: `None`
 - Min experience filter: `None`
@@ -16,17 +16,17 @@
 
 | Metric | Value |
 |---|---|
-| Success rate | `0.0` |
-| Candidates/sec | `0.0` |
-| Calls/sec | `0.0` |
-| Successful calls | `0` |
-| Failed calls | `30` |
-| Total returned candidates | `0` |
-| Latency mean (ms) | `0.0` |
-| Latency p50 (ms) | `0.0` |
-| Latency p95 (ms) | `0.0` |
-| Latency p99 (ms) | `0.0` |
-| Latency max (ms) | `0.0` |
+| Success rate | `1.0` |
+| Candidates/sec | `60.2076` |
+| Calls/sec | `7.8769` |
+| Successful calls | `150` |
+| Failed calls | `0` |
+| Total returned candidates | `4500` |
+| Latency mean (ms) | `498.276` |
+| Latency p50 (ms) | `402.316` |
+| Latency p95 (ms) | `1069.8` |
+| Latency p99 (ms) | `2834.231` |
+| Latency max (ms) | `3121.926` |
 
 ## Interpretation Guide
 
@@ -37,7 +37,7 @@
 
 ## Error Summary (Top)
 
-- `ExternalDependencyError: Both vector retrieval and Mongo fallback failed.`: 20
+- 없음
 
 ## Next Actions Checklist
 
@@ -50,22 +50,22 @@
 
 ```json
 {
-  "queries": 10,
-  "total_calls": 30,
-  "successful_calls": 0,
-  "failed_calls": 30,
-  "success_rate": 0.0,
-  "total_returned_candidates": 0,
-  "benchmark_elapsed_sec": 272.33453,
-  "successful_call_elapsed_sec_sum": 0.0,
-  "candidates_per_sec": 0.0,
-  "calls_per_sec": 0.0,
+  "queries": 50,
+  "total_calls": 150,
+  "successful_calls": 150,
+  "failed_calls": 0,
+  "success_rate": 1.0,
+  "total_returned_candidates": 4500,
+  "benchmark_elapsed_sec": 19.042912,
+  "successful_call_elapsed_sec_sum": 74.741456,
+  "candidates_per_sec": 60.2076,
+  "calls_per_sec": 7.8769,
   "latency_ms": {
-    "mean": 0.0,
-    "p50": 0.0,
-    "p95": 0.0,
-    "p99": 0.0,
-    "max": 0.0
+    "mean": 498.276,
+    "p50": 402.316,
+    "p95": 1069.8,
+    "p99": 2834.231,
+    "max": 3121.926
   }
 }
 ```

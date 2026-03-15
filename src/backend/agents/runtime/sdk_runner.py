@@ -138,10 +138,19 @@ def run_agents_sdk(
             output_type=CultureAgentOutput,
         )
 
-        skill_output = runner_cls.run_sync(skill_agent, payload_json).final_output
-        experience_output = runner_cls.run_sync(experience_agent, payload_json).final_output
-        technical_output = runner_cls.run_sync(technical_agent, payload_json).final_output
-        culture_output = runner_cls.run_sync(culture_agent, payload_json).final_output
+        def _run_agent(name: str, agent: Any, prompt_input: str) -> Any:
+            try:
+                result = runner_cls.run_sync(agent, prompt_input)
+                logger.debug("sdk_agent_ok agent=%s", name)
+                return result.final_output
+            except Exception as exc:
+                logger.warning("sdk_agent_failed agent=%s error=%s", name, exc)
+                raise
+
+        skill_output = _run_agent("SkillEvalAgent", skill_agent, payload_json)
+        experience_output = _run_agent("ExperienceEvalAgent", experience_agent, payload_json)
+        technical_output = _run_agent("TechnicalEvalAgent", technical_agent, payload_json)
+        culture_output = _run_agent("CultureEvalAgent", culture_agent, payload_json)
 
         score_pack_agent = agent_cls(
             name="ScorePackAgent",
