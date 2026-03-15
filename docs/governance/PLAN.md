@@ -70,14 +70,15 @@ isProject: false
 | Multi-agent evaluation | Done (hybrid runtime + RAG Tool) | score pack 생성은 SDK/live/heuristic 경로를 지원하며 ThreadPoolExecutor로 병렬 실행됨. 에이전트는 RAG 툴 주도적 호출 기능 포함. |
 | Weight negotiation | Done baseline (SDK handoff + fallback) | negotiation 구간은 `Recruiter -> HiringManager -> WeightNegotiation` handoff를 시도하고 실패 시 degrade |
 | Explainable ranking output | Done v3 baseline | UI에서 runtime mode/fallback reason/recruiter·hiring·final policy까지 노출 |
-| Eval / guardrails | Partial | DeepEval/LLM-as-Judge(quality/diversity/custom/potential) + live judge 아카이빙 + bias guardrails backend v1 구현 완료. fairness metric 모니터링은 LangSmith로 대체(Resolved). |
+| Eval / guardrails | Partial | DeepEval/LLM-as-Judge(quality/diversity/custom/potential) + live judge 아카이빙 + bias guardrails backend v1 구현. fairness metric 모니터링은 LangSmith로 대체 (Resolved). |
+| JD Input Guardrails | Done | JD Truncation (8,000자 제한) 및 Prompt Injection Defense 방어 구현 완료 |
 
 ## 다음 구현 우선순위 (requirements/requirements.md 기준)
 
 ### Priority 1. API/Core Gap Closing
 
 - `R1.9`: ingestion 기능을 API endpoint로 노출 (완료: `POST /api/ingestion/resumes`)
-- `PO.4`: PDF/포트폴리오 링크 처리 경로 보강
+- `PO.4`: PDF 처리 경로 보강 (JD PDF 파싱 API `/api/jobs/extract-pdf` 추가 완료), 포트폴리오 링크 파싱은 대기
 - `D.3`: README의 실행/운영 시나리오를 API 중심으로 갱신
 
 ### Priority 2. Advanced Eval & Guardrails

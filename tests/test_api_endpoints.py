@@ -190,6 +190,43 @@ def test_jobs_match_maps_external_dependency_error(monkeypatch):
     assert "retrieval service unavailable" in payload["detail"]
 
 
+def test_jobs_extract_pdf_success(monkeypatch):
+    monkeypatch.setattr(jobs_api, "extract_text_from_pdf", lambda _: "Sample JD Text")
+
+    with _client(monkeypatch) as client:
+        response = client.post(
+            "/api/jobs/extract-pdf",
+            files={"file": ("test.pdf", b"fake pdf content", "application/pdf")}
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"text": "Sample JD Text"}
+
+
+def test_jobs_extract_pdf_invalid_type(monkeypatch):
+    with _client(monkeypatch) as client:
+        response = client.post(
+            "/api/jobs/extract-pdf",
+            files={"file": ("test.txt", b"fake text content", "text/plain")}
+        )
+
+    assert response.status_code == 400
+    assert "Only PDF files" in response.json()["detail"]
+
+
+def test_jobs_extract_pdf_empty_extraction(monkeypatch):
+    monkeypatch.setattr(jobs_api, "extract_text_from_pdf", lambda _: "")
+
+    with _client(monkeypatch) as client:
+        response = client.post(
+            "/api/jobs/extract-pdf",
+            files={"file": ("test.pdf", b"fake pdf content", "application/pdf")}
+        )
+
+    assert response.status_code == 422
+    assert "Failed to extract text" in response.json()["detail"]
+
+
 def test_ingestion_endpoint_runs_sync_job(monkeypatch):
     captured: dict = {}
 

@@ -122,8 +122,8 @@ def compute_final_ranking_score(
     *,
     deterministic_score: float,
     agent_weighted_score: float | None,
-    deterministic_weight: float = 0.55,
-    agent_weight: float = 0.45,
+    deterministic_weight: float = 0.30,
+    agent_weight: float = 0.70,
 ) -> float:
     if agent_weighted_score is None:
         return _clip_01(deterministic_score)

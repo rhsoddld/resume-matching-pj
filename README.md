@@ -151,6 +151,7 @@ JD Query Understanding은 다음 정보를 공통 Query 객체로 만든다.
 | Retrieval performance benchmark (R2.6) | Partial | 실측 baseline 확보(`success_rate=1.0`, `candidates/sec=72.7834`) + 자동 아카이브 경로 구현. 남은 갭은 고부하 성능 테스트 자동화와 환경별 기준선 운영 |
 | DeepEval / LLM-as-Judge | Implemented | diversity/custom/culture+potential metric + rubric + live judge archive(`docs/eval/eval-results.md`) + CI 아카이브 경로(`.github/workflows/eval-archive.yml`). golden set 50건(good:28, neutral:8, bad:14)으로 확대 완료 |
 | Bias guardrails | Implemented (backend v1) | `matching_service`에서 fairness guardrail 검사 및 `fairness.warnings`/`bias_warnings` 응답 반영. fairness metric 모니터링은 LangSmith로 대체 완료. |
+| JD Input Guardrails | Implemented | 프롬프트 인젝션 탐지(`scan_for_prompt_injection`) 및 토큰 최적화(`optimize_jd_tokens`, 8000자 제한) 지원. 안전한 평가를 위해 `<job_description>` 래핑. |
 | Token Budget & Cache (R2.5) | Partial | `matching_service.py`에 JD hash 기반 LRU 캐시(TTL 300s, max 128 entries) + token budget 동적 `agent_eval_top_n` 조정. `settings.py`에 `TOKEN_BUDGET_ENABLED`, `TOKEN_CACHE_ENABLED`, `TOKEN_CACHE_TTL_SEC` 등 설정 추가 |
 
 ## 기술 스택
@@ -329,7 +330,7 @@ export RERANK_MODEL=gpt-4.1-mini
   - `RERANK_GATE_UNKNOWN_RATIO_THRESHOLD=0.5`
   - `AGENT_EVAL_TOP_N=5` (rerank 후 상위 5명만 A2A 평가, 나머지는 deterministic 점수)
 
-### 3-5. Token Budget & Cache (R2.5)
+### 3-5. Token Budget, Cache & JD Guardrails (R2.5)
 
 ```bash
 # Token cache: 동일 JD + 파라미터 조합에 대해 LRU 캐시 (기본: 활성화)
@@ -343,7 +344,12 @@ export TOKEN_BUDGET_PER_REQUEST=20000    # 요청당 최대 예상 토큰
 export TOKEN_ESTIMATED_PER_AGENT_CALL=800  # 에이전트 호출당 예상 토큰
 ```
 
-동작 방식:
+JD Input Guardrails 동작 방식:
+- 입력된 JD는 `jd_guardrails.py`를 거치며 기본 8,000자 제한으로 잘린다 (비용 및 컨텍스트 초과 방지).
+- JDs 안에 "ignore previous instructions" 등 프롬프트 인젝션 패턴이 감지되면 매칭 API(`400 Bad Request`)에서 차단된다.
+- 이를 통과한 JD라도 LLM 에이전트 호출 전 `<job_description>` XML 태그로 감싸져서(Wrapping) 페이로드에 포함된다.
+
+Cache & Budget 동작 방식:
 - 같은 JD + 파라미터로 재요청 시 캐시에서 즉시 반환 (`token_cache_hit key=...` 로그)
 - `TOKEN_BUDGET_ENABLED=true` 시 예산 내에서 최대 몇 명을 agent 평가할지 자동 계산
 
@@ -414,6 +420,7 @@ docker compose exec -T backend python -V
 | Method | Path | 설명 |
 |--------|------|------|
 | `POST` | `/api/jobs/match` | JD 입력으로 Top-K 후보 매칭 |
+| `POST` | `/api/jobs/extract-pdf` | 업로드된 PDF에서 JD 텍스트 추출 |
 | `GET` | `/api/candidates/{candidate_id}` | 후보 상세 조회 |
 | `POST` | `/api/ingestion/resumes` | 이력서 ingestion 파이프라인 실행 (동기/비동기, dry-run 지원) |
 | `GET` | `/api/health` | liveness 확인 (`{"status":"ok"}`) |

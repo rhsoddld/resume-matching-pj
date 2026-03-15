@@ -12,6 +12,7 @@ from backend.core.observability import traceable_op
 from backend.core.providers import get_openai_client
 from backend.core.settings import settings
 from backend.services.job_profile_extractor import JobProfile
+from backend.core.jd_guardrails import wrap_untrusted_jd
 from typing import Callable
 
 from .candidate_mapper import build_candidate_input_bundle, build_runtime_payload
@@ -46,14 +47,15 @@ class AgentOrchestrationService:
         category_filter: str | None,
         on_event: Callable[[str, dict[str, Any]], None] | None = None,
     ) -> CandidateAgentResult:
+        safe_jd = wrap_untrusted_jd(job_description)
         bundle = build_candidate_input_bundle(
-            job_description=job_description,
+            job_description=safe_jd,
             job_profile=job_profile,
             hit=hit,
             candidate_doc=candidate_doc,
         )
         payload = build_runtime_payload(
-            job_description=job_description,
+            job_description=safe_jd,
             job_profile=job_profile,
             hit=hit,
             category_filter=category_filter,

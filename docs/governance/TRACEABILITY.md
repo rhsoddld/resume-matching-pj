@@ -16,7 +16,7 @@
 | PO.1 | 키워드 검색 이상 정합 평가 | `src/backend/services/matching_service.py`, `src/backend/services/scoring_service.py`, `src/backend/agents/runtime/service.py` | Implemented | 직군별 정밀도 리포트 추가 |
 | PO.2 | 위치/학력/산업 메타 필터 | `src/backend/schemas/job.py`, `src/backend/repositories/hybrid_retriever.py`, `src/backend/services/candidate_enricher.py`, `tests/test_candidate_enricher_filters.py` | Implemented | 필터 explainability(왜 탈락했는지) 응답 필드 추가 |
 | PO.3 | transferable skill 탐지 | `src/backend/services/job_profile_extractor.py`, `src/backend/services/skill_ontology/`, `tests/test_job_profile_extractor.py` | Implemented | 산업별 전이 스킬 calibration 리포트 추가 |
-| PO.4 | 다양한 포맷 파싱 | `src/backend/services/ingest_resumes.py`, `src/backend/services/resume_parsing.py` | Partial | PDF/외부 포트폴리오 링크 파서 보강 |
+| PO.4 | 다양한 포맷 파싱 | `src/backend/services/ingest_resumes.py`, `src/backend/services/resume_parsing.py`, `src/backend/api/jobs.py` | Implemented | 이력서 및 JD PDF 파싱 적용 완료, 외부 포트폴리오 링크 파싱 보강 필요 |
 | PO.5 | 인사이트 + 설명형 점수 | `src/backend/services/match_result_builder.py`, `src/frontend/src/components/ExplainabilityPanel.tsx` | Implemented | 설명 품질 자동평가 루프 강화 |
 | PO.6 | 대규모 탐색 효율화 | `src/backend/services/retrieval_service.py`, `src/backend/repositories/hybrid_retriever.py`, `scripts/benchmark_retrieval.py` | Partial | 부하 테스트 자동화 및 기준선(환경별 baseline) 문서화 |
 | KC.1 | 자연어 요구 의미 해석 | `src/backend/services/job_profile_extractor.py`, `tests/test_job_profile_extractor.py`, `src/eval/query_understanding_golden_set.jsonl` | Implemented | 질의 유형별 회귀 리포트 자동화 |
@@ -38,7 +38,7 @@
 | R1.3 | skill-overlap ranking agent | `src/backend/agents/contracts/ranking_agent.py`, `tests/test_ranking_policy.py` | Implemented | 정책 버전관리 강화 |
 | R1.4 | job category filtering | `src/backend/repositories/hybrid_retriever.py`, `src/backend/schemas/job.py` | Implemented | category taxonomy 확장 |
 | R1.5 | basic job-resume alignment score | `src/backend/services/scoring_service.py`, `src/backend/schemas/job.py` | Implemented | weight calibration 실험 |
-| R1.6 | 입력 guardrails | `src/backend/schemas/job.py`, `tests/test_api_endpoints.py` | Implemented | 악성 입력 패턴 차단 규칙 추가 |
+| R1.6 | 입력 guardrails | `src/backend/schemas/job.py`, `tests/test_api_endpoints.py`, `src/backend/core/jd_guardrails.py` | Implemented | 토큰 최적화 및 Prompt Injection 방어 적용 완료 |
 | R1.7 | resume parsing validation | `src/backend/services/resume_parsing.py`, `src/backend/services/ingest_resumes.py` | Implemented | 파싱 실패 유형별 대시보드 |
 | R1.8 | metadata filtering(exp/role/edu) | `src/backend/repositories/hybrid_retriever.py`, `src/backend/services/candidate_enricher.py` | Implemented | 필터 explainability 개선 |
 | R1.9 | API endpoint 노출 | `src/backend/main.py`, `src/backend/api/jobs.py`, `src/backend/api/candidates.py`, `src/backend/api/ingestion.py`, `tests/test_api_endpoints.py` | Implemented | ingestion endpoint에 인증/레이트리밋 baseline 적용 |
@@ -91,7 +91,7 @@
 | D.4 | 10분 패널 발표 자료 | `README.md`, `docs/architecture/system-architecture.md` | Partial | 발표용 슬라이드/데모 스크립트 작성 필요 |
 | DS.1 | primary dataset 지원 | `src/backend/services/ingest_resumes.py` | Implemented | 데이터 버전 고정 문서화 |
 | DS.2 | alternative datasets 지원 | `src/backend/services/ingest_resumes.py` | Implemented | 데이터 품질 비교표 추가 |
-| DS.3 | CSV/JSON/PDF 포맷 처리 | `src/backend/services/ingest_resumes.py`, `src/backend/services/resume_parsing.py` | Partial | PDF 품질 회귀 테스트 추가 |
+| DS.3 | CSV/JSON/PDF 포맷 처리 | `src/backend/services/ingest_resumes.py`, `src/backend/services/resume_parsing.py`, `src/backend/api/jobs.py` | Partial | PDF 텍스트 추출 로직 통합 적용됨, PDF 파싱 품질 회귀 테스트 추가 필요 |
 | DS.4 | key fields 정규화(skills/exp/edu/category/text) | `src/backend/schemas/candidate.py`, `src/backend/services/ingest_resumes.py` | Implemented | 필드 누락율 모니터링 |
 | DS.5 | semantic/filter/ranking 활용 | `src/backend/services/matching_service.py`, `src/backend/repositories/hybrid_retriever.py`, `src/backend/services/scoring_service.py` | Implemented | 직무군별 성능 리포트 추가 |
 

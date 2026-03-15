@@ -34,8 +34,52 @@ export default function JobRequirementForm({ onSubmit, isLoading }: JobRequireme
   const [industry, setIndustry] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
 
   const characterCount = useMemo(() => jobDescription.length, [jobDescription]);
+
+  async function handlePdfUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      setError("Only PDF files are supported.");
+      return;
+    }
+
+    setIsExtracting(true);
+    setError(null);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("/api/jobs/extract-pdf", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let errorDetail = "Failed to extract text from PDF";
+        try {
+          const errorData = await response.json();
+          errorDetail = errorData.detail || errorDetail;
+        } catch (_) {}
+        throw new Error(errorDetail);
+      }
+
+      const data = await response.json();
+      if (data.text) {
+        setJobDescription(data.text);
+      } else {
+        throw new Error("No text extracted from the PDF.");
+      }
+    } catch (e: any) {
+      setError(e.message || "An error occurred during PDF extraction.");
+    } finally {
+      setIsExtracting(false);
+      event.target.value = "";
+    }
+  }
 
   function submitForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,7 +105,27 @@ export default function JobRequirementForm({ onSubmit, isLoading }: JobRequireme
     <section className="job-form-panel" aria-label="Job requirement input">
       <form onSubmit={submitForm}>
         <div className="field-group">
-          <label htmlFor="jd-input">Job Description</label>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.5rem" }}>
+            <label htmlFor="jd-input" style={{ margin: 0 }}>Job Description</label>
+            <div>
+              <input
+                type="file"
+                id="pdf-upload"
+                accept=".pdf"
+                onChange={handlePdfUpload}
+                style={{ display: "none" }}
+              />
+              <button
+                type="button"
+                className="filter-toggle"
+                onClick={() => document.getElementById("pdf-upload")?.click()}
+                disabled={isExtracting || isLoading}
+                style={{ fontSize: "0.85rem", padding: "0.25rem 0.5rem" }}
+              >
+                {isExtracting ? "Extracting..." : "Upload JD (PDF)"}
+              </button>
+            </div>
+          </div>
           <textarea
             id="jd-input"
             aria-label="Natural language job description"

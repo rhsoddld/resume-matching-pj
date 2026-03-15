@@ -46,7 +46,16 @@ export async function streamMatchCandidates(
   });
 
   if (!response.ok) {
-    throw new Error(`Stream failed with status ${response.status}`);
+    let errorMessage = `Stream failed with status ${response.status}`;
+    try {
+      const errorData = await response.json();
+      if (errorData?.detail && typeof errorData.detail === "string") {
+        errorMessage = errorData.detail;
+      }
+    } catch {
+      // Ignore JSON parse errors on non-200 responses
+    }
+    throw new Error(errorMessage);
   }
 
   if (!response.body) {
