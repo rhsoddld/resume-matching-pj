@@ -31,10 +31,23 @@ class Settings(BaseSettings):
     query_fallback_confidence_threshold: float = 0.62
     query_fallback_unknown_ratio_threshold: float = 0.55
     rerank_enabled: bool = False
+    # Legacy single-model field (kept for backward compatibility).
     rerank_model: str = "gpt-4.1-mini"
+    # Routed rerank models (default path vs ambiguity/tie-break path).
+    rerank_model_default: str = "gpt-4.1-mini"
+    rerank_model_default_version: str = "baseline-v1"
+    rerank_model_high_quality: str = "gpt-4o"
+    rerank_model_high_quality_version: str = "hq-v1"
     rerank_mode: str = "embedding"
     rerank_embedding_model: str = "text-embedding-3-small"
     rerank_top_n: int = 50
+    rerank_timeout_sec: float = 5.0
+    rerank_gate_max_top_n: int = 8
+    rerank_gate_top2_gap_threshold: float = 0.04
+    rerank_gate_confidence_threshold: float = 0.65
+    rerank_gate_unknown_ratio_threshold: float = 0.5
+    eval_judge_model: str = "gpt-4o"
+    eval_judge_model_version: str = "judge-v1"
     fairness_guardrails_enabled: bool = True
     fairness_policy_version: str = "v1"
     fairness_sensitive_term_enabled: bool = True

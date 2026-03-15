@@ -24,12 +24,17 @@ class CrossEncoderRerankService:
         job_description: str,
         enriched_hits: list[tuple[dict[str, Any], dict[str, Any]]],
         top_k: int,
+        model_override: str | None = None,
     ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
         if len(enriched_hits) <= 1:
             return enriched_hits[:top_k]
 
         candidates_payload = self._build_candidates_payload(enriched_hits)
-        scores = self._score_candidates(job_description=job_description, candidates=candidates_payload)
+        scores = self._score_candidates(
+            job_description=job_description,
+            candidates=candidates_payload,
+            model_override=model_override,
+        )
         if not scores:
             return enriched_hits[:top_k]
 
@@ -52,10 +57,20 @@ class CrossEncoderRerankService:
         reranked.sort(key=lambda item: item[2], reverse=True)
         return [(hit, doc) for hit, doc, _ in reranked[:top_k]]
 
-    def _score_candidates(self, *, job_description: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _score_candidates(
+        self,
+        *,
+        job_description: str,
+        candidates: list[dict[str, Any]],
+        model_override: str | None = None,
+    ) -> list[dict[str, Any]]:
         mode = (settings.rerank_mode or "embedding").strip().lower()
         if mode == "llm":
-            return self._score_candidates_llm(job_description=job_description, candidates=candidates)
+            return self._score_candidates_llm(
+                job_description=job_description,
+                candidates=candidates,
+                model_override=model_override,
+            )
         return self._score_candidates_embedding(job_description=job_description, candidates=candidates)
 
     def _score_candidates_embedding(self, *, job_description: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -68,6 +83,7 @@ class CrossEncoderRerankService:
             response = client.embeddings.create(
                 model=settings.rerank_embedding_model,
                 input=[job_description, *candidate_texts],
+                timeout=float(settings.rerank_timeout_sec),
             )
             vectors = [row.embedding for row in response.data]
             if len(vectors) != len(candidate_texts) + 1:
@@ -87,7 +103,13 @@ class CrossEncoderRerankService:
             logger.exception("embedding_rerank_failed")
             return []
 
-    def _score_candidates_llm(self, *, job_description: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _score_candidates_llm(
+        self,
+        *,
+        job_description: str,
+        candidates: list[dict[str, Any]],
+        model_override: str | None = None,
+    ) -> list[dict[str, Any]]:
         system_prompt = (
             "You are a retrieval reranker for hiring. "
             "Score each candidate for relevance to the job description from 0.0 to 1.0. "
@@ -104,9 +126,10 @@ class CrossEncoderRerankService:
         try:
             client = get_openai_client()
             completion = client.chat.completions.create(
-                model=settings.rerank_model,
+                model=(model_override or settings.rerank_model).strip(),
                 temperature=0.0,
                 response_format={"type": "json_object"},
+                timeout=float(settings.rerank_timeout_sec),
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},

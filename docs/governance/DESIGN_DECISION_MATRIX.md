@@ -36,14 +36,15 @@
 |------|----------|------|---------|
 | Embedding model | `text-embedding-3-small` | `text-embedding-3-large` | capstone 범위에서 비용/속도/구현 단순성 우선 |
 | Lexical retrieval | BM25 skill search | 벡터 검색 단독 | exact skill 매칭 보완 |
-| Rerank strategy | `embedding`(default) + `llm`(optional) | `RERANK_MODE` 기반 이중 경로 reranker | 기본은 embedding 비용/지연 최적화, 필요 시 LLM으로 전환 가능 |
+| Rerank strategy | `embedding`(default) + `llm`(optional) | `RERANK_MODE` 기반 이중 경로 reranker | 현재 capstone에서는 fine-tuning보다 운영 단순성과 explainability를 우선해 LLM rerank baseline을 강화하는 전략 채택 |
 
 **Current baseline pipeline (fixed)**  
 `Job Description` → `OpenAI embedding (text-embedding-3-small)` → `Milvus vector search` → `BM25 skill search` → `Hybrid merge` → `Top 30` → `Feature extraction` → `Deterministic scoring` → `Top 10` → `Embedding rerank (default)` / `LLM rerank (optional)` → `Top 5 candidates`
 
 현재 프로젝트는 capstone 범위와 개발 속도를 고려해 `text-embedding-3-small`을 기본 embedding 모델로 사용한다.  
 이 선택은 비용, 속도, 구현 단순성을 우선한 결정이다.  
-정확도 개선이 필요하면 향후 `text-embedding-3-large` 또는 별도 reranker 강화로 확장할 수 있다.
+정확도 개선이 필요하면 향후 `text-embedding-3-large`, 실제 fine-tuned embedding, 또는 전용 reranker 강화로 확장할 수 있다.  
+다만 현재 단계에서는 `R2.3 fine-tuned embedding rerank`를 무리하게 구현 범위에 넣지 않고 intentionally deferred 상태로 유지한다.
 
 ---
 
@@ -63,7 +64,9 @@
 설계 원칙:
 - Vector similarity + BM25는 recall-oriented retrieval에 사용
 - Deterministic scoring은 explainable initial ranking을 담당
-- Embedding rerank는 기본 final ranking refinement 경로, LLM rerank는 고비용 고해석 필요 케이스에 선택 적용
+- Embedding rerank는 기본 final ranking refinement 경로
+- LLM rerank는 현재 capstone에서 가장 현실적인 고도화 경로이며, shortlist 이후 relevance refinement와 explainability 개선에 사용
+- fine-tuned embedding 운영은 추가 데이터/평가/A-B/rollback 체계가 필요하므로 후속 단계로 보류
 
 ---
 

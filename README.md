@@ -141,11 +141,12 @@ JD Query Understanding은 다음 정보를 공통 Query 객체로 만든다.
 | Offline ingestion / normalization | Implemented | `src/backend/services/ingest_resumes.py` 기반으로 MongoDB + Milvus 적재 |
 | Deterministic query understanding | Implemented v3 baseline | ontology-aligned role/skill/capability normalization + 저신뢰 구간 constrained LLM fallback + `query_profile` 확장 필드 제공 |
 | Hybrid retrieval | Implemented v2 baseline | `src/backend/repositories/hybrid_retriever.py`에서 vector + keyword + metadata fusion score 기반 shortlist 생성 |
+| Rerank layer | Implemented baseline (`embedding` default, `llm` optional) | `src/backend/services/cross_encoder_rerank_service.py`에서 shortlist 후 rerank 수행. capstone 범위에서는 fine-tuning보다 운영 단순성과 explainability를 위해 LLM rerank baseline을 우선 |
 | Multi-agent evaluation | Implemented baseline (hybrid runtime) | Skill / Experience / Technical / Culture score pack은 SDK/live/heuristic fallback 기반으로 실행 (`src/backend/agents/runtime/service.py`) |
 | Recruiter / Hiring Manager weight proposal | Implemented baseline (A2A handoff in SDK path) | Negotiation 구간은 OpenAI Agents SDK handoff(`Recruiter -> HiringManager -> WeightNegotiation`)를 시도하고 실패 시 live/heuristic으로 degrade |
 | Explainable recommendation | Implemented v3 baseline | `possible_gaps`, `weighting_summary`, `relevant_experience` + runtime mode/fallback reason + recruiter/hiring/final policy를 API/UI에서 확인 가능 |
-| Retrieval performance benchmark (R2.6) | Partial | `scripts/benchmark_retrieval.py` + `.github/workflows/retrieval-benchmark-archive.yml`로 자동 아카이브 경로는 구현, 고부하 성능 테스트 자동화는 추가 필요 |
-| DeepEval / LLM-as-Judge | Implemented | diversity/custom/culture+potential metric + rubric + CI 결과 아카이빙(`docs/eval/eval-results.md`, `.github/workflows/eval-archive.yml`) |
+| Retrieval performance benchmark (R2.6) | Partial | 실측 baseline 확보(`success_rate=1.0`, `candidates/sec=72.7834`) + 자동 아카이브 경로 구현. 남은 갭은 고부하 성능 테스트 자동화와 환경별 기준선 운영 |
+| DeepEval / LLM-as-Judge | Implemented | diversity/custom/culture+potential metric + rubric + live judge archive(`docs/eval/eval-results.md`) + CI 아카이브 경로(`.github/workflows/eval-archive.yml`) |
 | Bias guardrails | Implemented (backend v1) | `matching_service`에서 fairness guardrail 검사 및 `fairness.warnings`/`bias_warnings` 응답 반영, 남은 갭은 fairness metric 운영 대시보드/정책 튜닝 |
 
 ## 기술 스택
@@ -165,7 +166,8 @@ JD Query Understanding은 다음 정보를 공통 Query 객체로 만든다.
 ### 1. 환경 변수 설정
 
 ```bash
-# .env 파일에 OPENAI_API_KEY, MONGODB_URI, MILVUS_URI 등을 설정합니다.
+# cp .env.example .env
+# .env 파일에 OPENAI_API_KEY 등을 실제 값으로 채웁니다.
 # ingestion API 보호 옵션 (선택)
 # INGESTION_API_KEY=your-secret
 # INGESTION_RATE_LIMIT_PER_MINUTE=3
@@ -206,13 +208,32 @@ export QUERY_FALLBACK_UNKNOWN_RATIO_THRESHOLD=0.55
 export QUERY_FALLBACK_MODEL=gpt-4.1-mini
 ```
 
-### 3-3. Cross-Encoder Rerank (선택)
+### 3-3. Rerank Layer (선택)
 
 ```bash
 export RERANK_ENABLED=true
 export RERANK_TOP_N=50
 export RERANK_MODEL=gpt-4.1-mini
 ```
+
+- 현재 기본 rerank 전략은 `embedding`
+- 더 강한 relevance refinement가 필요하면 `export RERANK_MODE=llm`으로 전환 가능
+- capstone 범위에서는 실제 fine-tuned embedding 운영보다 `LLM rerank baseline`을 우선 채택했다
+- `RERANK_ENABLED=true`여도 항상 rerank하지 않고, 내부 게이트(상위 score gap, query ambiguity) 조건에서만 적용
+- 모델 라우팅:
+  - 기본 rerank: `RERANK_MODEL_DEFAULT` (권장 `gpt-4.1-mini`)
+  - 애매한 쿼리/tie-break rerank: `RERANK_MODEL_HIGH_QUALITY` (권장 `gpt-4o`)
+- 버전 라벨:
+  - `RERANK_MODEL_DEFAULT_VERSION`, `RERANK_MODEL_HIGH_QUALITY_VERSION`
+  - judge 라벨: `EVAL_JUDGE_MODEL_VERSION`
+- 기본 운영 가드레일:
+  - `RERANK_GATE_MAX_TOP_N=8` (rerank 후보 풀 캡)
+  - `RERANK_TIMEOUT_SEC=5.0` (짧은 timeout)
+  - 실패/스코어 파싱 오류 시 baseline shortlist로 fallback
+- 빠른 운영 프로파일(기본 권장):
+  - `RERANK_GATE_TOP2_GAP_THRESHOLD=0.04`
+  - `RERANK_GATE_CONFIDENCE_THRESHOLD=0.65`
+  - `RERANK_GATE_UNKNOWN_RATIO_THRESHOLD=0.5`
 
 ### 3-4. Agent Runtime Mode (선택)
 
@@ -252,6 +273,21 @@ PYTHONPATH=src uvicorn backend.main:app --reload --port 8000
 
 - 기본 입력: `src/eval/golden_set.jsonl`
 - 결과 리포트: `docs/eval/retrieval-benchmark.json`, `docs/eval/retrieval-benchmark.md`
+- 최신 baseline 예시: `success_rate=1.0`, `candidates/sec=72.7834`
+
+### 6-1. LLM Rerank 비교 실험 (HCR.3)
+
+```bash
+set -a && source .env && set +a
+source .venv/bin/activate
+PYTHONPATH=src python scripts/compare_rerank_modes.py \
+  --query-limit 5 \
+  --top-k 5 \
+  --rerank-top-n 20
+```
+
+- 결과 리포트: `docs/eval/llm-rerank-comparison.json`, `docs/eval/llm-rerank-comparison.md`
+- 현재 baseline 결론: reorder는 발생하지만(`5/5`), 작은 샘플에서 proxy quality 개선은 일관되지 않고 latency가 커서 `LLM rerank`는 optional 경로로 유지
 
 ### 7. Backend 컨테이너 Python 버전 (3.10)
 

@@ -70,7 +70,7 @@ isProject: false
 | Multi-agent evaluation | Done baseline (hybrid runtime) | score pack 생성은 SDK/live/heuristic 경로를 지원하며 서비스 레벨 fallback 유지 |
 | Weight negotiation | Done baseline (SDK handoff + fallback) | negotiation 구간은 `Recruiter -> HiringManager -> WeightNegotiation` handoff를 시도하고 실패 시 degrade |
 | Explainable ranking output | Done v3 baseline | UI에서 runtime mode/fallback reason/recruiter·hiring·final policy까지 노출 |
-| Eval / guardrails | Partial | DeepEval/LLM-as-Judge(quality/diversity/custom/potential) + CI 아카이빙 + bias guardrails backend v1 구현 완료, 남은 작업은 fairness metric 운영 고도화 |
+| Eval / guardrails | Partial | DeepEval/LLM-as-Judge(quality/diversity/custom/potential) + live judge 아카이빙 + bias guardrails backend v1 구현 완료, 남은 작업은 fairness metric 운영 고도화 |
 
 ## 다음 구현 우선순위 (requirements/requirements.md 기준)
 
@@ -88,8 +88,8 @@ isProject: false
 ### Priority 3. Ranking and Performance
 
 - `MSA.1`: SDK handoff가 negotiation 구간에 적용된 상태에서 4-agent 실행 경로까지 handoff-native로 확장
-- `R2.3`: fine-tuned embedding rerank 운영 고도화(모델 버전관리/A-B/rollback/runbook)
-- `HCR.3`: cross-encoder rerank 지연시간 최적화
+- `R2.3`: fine-tuned embedding rerank는 현재 intentionally deferred. capstone 범위에서는 실제 학습/운영 대신 baseline rerank 실험 근거만 유지
+- `HCR.3`: shortlist 이후 LLM rerank baseline의 latency/quality benchmark 및 timeout/fallback 정책 고정
 - `R2.5`: token usage optimization (요청 예산/캐시/배치)
 - `R2.6`: candidates/sec 벤치마크 결과 자동 아카이브 유지 + 고부하 부하 테스트 자동화
 

@@ -5,6 +5,7 @@ import logging
 import re
 
 from backend.core.collections import dedupe_preserve
+from backend.core.model_routing import resolve_rerank_model
 from backend.core.providers import get_skill_ontology
 from backend.core.settings import settings
 from backend.repositories.hybrid_retriever import HybridRetriever
@@ -145,6 +146,7 @@ class MatchingService:
         )
         shortlisted_hits = self._shortlist_candidates(
             job_description=job_description,
+            job_profile=job_profile,
             enriched_hits=enriched_hits,
             top_k=top_k,
         )
@@ -416,13 +418,14 @@ class MatchingService:
     def _resolve_retrieval_top_n(self, top_k: int) -> int:
         if not settings.rerank_enabled:
             return top_k
-        rerank_top_n = max(1, int(settings.rerank_top_n))
-        return max(top_k, rerank_top_n)
+        rerank_pool_n = self._resolve_rerank_pool_n(top_k)
+        return max(top_k, rerank_pool_n)
 
     def _shortlist_candidates(
         self,
         *,
         job_description: str,
+        job_profile: JobProfile,
         enriched_hits: list[tuple[dict[str, object], dict[str, object]]],
         top_k: int,
     ) -> list[tuple[dict[str, object], dict[str, object]]]:
@@ -431,20 +434,80 @@ class MatchingService:
         if not settings.rerank_enabled:
             return enriched_hits[:top_k]
 
-        reranked = self.rerank_service.rerank(
-            job_description=job_description,
+        should_apply, reason = self._should_apply_rerank(
+            job_profile=job_profile,
             enriched_hits=enriched_hits,
             top_k=top_k,
         )
+        if not should_apply:
+            logger.info("rerank_skipped reason=%s top_k=%s pool=%s", reason, top_k, len(enriched_hits))
+            return enriched_hits[:top_k]
+
+        pool_n = self._resolve_rerank_pool_n(top_k)
+        rerank_pool = enriched_hits[:pool_n]
+        rerank_selection = resolve_rerank_model(high_quality=(reason == "ambiguous_query_profile"))
+
+        reranked = self.rerank_service.rerank(
+            job_description=job_description,
+            enriched_hits=rerank_pool,
+            top_k=top_k,
+            model_override=rerank_selection.model,
+        )
         logger.info(
-            "rerank_applied model=%s top_n=%s top_k=%s input=%s output=%s",
-            settings.rerank_model,
-            settings.rerank_top_n,
+            "rerank_applied mode=%s model=%s model_version=%s model_route=%s top_n=%s top_k=%s input=%s output=%s reason=%s",
+            settings.rerank_mode,
+            rerank_selection.model,
+            rerank_selection.version,
+            rerank_selection.route,
+            pool_n,
             top_k,
-            len(enriched_hits),
+            len(rerank_pool),
             len(reranked),
+            reason,
         )
         return reranked
+
+    def _resolve_rerank_pool_n(self, top_k: int) -> int:
+        max_pool = max(1, int(settings.rerank_gate_max_top_n))
+        requested = max(1, int(settings.rerank_top_n))
+        return max(top_k, min(requested, max_pool))
+
+    def _should_apply_rerank(
+        self,
+        *,
+        job_profile: JobProfile,
+        enriched_hits: list[tuple[dict[str, object], dict[str, object]]],
+        top_k: int,
+    ) -> tuple[bool, str]:
+        if len(enriched_hits) < 2:
+            return False, "insufficient_candidates"
+
+        pool_n = min(len(enriched_hits), self._resolve_rerank_pool_n(top_k))
+        if pool_n < 2:
+            return False, "insufficient_pool"
+
+        score_rows: list[float] = []
+        for hit, _ in enriched_hits[:pool_n]:
+            score = hit.get("fusion_score", hit.get("score", 0.0))
+            if isinstance(score, (int, float)):
+                score_rows.append(float(score))
+        if len(score_rows) < 2:
+            return False, "score_missing"
+
+        score_rows.sort(reverse=True)
+        top_gap = score_rows[0] - score_rows[1]
+        tie_like = top_gap <= float(settings.rerank_gate_top2_gap_threshold)
+
+        unknown_ratio = float(job_profile.signal_quality.get("unknown_ratio", 0.0))
+        low_confidence = float(job_profile.confidence) < float(settings.rerank_gate_confidence_threshold)
+        noisy_query = unknown_ratio > float(settings.rerank_gate_unknown_ratio_threshold)
+        ambiguous_query = low_confidence or noisy_query
+
+        if tie_like:
+            return True, "tight_top_scores"
+        if ambiguous_query:
+            return True, "ambiguous_query_profile"
+        return False, "clear_top_scores_and_confident_query"
 
     @staticmethod
     def _should_use_query_fallback(job_profile: JobProfile) -> tuple[bool, str | None, dict[str, float]]:

@@ -114,6 +114,7 @@ Hybrid Retrieval은 다음 세 경로를 결합한다.
 - semantic vector search from Milvus
 - keyword search over normalized skills / text fields
 - metadata filtering over category, seniority, experience and future structured filters
+- optional rerank over shortlisted candidates (`embedding` default, `llm` optional)
 
 목적은 다음과 같다.
 
@@ -122,6 +123,22 @@ Hybrid Retrieval은 다음 세 경로를 결합한다.
 - 구조화 필터 적용
 
 산출물은 `Top-K Candidate Shortlist`다.
+
+현재 프로젝트는 capstone 범위와 구현 복잡도를 고려해, fine-tuned embedding 운영보다는 shortlist 이후 `LLM rerank baseline`을 강화하는 방향을 택했다.  
+즉, rerank 계층은 존재하지만 `R2.3 fine-tuned embedding rerank`는 의도적으로 후속 고도화 항목으로 남겨 두고 있다.
+
+현재 rerank 운영 정책은 다음과 같다.
+
+- `RERANK_ENABLED=true`여도 항상 rerank하지 않고, 내부 게이트 조건에서만 실행
+  - top score gap이 작은 경우(tie-like)
+  - query profile confidence가 낮거나 unknown ratio가 높은 경우(ambiguous query)
+- 모델 라우팅:
+  - 기본 경로는 `RERANK_MODEL_DEFAULT`
+  - ambiguity/tie-break 경로는 `RERANK_MODEL_HIGH_QUALITY`(예: `gpt-4o`)
+- 모델 버전 라벨(`*_VERSION`)을 로그/평가 아카이브에 함께 남겨 추적 가능하게 운영
+- rerank 후보 풀은 `RERANK_GATE_MAX_TOP_N`으로 제한
+- LLM/embedding rerank 호출에는 `RERANK_TIMEOUT_SEC`을 적용
+- rerank 실패 시 baseline shortlist를 그대로 반환
 
 ## 5. Multi-Agent Evaluation 설계
 
@@ -200,8 +217,8 @@ culture_score * weight_culture
 
 | 영역 | 목적 | 상태 |
 |------|------|------|
-| DeepEval | ranking quality, reasoning consistency, explanation quality 검증 | Partial |
-| LLM-as-Judge | candidate-job alignment, recommendation justification, explanation clarity 평가 | Partial |
+| DeepEval | ranking quality, reasoning consistency, explanation quality 검증 | Implemented (baseline) |
+| LLM-as-Judge | candidate-job alignment, recommendation justification, explanation clarity 평가 | Implemented (baseline, archived sample run) |
 | Bias Guardrails | 민감속성 배제, skill-centered scoring, explanation auditing, fairness metric 분석 | Implemented (backend v1) |
 
 Bias guardrail 백엔드 정책(v1)에서는 아래 검사를 수행한다.
@@ -220,11 +237,12 @@ Bias guardrail 백엔드 정책(v1)에서는 아래 검사를 수행한다.
 | Offline ingestion pipeline | `src/backend/services/ingest_resumes.py` | Implemented |
 | Deterministic JD parsing | `src/backend/services/job_profile_extractor.py` | Implemented v3 baseline |
 | Hybrid retriever | `src/backend/repositories/hybrid_retriever.py` | Implemented v2 baseline |
+| Rerank layer | `src/backend/services/cross_encoder_rerank_service.py` | Implemented baseline (`embedding` default, `llm` optional) |
 | Multi-agent orchestration | `src/backend/agents/runtime/service.py`, `src/backend/agents/runtime/sdk_runner.py`, `src/backend/agents/contracts/*.py` | Partial (negotiation handoff applied) |
 | Weight negotiation | `src/backend/agents/runtime/sdk_runner.py`, `src/backend/agents/contracts/weight_negotiation_agent.py` | Implemented baseline (SDK handoff + fallback) |
 | Deterministic + hybrid scoring | `src/backend/services/scoring_service.py` | Implemented current policy |
 | Explainable response builder | `src/backend/services/match_result_builder.py`, `src/frontend/src/components/CandidateDetailModal.tsx` | Implemented v3 baseline |
-| Eval assets | `src/eval/` | Partial |
+| Eval assets | `src/eval/`, `docs/eval/eval-results.md` | Implemented baseline |
 
 ## 10. 구현 갭
 
@@ -232,6 +250,8 @@ Bias guardrail 백엔드 정책(v1)에서는 아래 검사를 수행한다.
 
 1. Query Understanding v3의 role/skill/capability strength 정확도를 직군별 golden set으로 상시 검증해야 한다.
 2. Hybrid retrieval fusion weight(벡터/키워드/메타데이터)를 직군별로 calibration해야 한다.
-3. Explainable recommendation 문장 품질과 근거 일관성을 DeepEval/LLM-as-Judge로 자동 평가해야 한다.
-4. DeepEval/LLM-as-Judge CI 아카이브는 연결되어 있으며, 남은 갭은 LLM-as-Judge 실키 실행(키/인프라 보장 환경) 증거 강화다.
-5. Bias guardrails backend v1은 구현되었고, 남은 갭은 fairness metrics 운영 대시보드/정책 튜닝 고도화다.
+3. rerank 계층과 운영 정책(조건부 게이트/top_n 캡/timeout/fallback)은 구현되었으나, `HCR.3`를 더 강하게 주장하려면 latency/quality benchmark에서 일관된 품질 개선을 추가 입증해야 한다.
+4. `R2.3 fine-tuned embedding rerank`는 현재 intentionally deferred 상태이며, 실제 모델 학습/버전관리/rollback/A-B 증거가 추가되기 전까지는 baseline 이상으로 주장하지 않는다.
+5. Explainable recommendation 문장 품질과 근거 일관성을 DeepEval/LLM-as-Judge로 자동 평가해야 한다.
+6. DeepEval/LLM-as-Judge 아카이브는 연결되어 있고 live judge 실행 증거도 확보됐다. 남은 갭은 샘플 수 확대와 임계치 기반 운영 정책 고도화다.
+7. Bias guardrails backend v1은 구현되었고, 남은 갭은 fairness metrics 운영 대시보드/정책 튜닝 고도화다.

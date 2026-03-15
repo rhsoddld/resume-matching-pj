@@ -38,6 +38,7 @@ dist/
 
 # Logs
 *.log
+.deepeval/
 
 # Jupyter
 .ipynb_checkpoints/

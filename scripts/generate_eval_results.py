@@ -17,6 +17,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from backend.core.model_routing import resolve_eval_judge_model  # noqa: E402
 from eval.eval_metrics import (  # noqa: E402
     build_diversity_report,
     build_synthetic_candidate,
@@ -141,11 +142,13 @@ def _run_optional_llm_judge(entries: list[dict[str, Any]]) -> dict[str, Any]:
     rubric = _read_rubric().strip()
     if not rubric:
         return {"status": "skipped", "reason": "rubric not found"}
+    judge_model = resolve_eval_judge_model()
 
     metric = GEval(
         name="CulturePotentialFit",
         criteria=rubric,
         evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
+        model=judge_model.model,
         threshold=0.6,
     )
 
@@ -171,7 +174,14 @@ def _run_optional_llm_judge(entries: list[dict[str, Any]]) -> dict[str, Any]:
         )
 
     avg_score = round(sum(s["score"] for s in scores) / float(len(scores)), 4) if scores else 0.0
-    return {"status": "ok", "sample_size": len(scores), "average_score": avg_score, "samples": scores}
+    return {
+        "status": "ok",
+        "model": judge_model.model,
+        "model_version": judge_model.version,
+        "sample_size": len(scores),
+        "average_score": avg_score,
+        "samples": scores,
+    }
 
 
 def _git_commit() -> str:

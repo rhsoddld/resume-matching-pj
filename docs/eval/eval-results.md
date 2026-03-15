@@ -1,7 +1,7 @@
 # Eval Results Archive
 
-- Generated at (UTC): `2026-03-15 06:16:30`
-- Commit: `726bfe031fb3`
+- Generated at (UTC): `2026-03-15 08:33:11`
+- Commit: `ea8d94f39c1c`
 - Golden set: `src/eval/golden_set.jsonl`
 - Rubric: `docs/eval/llm_judge_softskill_potential_rubric.md`
 
@@ -71,7 +71,27 @@
 
 ```json
 {
-  "status": "skipped",
-  "reason": "OPENAI_API_KEY not set"
+  "status": "ok",
+  "model": "gpt-4o",
+  "model_version": "judge-v1",
+  "sample_size": 3,
+  "average_score": 0.3842,
+  "samples": [
+    {
+      "id": "gs-001",
+      "label": "good",
+      "score": 0.2864
+    },
+    {
+      "id": "gs-002",
+      "label": "good",
+      "score": 0.4159
+    },
+    {
+      "id": "gs-003",
+      "label": "good",
+      "score": 0.4504
+    }
+  ]
 }
 ```

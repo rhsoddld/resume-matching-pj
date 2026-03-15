@@ -51,10 +51,10 @@
 |---|---|---|---|---|
 | R2.1 | DeepEval quality + diversity | `src/eval/test_match_quality.py`, `src/eval/eval_metrics.py`, `src/eval/golden_set.jsonl`, `docs/eval/eval-results.md`, `.github/workflows/eval-archive.yml` | Implemented | metric drift 모니터링 대시보드 추가 |
 | R2.2 | custom eval(skill/exp/culture) | `src/eval/test_skill_coverage.py`, `src/eval/test_match_quality.py`, `src/eval/eval_metrics.py`, `docs/eval/eval-results.md` | Implemented | 직군별 임계치 차등화 검토 |
-| R2.3 | fine-tuned embedding rerank | `src/backend/services/cross_encoder_rerank_service.py`, `src/backend/core/settings.py`, `tests/test_rerank_pipeline.py` | Implemented | 도메인별 fine-tuned embedding 모델 학습/버전 운영 체계 고도화 |
-| R2.4 | LLM-as-judge(soft skill/potential) | `src/eval/test_skill_coverage.py`, `src/backend/agents/contracts/culture_agent.py`, `docs/eval/llm_judge_softskill_potential_rubric.md`, `docs/eval/eval-results.md`, `.github/workflows/eval-archive.yml` | Implemented | score explanation 템플릿 표준화 |
+| R2.3 | fine-tuned embedding rerank | `src/backend/services/cross_encoder_rerank_service.py`, `src/backend/core/settings.py`, `tests/test_rerank_pipeline.py` | Partial | embedding rerank baseline과 optional LLM rerank는 구현됨. 실제 fine-tuned embedding 학습/버전관리/A-B/rollback/runbook 증거를 추가해야 함 |
+| R2.4 | LLM-as-judge(soft skill/potential) | `src/eval/test_skill_coverage.py`, `src/backend/agents/contracts/culture_agent.py`, `scripts/generate_eval_results.py`, `src/backend/core/model_routing.py`, `docs/eval/llm_judge_softskill_potential_rubric.md`, `docs/eval/eval-results.md`, `.github/workflows/eval-archive.yml` | Implemented | score explanation 템플릿 표준화 |
 | R2.5 | token usage optimization | `docs/governance/PLAN.md` | Planned | 토큰 예산/캐시/배치 전략 구현 |
-| R2.6 | performance benchmark(candidates/sec) | `scripts/benchmark_retrieval.py`, `scripts/generate_retrieval_benchmark_archive.py`, `.github/workflows/retrieval-benchmark-archive.yml`, `src/backend/services/retrieval_service.py`, `src/backend/repositories/hybrid_retriever.py` | Partial | 자동 아카이브는 구현, 고부하 부하 테스트 자동화/기준선 관리 고도화 필요 |
+| R2.6 | performance benchmark(candidates/sec) | `scripts/benchmark_retrieval.py`, `scripts/generate_retrieval_benchmark_archive.py`, `.github/workflows/retrieval-benchmark-archive.yml`, `src/backend/services/retrieval_service.py`, `src/backend/repositories/hybrid_retriever.py`, `docs/eval/retrieval-benchmark.md` | Partial | 성공 baseline 수치는 확보됨. 다음 단계는 고부하 부하 테스트 자동화와 환경별 기준선 관리 |
 | R2.7 | bias detection guardrails | `src/backend/services/matching_service.py`, `tests/test_matching_service_fairness.py`, `src/backend/core/settings.py`, `src/frontend/src/components/BiasGuardrailBanner.tsx`, `docs/architecture/system-architecture.md` | Implemented | fairness metric 운영 대시보드 및 정책 튜닝 고도화 |
 | R2.8 | simple frontend interface | `src/frontend/src/App.tsx`, `src/frontend/src/components/JobRequirementForm.tsx`, `src/frontend/src/components/CandidateResults.tsx` | Implemented | UX polishing 및 에러 상태 강화 |
 
@@ -66,7 +66,7 @@
 |---|---|---|---|---|
 | HCR.1 | vector + keyword hybrid search | `src/backend/repositories/hybrid_retriever.py`, `src/backend/services/retrieval_service.py` | Implemented | fusion weight 실험 자동화 |
 | HCR.2 | dynamic filtering(exp/skill/edu/industry) | `src/backend/schemas/job.py`, `src/backend/repositories/hybrid_retriever.py`, `src/backend/services/candidate_enricher.py`, `tests/test_candidate_enricher_filters.py` | Implemented | 필터별 drop-off 모니터링 지표 추가 |
-| HCR.3 | cross-encoder reranking | `src/backend/services/cross_encoder_rerank_service.py`, `tests/test_rerank_pipeline.py` | Implemented | latency 최적화 필요 |
+| HCR.3 | cross-encoder reranking | `src/backend/services/cross_encoder_rerank_service.py`, `src/backend/services/matching_service.py`, `src/backend/core/settings.py`, `src/backend/core/model_routing.py`, `tests/test_rerank_pipeline.py`, `scripts/compare_rerank_modes.py`, `docs/eval/llm-rerank-comparison.md` | Partial | 조건부 게이트(top score gap/query ambiguity), top_n cap, timeout/fallback, 모델 라우팅/버전 라벨 정책은 구현됨. 다만 현재 샘플에서는 proxy quality 개선이 일관되지 않아 optional 경로 유지가 적절 |
 | MSA.1 | multi-agent pipeline | `src/backend/agents/contracts/orchestrator.py`, `src/backend/agents/runtime/service.py`, `src/backend/agents/runtime/sdk_runner.py` | Partial | negotiation handoff는 SDK 적용 완료, 4-agent 실행 경로 handoff-native 확장 필요 |
 | MSA.2 | Resume Parsing Agent | `src/backend/services/resume_parsing.py` | Implemented | 파싱 신뢰도 점수 노출 |
 | MSA.3 | Skill Matching Agent | `src/backend/agents/contracts/skill_agent.py` | Implemented | 근거 span 추출 강화 |
@@ -112,7 +112,7 @@
 
 ## 7) Backlog (Remaining Work)
 
-1. `R2.3` fine-tuned embedding 모델 운영(runbook, rollback, A/B) 및 캘리브레이션 자동화.
+1. `R2.3` actual fine-tuned embedding 모델 학습/배포 증거(runbook, rollback, A/B)와 calibration 자동화.
 2. `R2.5` token 최적화와 `R2.6` 고부하 부하 테스트/벤치마크 자동화 고도화.
 3. `R2.7` fairness metric 운영 대시보드 및 경고 정책 튜닝.
 4. `AHI.2~AHI.4` feedback loop, analytics dashboard, interview scheduling handoff 구현.

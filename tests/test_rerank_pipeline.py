@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +17,7 @@ def test_resolve_retrieval_top_n_when_rerank_enabled(monkeypatch):
     service = MatchingService()
     monkeypatch.setattr(settings, "rerank_enabled", True)
     monkeypatch.setattr(settings, "rerank_top_n", 50)
+    monkeypatch.setattr(settings, "rerank_gate_max_top_n", 50)
     assert service._resolve_retrieval_top_n(10) == 50
     assert service._resolve_retrieval_top_n(80) == 80
 
@@ -23,15 +25,81 @@ def test_resolve_retrieval_top_n_when_rerank_enabled(monkeypatch):
 def test_shortlist_without_rerank_uses_first_top_k(monkeypatch):
     service = MatchingService()
     monkeypatch.setattr(settings, "rerank_enabled", False)
+    profile = SimpleNamespace(confidence=0.9, signal_quality={"unknown_ratio": 0.1})
     enriched_hits = [
         ({"candidate_id": "a", "fusion_score": 0.9}, {"parsed": {}}),
         ({"candidate_id": "b", "fusion_score": 0.8}, {"parsed": {}}),
         ({"candidate_id": "c", "fusion_score": 0.7}, {"parsed": {}}),
     ]
-    out = service._shortlist_candidates(job_description="jd", enriched_hits=enriched_hits, top_k=2)
+    out = service._shortlist_candidates(
+        job_description="jd",
+        job_profile=profile,
+        enriched_hits=enriched_hits,
+        top_k=2,
+    )
     assert len(out) == 2
     assert out[0][0]["candidate_id"] == "a"
     assert out[1][0]["candidate_id"] == "b"
+
+
+def test_shortlist_with_rerank_enabled_skips_when_scores_clear_and_query_confident(monkeypatch):
+    service = MatchingService()
+    monkeypatch.setattr(settings, "rerank_enabled", True)
+    monkeypatch.setattr(settings, "rerank_top_n", 10)
+    monkeypatch.setattr(settings, "rerank_gate_max_top_n", 10)
+    monkeypatch.setattr(settings, "rerank_gate_top2_gap_threshold", 0.05)
+    monkeypatch.setattr(settings, "rerank_gate_confidence_threshold", 0.7)
+    monkeypatch.setattr(settings, "rerank_gate_unknown_ratio_threshold", 0.45)
+    profile = SimpleNamespace(confidence=0.92, signal_quality={"unknown_ratio": 0.1})
+    enriched_hits = [
+        ({"candidate_id": "a", "fusion_score": 0.95}, {"parsed": {}}),
+        ({"candidate_id": "b", "fusion_score": 0.7}, {"parsed": {}}),
+        ({"candidate_id": "c", "fusion_score": 0.65}, {"parsed": {}}),
+    ]
+
+    called = {"value": False}
+
+    def _stub_rerank(**_):
+        called["value"] = True
+        return []
+
+    monkeypatch.setattr(service.rerank_service, "rerank", _stub_rerank)
+
+    out = service._shortlist_candidates(
+        job_description="jd",
+        job_profile=profile,
+        enriched_hits=enriched_hits,
+        top_k=2,
+    )
+    assert not called["value"]
+    assert [row[0]["candidate_id"] for row in out] == ["a", "b"]
+
+
+def test_shortlist_with_rerank_enabled_runs_when_scores_are_tight(monkeypatch):
+    service = MatchingService()
+    monkeypatch.setattr(settings, "rerank_enabled", True)
+    monkeypatch.setattr(settings, "rerank_top_n", 20)
+    monkeypatch.setattr(settings, "rerank_gate_max_top_n", 8)
+    monkeypatch.setattr(settings, "rerank_gate_top2_gap_threshold", 0.05)
+    profile = SimpleNamespace(confidence=0.95, signal_quality={"unknown_ratio": 0.05})
+    enriched_hits = [
+        ({"candidate_id": "a", "fusion_score": 0.82}, {"parsed": {}}),
+        ({"candidate_id": "b", "fusion_score": 0.79}, {"parsed": {}}),
+        ({"candidate_id": "c", "fusion_score": 0.7}, {"parsed": {}}),
+    ]
+
+    monkeypatch.setattr(
+        service.rerank_service,
+        "rerank",
+        lambda **_: [(enriched_hits[1][0], enriched_hits[1][1]), (enriched_hits[0][0], enriched_hits[0][1])],
+    )
+    out = service._shortlist_candidates(
+        job_description="jd",
+        job_profile=profile,
+        enriched_hits=enriched_hits,
+        top_k=2,
+    )
+    assert [row[0]["candidate_id"] for row in out] == ["b", "a"]
 
 
 def test_cross_encoder_rerank_reorders_by_relevance(monkeypatch):
