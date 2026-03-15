@@ -15,8 +15,8 @@ todos:
     content: Skill / Experience / Technical / Culture agent와 weight negotiation baseline 유지
     status: completed
   - id: agents-sdk-migration
-    content: 4개 평가 agent + recruiter/hiring manager + negotiation orchestration을 OpenAI Agents SDK runtime으로 전환하기
-    status: in_progress
+    content: 4개 평가 agent + recruiter/hiring manager + negotiation orchestration을 OpenAI Agents SDK runtime으로 전환 및 RAG Tool 연동하기
+    status: completed
   - id: query-understanding-v2
     content: deterministic structured query object v2를 정의하고 구현하기
     status: completed
@@ -67,7 +67,7 @@ isProject: false
 | Offline ingestion / indexing | Done | MongoDB + Milvus 적재 경로와 normalization pipeline 존재 |
 | Deterministic JD parsing | Done v3 baseline | query_profile에 roles/signals/metadata filters/lexical-query/semantic-expansion/confidence + fallback 메타데이터를 포함해 응답 제공 |
 | Hybrid retrieval | Done baseline | vector + keyword + metadata fusion score 기반 shortlist 적용 |
-| Multi-agent evaluation | Done baseline (hybrid runtime) | score pack 생성은 SDK/live/heuristic 경로를 지원하며 서비스 레벨 fallback 유지 |
+| Multi-agent evaluation | Done (hybrid runtime + RAG Tool) | score pack 생성은 SDK/live/heuristic 경로를 지원하며 ThreadPoolExecutor로 병렬 실행됨. 에이전트는 RAG 툴 주도적 호출 기능 포함. |
 | Weight negotiation | Done baseline (SDK handoff + fallback) | negotiation 구간은 `Recruiter -> HiringManager -> WeightNegotiation` handoff를 시도하고 실패 시 degrade |
 | Explainable ranking output | Done v3 baseline | UI에서 runtime mode/fallback reason/recruiter·hiring·final policy까지 노출 |
 | Eval / guardrails | Partial | DeepEval/LLM-as-Judge(quality/diversity/custom/potential) + live judge 아카이빙 + bias guardrails backend v1 구현 완료. fairness metric 모니터링은 LangSmith로 대체(Resolved). |
@@ -87,10 +87,10 @@ isProject: false
 
 ### Priority 3. Ranking and Performance
 
-- `MSA.1`: SDK handoff가 negotiation 구간에 적용된 상태에서 4-agent 실행 경로까지 handoff-native로 확장
+- `MSA.1`: SDK handoff가 4-agent 실행 경로까지 확장 완료. RAG-as-a-Tool(`search_candidate_evidence`) 연동을 통한 자율 탐색 및 Fallback 보정까지 완료됨.
 - `R2.3`: fine-tuned embedding rerank는 현재 intentionally deferred. capstone 범위에서는 실제 학습/운영 대신 baseline rerank 실험 근거만 유지
 - `HCR.3`: shortlist 이후 LLM rerank baseline의 latency/quality benchmark 및 timeout/fallback 정책 고정
-- `R2.5`: token usage optimization (요청 예산/캐시/배치)
+- `R2.5`: token usage optimization (요청 예산/캐시/배치) 및 `ThreadPoolExecutor`를 통한 동시성(Concurrent) 채점 적용 완료. Latency 대폭 단축.
 - `R2.6`: candidates/sec 벤치마크 결과 자동 아카이브 유지 + 고부하 부하 테스트 자동화
 
 ### Priority 4. Hiring Intelligence Expansion

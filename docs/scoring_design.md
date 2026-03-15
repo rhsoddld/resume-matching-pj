@@ -11,8 +11,8 @@ JD
 -> Top-50 retrieval set
 -> (optional) Cross-Encoder Rerank
 -> Top-K shortlist
--> Deterministic score computation
--> Agent score pack (skill/experience/technical/culture)
+-> Top-K shortlist
+-> 병렬(Parallel) Agent score pack (skill/experience/technical/culture) + 자율 RAG 탐색
 -> Hybrid rank score (deterministic + agent weighted)
 -> Must-have penalty
 -> Explainable output
@@ -118,6 +118,8 @@ Breakdown output:
 ```
 
 ## 5. Agent-augmented Rank Score
+
+`AGENT_EVAL_TOP_N` 이내의 후보들은 `ThreadPoolExecutor`를 활용해 동시에 4개의 평가 에이전트로 평가된다. 만일 1차 평가 중 문서 내 구체적 사례나 심층 증거가 필요할 경우, 에이전트는 `search_candidate_evidence` RAG 도구를 호출하여 이력서 내/외부 질의를 수행한다 (무한루프 방지를 위해 호출 횟수 최대 2회 제한).
 
 Agent weighted score가 있는 경우:
 

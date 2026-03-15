@@ -13,6 +13,20 @@ from backend.agents.contracts.technical_agent import TechnicalAgentOutput
 from backend.agents.contracts.weight_negotiation_agent import WeightNegotiationOutput, WeightProposal
 from backend.core.settings import settings
 
+try:
+    from agents import AgentOutputSchema
+except ImportError:
+    class AgentOutputSchema:
+        def __init__(self, cls, strict_json_schema=False):
+            self.cls = cls
+            
+def _wrap_output(cls: Any) -> Any:
+    try:
+        from agents import AgentOutputSchema
+        return AgentOutputSchema(cls, strict_json_schema=False)
+    except ImportError:
+        return cls
+
 from .helpers import normalize_weight_payload
 from .models import HandoffRunContext, ScorePackOutput, ViewpointProposalOutput
 from .prompts import PROMPTS
@@ -107,35 +121,92 @@ def run_agents_sdk(
     injected_env_api_key = False
 
     try:
+        from backend.repositories.hybrid_retriever import HybridRetriever
+        try:
+            from agents import function_tool
+        except ImportError:
+            def function_tool(func): return func
+            
+        _retriever = HybridRetriever()
+        _candidate_data = payload.get("candidate", {})
+        _skill_input = _candidate_data.get("skill_input", {})
+        _candidate_id = _skill_input.get("candidate_id")
+        
+        @function_tool
+        def search_candidate_evidence(query: str) -> str:
+            """
+            Search specific evidence (like project metrics, specific skills, architecture details) 
+            deeply within the current candidate's resume when the context doesn't have enough details.
+            """
+            if not _candidate_id:
+                return "Candidate ID is unknown. Cannot search."
+            return _retriever.search_within_candidate(_candidate_id, query)
+    except Exception as e:
+        logger.warning(f"Failed to create retrieval tool: {e}")
+        def _fallback_tool(query: str) -> str:
+            return "Tool unavailable."
+        
+        search_candidate_evidence = _fallback_tool
+        try:
+            from agents import function_tool
+            search_candidate_evidence = function_tool(_fallback_tool)
+        except ImportError:
+            pass
+
+    try:
         # Agents SDK runtime resolves credentials from OPENAI_API_KEY env var.
         # Keep local Settings as source of truth and bridge it only when missing.
         if not prior_env_api_key and settings.openai_api_key:
             os.environ["OPENAI_API_KEY"] = settings.openai_api_key
             injected_env_api_key = True
 
-        skill_agent = agent_cls(
+        skill_agent = _build_agent(
+            agent_cls,
             name="SkillEvalAgent",
             model=model,
-            instructions=PROMPTS.skill_eval,
-            output_type=SkillAgentOutput,
+            instructions=(
+                PROMPTS.skill_eval + 
+                "\n증거가 불충분하다면 반드시 search_candidate_evidence 도구를 사용하여 이력서 원문을 검색하세요. "
+                "단, 도구 호출은 최대 2회까지만 허용되며, 그 후에는 찾은 정보만으로 결론을 내리세요."
+            ),
+            output_type=_wrap_output(SkillAgentOutput),
+            tools=[search_candidate_evidence],
         )
-        experience_agent = agent_cls(
+        experience_agent = _build_agent(
+            agent_cls,
             name="ExperienceEvalAgent",
             model=model,
-            instructions=PROMPTS.experience_eval,
-            output_type=ExperienceAgentOutput,
+            instructions=(
+                PROMPTS.experience_eval + 
+                "\n구체적인 성과 지표나 기간이 명확하지 않다면 search_candidate_evidence 도구를 사용하여 확인하세요. "
+                "단, 도구 호출은 최대 2회까지만 허용되며, 그 후에는 찾은 정보만으로 결론을 내리세요."
+            ),
+            output_type=_wrap_output(ExperienceAgentOutput),
+            tools=[search_candidate_evidence],
         )
-        technical_agent = agent_cls(
+        technical_agent = _build_agent(
+            agent_cls,
             name="TechnicalEvalAgent",
             model=model,
-            instructions=PROMPTS.technical_eval,
-            output_type=TechnicalAgentOutput,
+            instructions=(
+                PROMPTS.technical_eval + 
+                "\n기술 스택 활용의 깊이나 구체적 사례가 부족하다면 search_candidate_evidence 도구를 사용하여 깊이 있는 문맥을 찾으세요. "
+                "단, 도구 호출은 최대 2회까지만 허용되며, 그 후에는 찾은 정보만으로 결론을 내리세요."
+            ),
+            output_type=_wrap_output(TechnicalAgentOutput),
+            tools=[search_candidate_evidence],
         )
-        culture_agent = agent_cls(
+        culture_agent = _build_agent(
+            agent_cls,
             name="CultureEvalAgent",
             model=model,
-            instructions=PROMPTS.culture_eval,
-            output_type=CultureAgentOutput,
+            instructions=(
+                PROMPTS.culture_eval + 
+                "\n협업/소통/문제해결 등 정성적 평가의 근거 문장이 부족할 땐 search_candidate_evidence 도구를 사용하세요. "
+                "단, 도구 호출은 최대 2회까지만 허용되며, 그 후에는 찾은 정보만으로 결론을 내리세요."
+            ),
+            output_type=_wrap_output(CultureAgentOutput),
+            tools=[search_candidate_evidence],
         )
 
         def _run_agent(name: str, agent: Any, prompt_input: str) -> Any:
@@ -156,7 +227,7 @@ def run_agents_sdk(
             name="ScorePackAgent",
             model=model,
             instructions=PROMPTS.score_pack,
-            output_type=ScorePackOutput,
+            output_type=_wrap_output(ScorePackOutput),
         )
         score_pack_input = json.dumps(
             {

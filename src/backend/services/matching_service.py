@@ -5,6 +5,7 @@ import hashlib
 import logging
 import re
 import time
+import concurrent.futures
 
 try:
     from langsmith import get_current_run_tree
@@ -380,7 +381,12 @@ class MatchingService:
         )
 
         results: list[JobMatchCandidate] = []
-        for idx, (hit, candidate_doc) in enumerate(shortlisted_hits):
+        
+        def _evaluate_candidate(
+            idx: int, 
+            hit: dict[str, Any], 
+            candidate_doc: dict[str, Any]
+        ) -> tuple[int, JobMatchCandidate]:
             if idx in eval_index_set:
                 agent_result = agent_orchestration_service.run_for_candidate(
                     job_description=job_description,
@@ -389,29 +395,34 @@ class MatchingService:
                     candidate_doc=candidate_doc,
                     category_filter=category,
                 )
-                results.append(
-                    build_match_candidate(
-                        hit=hit,
-                        candidate_doc=candidate_doc,
-                        job_profile=job_profile,
-                        category=category,
-                        agent_result=agent_result,
-                        agent_evaluation_applied=True,
-                    )
-                )
-                continue
-
-            results.append(
-                build_match_candidate(
+                return idx, build_match_candidate(
                     hit=hit,
                     candidate_doc=candidate_doc,
                     job_profile=job_profile,
                     category=category,
-                    agent_result=None,
-                    agent_evaluation_applied=False,
-                    agent_evaluation_reason=f"outside_agent_eval_top_n({agent_eval_top_n})",
+                    agent_result=agent_result,
+                    agent_evaluation_applied=True,
                 )
+            
+            return idx, build_match_candidate(
+                hit=hit,
+                candidate_doc=candidate_doc,
+                job_profile=job_profile,
+                category=category,
+                agent_result=None,
+                agent_evaluation_applied=False,
+                agent_evaluation_reason=f"outside_agent_eval_top_n({agent_eval_top_n})",
             )
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(shortlisted_hits))) as executor:
+            future_to_idx = {
+                executor.submit(_evaluate_candidate, idx, hit, candidate_doc): idx
+                for idx, (hit, candidate_doc) in enumerate(shortlisted_hits)
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_idx):
+                idx, candidate_result = future.result()
+                results.append(candidate_result)
         results.sort(
             key=lambda item: (
                 0 if self._is_agent_evaluated(item) else 1,

@@ -492,3 +492,49 @@ class HybridRetriever:
         if normalized_industry:
             return (category_score * 0.4) + (industry_score * 0.15) + (experience_score * 0.3) + (seniority_score * 0.15)
         return (category_score * 0.5) + (experience_score * 0.35) + (seniority_score * 0.15)
+
+    @traceable_op(name="retrieval.search_within_candidate", run_type="tool")
+    def search_within_candidate(self, candidate_id: str, query: str) -> str:
+        """Search for specific information within a candidate's resume text."""
+        doc = get_collection("candidates").find_one(
+            {"candidate_id": candidate_id},
+            {"raw.resume_text": 1, "parsed.experience_items": 1, "_id": 0}
+        )
+        if not doc:
+            return f"Candidate {candidate_id} not found."
+            
+        raw = doc.get("raw") or {}
+        text = raw.get("resume_text", "")
+        
+        # Fallback to experience descriptions if raw text is not populated
+        if not text:
+            parsed = doc.get("parsed") or {}
+            items = parsed.get("experience_items") or []
+            lines = []
+            for item in items:
+                desc = item.get("description", "")
+                if desc:
+                    lines.append(desc)
+            text = "\n".join(lines)
+            
+        if not text:
+            return "No detailed resume text available for this candidate."
+            
+        query_terms = [t.lower() for t in re.findall(r'\b\w+\b', query) if len(t) > 2]
+        if not query_terms:
+            return "Query is empty or contains only short stop words."
+            
+        sentences = [s.strip() for s in re.split(r'(?<=[.!?\n])\s+', text) if s.strip()]
+        
+        matches = []
+        for s in sentences:
+            s_lower = s.lower()
+            if any(term in s_lower for term in query_terms):
+                matches.append(s)
+                
+        if not matches:
+            return f"No evidence found in candidate's resume for query: '{query}'."
+            
+        # Return matched sentences
+        evidence = "\n- ".join(matches[:15])
+        return f"Found evidence:\n- {evidence}"

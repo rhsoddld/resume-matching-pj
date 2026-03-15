@@ -142,7 +142,7 @@ Hybrid Retrieval은 다음 세 경로를 결합한다.
 
 ## 5. Multi-Agent Evaluation 설계
 
-Top-K 후보는 아래 4개 evaluation agent로 평가한다.
+Top-K 후보는 아래 4개 evaluation agent로 **병렬(ThreadPoolExecutor)** 평가한다. 평가 중 이력서 원문에 대한 추가적인 문맥이 필요할 경우, 각 에이전트는 `search_candidate_evidence` 도구(RAG-as-a-Tool)를 프로액티브하게 호출하여 증거를 탐색한다.
 
 | Agent | 역할 | 주 사용 데이터 | 핵심 출력 |
 |------|------|---------------|----------|
@@ -238,7 +238,7 @@ Bias guardrail 백엔드 정책(v1)에서는 아래 검사를 수행한다.
 | Deterministic JD parsing | `src/backend/services/job_profile_extractor.py` | Implemented v3 baseline |
 | Hybrid retriever | `src/backend/repositories/hybrid_retriever.py` | Implemented v2 baseline |
 | Rerank layer | `src/backend/services/cross_encoder_rerank_service.py` | Implemented baseline (`embedding` default, `llm` optional) |
-| Multi-agent orchestration | `src/backend/agents/runtime/service.py`, `src/backend/agents/runtime/sdk_runner.py`, `src/backend/agents/contracts/*.py` | Partial (negotiation handoff applied) |
+| Multi-agent orchestration | `src/backend/agents/runtime/service.py`, `src/backend/agents/runtime/sdk_runner.py`, `src/backend/agents/contracts/*.py` | Implemented (negotiation handoff & RAG Tool applied) |
 | Weight negotiation | `src/backend/agents/runtime/sdk_runner.py`, `src/backend/agents/contracts/weight_negotiation_agent.py` | Implemented baseline (SDK handoff + fallback) |
 | Deterministic + hybrid scoring | `src/backend/services/scoring_service.py` | Implemented current policy |
 | Explainable response builder | `src/backend/services/match_result_builder.py`, `src/frontend/src/components/CandidateDetailModal.tsx` | Implemented v3 baseline |

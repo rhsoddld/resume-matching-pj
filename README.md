@@ -81,7 +81,8 @@ N --> O
 - 이력서 ingestion은 오프라인 deterministic pipeline으로 처리한다.
 - JD Query Understanding은 LLM agent가 아니라 deterministic layer로 구현한다.
 - Retrieval은 semantic vector search, keyword search, metadata filtering을 함께 사용하는 hybrid 전략을 따른다.
-- 후보 평가는 shortlist 이후에만 multi-agent 구조를 사용한다.
+- 후보 평가는 shortlist 이후에만 multi-agent 구조를 사용하며, 각 파이프라인은 병렬 채점(ThreadPoolExecutor)으로 지연을 최소화한다.
+- 에이전트 채점 중 정보가 부족할 경우 스스로 RAG 도구(`search_candidate_evidence`)를 호출하여 원문을 뒤진다.
 - 최종 점수는 Recruiter 관점과 Hiring Manager 관점의 weight negotiation 결과를 반영한다.
 - 응답은 점수만이 아니라 matched skills, relevant experience, technical strengths, possible gaps, weighting summary를 포함한 explainable recommendation을 제공한다.
 - 품질과 공정성은 DeepEval, LLM-as-Judge, Bias guardrails로 검증한다.
@@ -144,7 +145,7 @@ JD Query Understanding은 다음 정보를 공통 Query 객체로 만든다.
 | Deterministic query understanding | Implemented v3 baseline | ontology-aligned role/skill/capability normalization + 저신뢰 구간 constrained LLM fallback + `query_profile` 확장 필드 제공 |
 | Hybrid retrieval | Implemented v2 baseline | `src/backend/repositories/hybrid_retriever.py`에서 vector + keyword + metadata fusion score 기반 shortlist 생성 |
 | Rerank layer | Implemented baseline (`embedding` default, `llm` optional) | `src/backend/services/cross_encoder_rerank_service.py`에서 shortlist 후 rerank 수행. capstone 범위에서는 fine-tuning보다 운영 단순성과 explainability를 위해 LLM rerank baseline을 우선 |
-| Multi-agent evaluation | Implemented baseline (hybrid runtime) | Skill / Experience / Technical / Culture score pack은 SDK/live/heuristic fallback 기반으로 실행 (`src/backend/agents/runtime/service.py`) |
+| Multi-agent evaluation | Implemented baseline (hybrid runtime) | Skill / Experience / Technical / Culture score pack은 SDK/live/heuristic fallback 기반으로 병렬 실행 (ThreadPoolExecutor) 체계(`src/backend/agents/runtime/service.py`). 에이전트는 `search_candidate_evidence` 도구(RAG-as-a-Tool)를 프로액티브하게 활용함. |
 | Recruiter / Hiring Manager weight proposal | Implemented baseline (A2A handoff in SDK path) | Negotiation 구간은 OpenAI Agents SDK handoff(`Recruiter -> HiringManager -> WeightNegotiation`)를 시도하고 실패 시 live/heuristic으로 degrade |
 | Explainable recommendation | Implemented v3 baseline | `possible_gaps`, `weighting_summary`, `relevant_experience` + runtime mode/fallback reason + recruiter/hiring/final policy를 API/UI에서 확인 가능 |
 | Retrieval performance benchmark (R2.6) | Partial | 실측 baseline 확보(`success_rate=1.0`, `candidates/sec=72.7834`) + 자동 아카이브 경로 구현. 남은 갭은 고부하 성능 테스트 자동화와 환경별 기준선 운영 |
@@ -430,7 +431,8 @@ docker compose exec -T backend python -V
 
 ## 다음에 해야 할 일
 
-1. 현재 SDK handoff가 적용된 negotiation 구간을 4개 평가 agent 실행 경로까지 확대해 handoff-native orchestration으로 전환한다.
+1. (진행 완료) 현재 SDK handoff가 적용된 negotiation 구간을 4개 평가 agent 실행 경로까지 확대해 handoff-native orchestration으로 전환한다. (RAG Tool 통합)
+6. 병렬 실행(Parallel Scoring) 도입 완료에 따른 고부하 부하 테스트 재수행 및 레이트리밋(Rate-Limit) 정책 세밀화.
 2. query understanding release gate와 fallback 정책을 CI 배포 게이트에 연결한다.
 3. retrieval fusion weight를 직군별로 튜닝하고 offline ranking metric으로 calibration한다.
 4. Bias guardrails 운영 고도화(임계치 정책 튜닝, 경고 triage 체계) 및 LangSmith 메타데이터 추적 보강.
