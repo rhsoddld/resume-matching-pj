@@ -104,9 +104,9 @@ AI-powered Resume Intelligence & Candidate Matching 시스템을 다음 원칙�
 | Offline ingestion / normalization | 구현됨 | `src/backend/services/ingest_resumes.py` |
 | Deterministic query understanding | v3 baseline 구현 | `src/backend/services/job_profile_extractor.py`, `src/backend/services/matching_service.py`, `src/backend/services/query_fallback_service.py` |
 | Hybrid retrieval | baseline 구현 | `src/backend/repositories/hybrid_retriever.py` |
-| 4-agent evaluation | baseline 구현 (custom orchestration) | `src/backend/agents/contracts/`, `src/backend/agents/runtime/service.py` |
-| Recruiter / Hiring Manager weight negotiation | baseline 구현 (custom orchestration) | `src/backend/agents/contracts/weight_negotiation_agent.py` |
-| Explainable ranking output | baseline 구현 | `src/backend/services/match_result_builder.py`, `src/frontend/src/components/ResultCard.tsx` |
+| 4-agent evaluation | baseline 구현 (hybrid runtime) | `src/backend/agents/contracts/`, `src/backend/agents/runtime/service.py` |
+| Recruiter / Hiring Manager weight negotiation | baseline 구현 (SDK handoff + fallback) | `src/backend/agents/runtime/sdk_runner.py`, `src/backend/agents/contracts/weight_negotiation_agent.py` |
+| Explainable ranking output | v3 baseline 구현 | `src/backend/services/match_result_builder.py`, `src/frontend/src/components/ResultCard.tsx`, `src/frontend/src/components/CandidateDetailModal.tsx` |
 | DeepEval / LLM-as-Judge | Implemented | `src/eval/`, `docs/eval/eval-results.md`, `.github/workflows/eval-archive.yml` |
 | Bias guardrails | Implemented (backend v1) | `src/backend/services/matching_service.py`, `tests/test_matching_service_fairness.py` |
 
@@ -122,7 +122,7 @@ AI-powered Resume Intelligence & Candidate Matching 시스템을 다음 원칙�
 
 ## 현재 우선순위
 
-1. 4-agent + recruiter/hiring-manager + negotiation 경로를 OpenAI Agents SDK runtime으로 마이그레이션
+1. negotiation 구간에 도입된 SDK handoff 경로를 4-agent 실행까지 확장해 handoff-native orchestration으로 전환
 2. ontology 기반 role/skill/capability 추출 품질 release gate를 CI에 연결하고 실패 시 배포 차단 정책을 고정
 3. fusion retrieval 가중치 실험 및 calibration
 4. DeepEval / LLM-as-Judge 결과 추세 리포트 고도화

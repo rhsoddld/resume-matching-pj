@@ -51,6 +51,8 @@ class CandidateAgentResult(BaseModel):
     ranking_input: RankingAgentInput
     ranking_output: RankingAgentOutput
     weight_negotiation: WeightNegotiationOutput | None = None
+    runtime_mode: str | None = None
+    runtime_reason: str | None = None
 
 
 class OrchestratorResponse(BaseModel):

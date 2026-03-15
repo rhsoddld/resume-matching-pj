@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from backend.agents.contracts.culture_agent import CultureAgentOutput
@@ -32,3 +34,14 @@ class NegotiationOutput(BaseModel):
     final: RawWeightProposal
     rationale: str = ""
     ranking_explanation: str = ""
+
+
+class HandoffConstraints(BaseModel):
+    disagreement_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
+    max_turns: int = Field(default=6, ge=1, le=12)
+
+
+class HandoffRunContext(BaseModel):
+    payload: dict[str, Any]
+    score_pack: ScorePackOutput
+    constraints: HandoffConstraints = Field(default_factory=HandoffConstraints)

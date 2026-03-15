@@ -151,6 +151,14 @@ Top-K 후보는 아래 4개 evaluation agent로 평가한다.
 - 우선순위 충돌 해소
 - 최종 ranking weight 생성
 
+현재 런타임 정책:
+
+- SDK 경로에서는 negotiation 구간을 handoff 체인으로 실행한다.
+  - `RecruiterAgent -> HiringManagerAgent -> WeightNegotiationAgent`
+- SDK 실패 또는 비활성 시 `live_json` 경로를 시도한다.
+- live 경로도 실패하면 heuristic fallback으로 degrade한다.
+- 최종 응답에는 runtime mode(`sdk_handoff`/`live_json`/`heuristic`)와 fallback reason이 포함된다.
+
 예시 negotiated weight:
 
 ```text
@@ -212,10 +220,10 @@ Bias guardrail 백엔드 정책(v1)에서는 아래 검사를 수행한다.
 | Offline ingestion pipeline | `src/backend/services/ingest_resumes.py` | Implemented |
 | Deterministic JD parsing | `src/backend/services/job_profile_extractor.py` | Implemented v3 baseline |
 | Hybrid retriever | `src/backend/repositories/hybrid_retriever.py` | Implemented v2 baseline |
-| Multi-agent orchestration | `src/backend/agents/runtime/service.py`, `src/backend/agents/contracts/*.py` | Implemented baseline |
-| Weight negotiation | `src/backend/agents/contracts/weight_negotiation_agent.py` | Implemented baseline |
+| Multi-agent orchestration | `src/backend/agents/runtime/service.py`, `src/backend/agents/runtime/sdk_runner.py`, `src/backend/agents/contracts/*.py` | Partial (negotiation handoff applied) |
+| Weight negotiation | `src/backend/agents/runtime/sdk_runner.py`, `src/backend/agents/contracts/weight_negotiation_agent.py` | Implemented baseline (SDK handoff + fallback) |
 | Deterministic + hybrid scoring | `src/backend/services/scoring_service.py` | Implemented current policy |
-| Explainable response builder | `src/backend/services/match_result_builder.py` | Partial |
+| Explainable response builder | `src/backend/services/match_result_builder.py`, `src/frontend/src/components/CandidateDetailModal.tsx` | Implemented v3 baseline |
 | Eval assets | `src/eval/` | Partial |
 
 ## 10. 구현 갭

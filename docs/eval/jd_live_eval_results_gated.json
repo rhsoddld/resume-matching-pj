@@ -1,0 +1,671 @@
+{
+  "AI Strategy & Planning Manager": [
+    {
+      "candidate_id": "23933031",
+      "category": "BPO",
+      "score": 0.4822,
+      "skill_score": 0.1,
+      "experience_score": 0.8075,
+      "culture_score": 0.5,
+      "potential_score": 1.0,
+      "experience_years_est": 15.7,
+      "matched_skills": [
+        "business development"
+      ]
+    },
+    {
+      "candidate_id": "17562754",
+      "category": "DIGITAL-MEDIA",
+      "score": 0.4188,
+      "skill_score": 0.1,
+      "experience_score": 0.7625,
+      "culture_score": 0.5,
+      "potential_score": 0.5,
+      "experience_years_est": 6.1,
+      "matched_skills": [
+        "business development"
+      ]
+    },
+    {
+      "candidate_id": "80503242",
+      "category": "ADVOCATE",
+      "score": 0.4085,
+      "skill_score": 0.1,
+      "experience_score": 0.895,
+      "culture_score": 0.5,
+      "potential_score": 0.0,
+      "experience_years_est": 12.2,
+      "matched_skills": [
+        "business development"
+      ]
+    },
+    {
+      "candidate_id": "26987539",
+      "category": "BANKING",
+      "score": 0.401,
+      "skill_score": 0.1,
+      "experience_score": 0.87,
+      "culture_score": 0.5,
+      "potential_score": 0.0,
+      "experience_years_est": 13.2,
+      "matched_skills": [
+        "business development"
+      ]
+    },
+    {
+      "candidate_id": "15856762",
+      "category": "BANKING",
+      "score": 0.3985,
+      "skill_score": 0.2,
+      "experience_score": 0.895,
+      "culture_score": 0.0,
+      "potential_score": 0.5,
+      "experience_years_est": 12.2,
+      "matched_skills": [
+        "business development",
+        "market analysis"
+      ]
+    },
+    {
+      "candidate_id": "11415967",
+      "category": "CONSULTANT",
+      "score": 0.3927,
+      "skill_score": 0.1,
+      "experience_score": 0.8425,
+      "culture_score": 0.5,
+      "potential_score": 0.0,
+      "experience_years_est": 14.3,
+      "matched_skills": [
+        "business development"
+      ]
+    },
+    {
+      "candidate_id": "20357858",
+      "category": "BUSINESS-DEVELOPMENT",
+      "score": 0.385,
+      "skill_score": 0.1,
+      "experience_score": 0.65,
+      "culture_score": 0.5,
+      "potential_score": 0.5,
+      "experience_years_est": 24.3,
+      "matched_skills": [
+        "business development"
+      ]
+    },
+    {
+      "candidate_id": "15790602",
+      "category": "AUTOMOBILE",
+      "score": 0.385,
+      "skill_score": 0.1,
+      "experience_score": 0.65,
+      "culture_score": 0.75,
+      "potential_score": 0.0,
+      "experience_years_est": 45.2,
+      "matched_skills": [
+        "business development"
+      ]
+    },
+    {
+      "candidate_id": "11635137",
+      "category": "PUBLIC-RELATIONS",
+      "score": 0.385,
+      "skill_score": 0.1,
+      "experience_score": 0.65,
+      "culture_score": 0.5,
+      "potential_score": 0.5,
+      "experience_years_est": 28.3,
+      "matched_skills": [
+        "business development"
+      ]
+    },
+    {
+      "candidate_id": "27936502",
+      "category": "ARTS",
+      "score": 0.385,
+      "skill_score": 0.1,
+      "experience_score": 0.65,
+      "culture_score": 0.25,
+      "potential_score": 1.0,
+      "experience_years_est": 24.2,
+      "matched_skills": [
+        "business development"
+      ]
+    }
+  ],
+  "Generative AI Product Manager (PM)": [
+    {
+      "candidate_id": "41910253",
+      "category": "HEALTHCARE",
+      "score": 0.435,
+      "skill_score": 0.1,
+      "experience_score": 0.65,
+      "culture_score": 0.75,
+      "potential_score": 0.5,
+      "experience_years_est": 24.2,
+      "matched_skills": [
+        "data analysis"
+      ]
+    },
+    {
+      "candidate_id": "26801767",
+      "category": "INFORMATION-TECHNOLOGY",
+      "score": 0.385,
+      "skill_score": 0.1,
+      "experience_score": 0.65,
+      "culture_score": 0.5,
+      "potential_score": 0.5,
+      "experience_years_est": 18.2,
+      "matched_skills": [
+        "data analysis"
+      ]
+    },
+    {
+      "candidate_id": "28139742",
+      "category": "SALES",
+      "score": 0.385,
+      "skill_score": 0.1,
+      "experience_score": 0.65,
+      "culture_score": 0.5,
+      "potential_score": 0.5,
+      "experience_years_est": 23.4,
+      "matched_skills": [
+        "data analysis"
+      ]
+    },
+    {
+      "candidate_id": "13264796",
+      "category": "ENGINEERING",
+      "score": 0.375,
+      "skill_score": 0.2,
+      "experience_score": 0.65,
+      "culture_score": 0.25,
+      "potential_score": 0.5,
+      "experience_years_est": 16.2,
+      "matched_skills": [
+        "agile",
+        "product management"
+      ]
+    },
+    {
+      "candidate_id": "98348532",
+      "category": "BANKING",
+      "score": 0.3536,
+      "skill_score": 0.1,
+      "experience_score": 0.712,
+      "culture_score": 0.25,
+      "potential_score": 0.5,
+      "experience_years_est": 12.2,
+      "matched_skills": [
+        "data analysis"
+      ]
+    },
+    {
+      "candidate_id": "39115899",
+      "category": "ACCOUNTANT",
+      "score": 0.3416,
+      "skill_score": 0.1,
+      "experience_score": 0.672,
+      "culture_score": 0.25,
+      "potential_score": 0.5,
+      "experience_years_est": 13.2,
+      "matched_skills": [
+        "data analysis"
+      ]
+    },
+    {
+      "candidate_id": "51588273",
+      "category": "ENGINEERING",
+      "score": 0.335,
+      "skill_score": 0.1,
+      "experience_score": 0.65,
+      "culture_score": 0.25,
+      "potential_score": 0.5,
+      "experience_years_est": 15.2,
+      "matched_skills": [
+        "agile"
+      ]
+    },
+    {
+      "candidate_id": "11890896",
+      "category": "ENGINEERING",
+      "score": 0.335,
+      "skill_score": 0.1,
+      "experience_score": 0.65,
+      "culture_score": 0.25,
+      "potential_score": 0.5,
+      "experience_years_est": 19.7,
+      "matched_skills": [
+        "data analysis"
+      ]
+    },
+    {
+      "candidate_id": "22852364",
+      "category": "APPAREL",
+      "score": 0.325,
+      "skill_score": 0.2,
+      "experience_score": 0.65,
+      "culture_score": 0.25,
+      "potential_score": 0.0,
+      "experience_years_est": 31.3,
+      "matched_skills": [
+        "agile",
+        "product management"
+      ]
+    },
+    {
+      "candidate_id": "18589927",
+      "category": "BPO",
+      "score": 0.3148,
+      "skill_score": 0.1,
+      "experience_score": 0.916,
+      "culture_score": 0.0,
+      "potential_score": 0.0,
+      "experience_years_est": 7.1,
+      "matched_skills": [
+        "data analysis"
+      ]
+    }
+  ],
+  "LLM Solutions Architect": [
+    {
+      "candidate_id": "17640785",
+      "category": "AGRICULTURE",
+      "score": 0.4447,
+      "skill_score": 0.0833,
+      "experience_score": 0.76,
+      "culture_score": 0.6667,
+      "potential_score": 0.5,
+      "experience_years_est": 15.4,
+      "matched_skills": [
+        "compliance"
+      ]
+    },
+    {
+      "candidate_id": "15535920",
+      "category": "CONSULTANT",
+      "score": 0.4283,
+      "skill_score": 0.1667,
+      "experience_score": 0.65,
+      "culture_score": 0.3333,
+      "potential_score": 1.0,
+      "experience_years_est": 20.2,
+      "matched_skills": [
+        "cloud",
+        "security"
+      ]
+    },
+    {
+      "candidate_id": "18171955",
+      "category": "SALES",
+      "score": 0.3797,
+      "skill_score": 0.0833,
+      "experience_score": 0.7657,
+      "culture_score": 0.3333,
+      "potential_score": 0.5,
+      "experience_years_est": 15.2,
+      "matched_skills": [
+        "compliance"
+      ]
+    },
+    {
+      "candidate_id": "90032884",
+      "category": "CONSTRUCTION",
+      "score": 0.364,
+      "skill_score": 0.0833,
+      "experience_score": 0.88,
+      "culture_score": 0.3333,
+      "potential_score": 0.0,
+      "experience_years_est": 11.2,
+      "matched_skills": [
+        "security"
+      ]
+    },
+    {
+      "candidate_id": "11005406",
+      "category": "DIGITAL-MEDIA",
+      "score": 0.3622,
+      "skill_score": 0.1667,
+      "experience_score": 0.7629,
+      "culture_score": 0.3333,
+      "potential_score": 0.0,
+      "experience_years_est": 15.3,
+      "matched_skills": [
+        "aws",
+        "security"
+      ]
+    },
+    {
+      "candidate_id": "44624796",
+      "category": "ENGINEERING",
+      "score": 0.3617,
+      "skill_score": 0.0833,
+      "experience_score": 0.65,
+      "culture_score": 0.6667,
+      "potential_score": 0.0,
+      "experience_years_est": 25.4,
+      "matched_skills": [
+        "security"
+      ]
+    },
+    {
+      "candidate_id": "18067556",
+      "category": "INFORMATION-TECHNOLOGY",
+      "score": 0.3554,
+      "skill_score": 0.0833,
+      "experience_score": 0.8514,
+      "culture_score": 0.3333,
+      "potential_score": 0.0,
+      "experience_years_est": 12.2,
+      "matched_skills": [
+        "azure"
+      ]
+    },
+    {
+      "candidate_id": "11065180",
+      "category": "BANKING",
+      "score": 0.352,
+      "skill_score": 0.0833,
+      "experience_score": 0.84,
+      "culture_score": 0.3333,
+      "potential_score": 0.0,
+      "experience_years_est": 12.6,
+      "matched_skills": [
+        "compliance"
+      ]
+    },
+    {
+      "candidate_id": "38457612",
+      "category": "CONSULTANT",
+      "score": 0.3486,
+      "skill_score": 0.0833,
+      "experience_score": 0.8286,
+      "culture_score": 0.3333,
+      "potential_score": 0.0,
+      "experience_years_est": 5.8,
+      "matched_skills": [
+        "security"
+      ]
+    },
+    {
+      "candidate_id": "29051656",
+      "category": "INFORMATION-TECHNOLOGY",
+      "score": 0.3426,
+      "skill_score": 0.0833,
+      "experience_score": 0.8086,
+      "culture_score": 0.3333,
+      "potential_score": 0.0,
+      "experience_years_est": 13.7,
+      "matched_skills": [
+        "security"
+      ]
+    }
+  ],
+  "AI Eval & Quality Engineer": [
+    {
+      "candidate_id": "23933031",
+      "category": "BPO",
+      "score": 0.4061,
+      "skill_score": 0.1111,
+      "experience_score": 0.65,
+      "culture_score": 0.3333,
+      "potential_score": 1.0,
+      "experience_years_est": 15.7,
+      "matched_skills": [
+        "quality assurance"
+      ]
+    },
+    {
+      "candidate_id": "29640922",
+      "category": "APPAREL",
+      "score": 0.4061,
+      "skill_score": 0.1111,
+      "experience_score": 0.65,
+      "culture_score": 0.3333,
+      "potential_score": 1.0,
+      "experience_years_est": 13.5,
+      "matched_skills": [
+        "quality assurance"
+      ]
+    },
+    {
+      "candidate_id": "28139742",
+      "category": "SALES",
+      "score": 0.4005,
+      "skill_score": 0.2222,
+      "experience_score": 0.65,
+      "culture_score": 0.3333,
+      "potential_score": 0.5,
+      "experience_years_est": 23.4,
+      "matched_skills": [
+        "data analysis",
+        "quality assurance"
+      ]
+    },
+    {
+      "candidate_id": "26801767",
+      "category": "INFORMATION-TECHNOLOGY",
+      "score": 0.3561,
+      "skill_score": 0.1111,
+      "experience_score": 0.65,
+      "culture_score": 0.3333,
+      "potential_score": 0.5,
+      "experience_years_est": 18.2,
+      "matched_skills": [
+        "data analysis"
+      ]
+    },
+    {
+      "candidate_id": "20674668",
+      "category": "INFORMATION-TECHNOLOGY",
+      "score": 0.3561,
+      "skill_score": 0.1111,
+      "experience_score": 0.65,
+      "culture_score": 0.3333,
+      "potential_score": 0.5,
+      "experience_years_est": 18.1,
+      "matched_skills": [
+        "python"
+      ]
+    },
+    {
+      "candidate_id": "12544735",
+      "category": "ADVOCATE",
+      "score": 0.3561,
+      "skill_score": 0.1111,
+      "experience_score": 0.65,
+      "culture_score": 0.3333,
+      "potential_score": 0.5,
+      "experience_years_est": 16.6,
+      "matched_skills": [
+        "quality assurance"
+      ]
+    },
+    {
+      "candidate_id": "41910253",
+      "category": "HEALTHCARE",
+      "score": 0.3561,
+      "skill_score": 0.1111,
+      "experience_score": 0.65,
+      "culture_score": 0.3333,
+      "potential_score": 0.5,
+      "experience_years_est": 24.2,
+      "matched_skills": [
+        "data analysis"
+      ]
+    },
+    {
+      "candidate_id": "13264796",
+      "category": "ENGINEERING",
+      "score": 0.3561,
+      "skill_score": 0.1111,
+      "experience_score": 0.65,
+      "culture_score": 0.3333,
+      "potential_score": 0.5,
+      "experience_years_est": 16.2,
+      "matched_skills": [
+        "quality assurance"
+      ]
+    },
+    {
+      "candidate_id": "39115899",
+      "category": "ACCOUNTANT",
+      "score": 0.3561,
+      "skill_score": 0.1111,
+      "experience_score": 0.65,
+      "culture_score": 0.3333,
+      "potential_score": 0.5,
+      "experience_years_est": 13.2,
+      "matched_skills": [
+        "data analysis"
+      ]
+    },
+    {
+      "candidate_id": "37818861",
+      "category": "CONSULTANT",
+      "score": 0.3329,
+      "skill_score": 0.1111,
+      "experience_score": 0.795,
+      "culture_score": 0.0,
+      "potential_score": 0.5,
+      "experience_years_est": 8.1,
+      "matched_skills": [
+        "quality assurance"
+      ]
+    }
+  ],
+  "Enterprise AI Transformation Consultant": [
+    {
+      "candidate_id": "37818861",
+      "category": "CONSULTANT",
+      "score": 0.585,
+      "skill_score": 0.1111,
+      "experience_score": 0.9686,
+      "culture_score": 0.75,
+      "potential_score": 1.0,
+      "experience_years_est": 8.1,
+      "matched_skills": [
+        "consulting"
+      ]
+    },
+    {
+      "candidate_id": "23760084",
+      "category": "SALES",
+      "score": 0.5499,
+      "skill_score": 0.1111,
+      "experience_score": 0.8514,
+      "culture_score": 0.75,
+      "potential_score": 1.0,
+      "experience_years_est": 12.2,
+      "matched_skills": [
+        "training"
+      ]
+    },
+    {
+      "candidate_id": "90280583",
+      "category": "ENGINEERING",
+      "score": 0.5413,
+      "skill_score": 0.1111,
+      "experience_score": 0.8229,
+      "culture_score": 0.75,
+      "potential_score": 1.0,
+      "experience_years_est": 13.2,
+      "matched_skills": [
+        "training"
+      ]
+    },
+    {
+      "candidate_id": "15573418",
+      "category": "BPO",
+      "score": 0.5228,
+      "skill_score": 0.4444,
+      "experience_score": 0.65,
+      "culture_score": 0.25,
+      "potential_score": 1.0,
+      "experience_years_est": 37.5,
+      "matched_skills": [
+        "b2b",
+        "business process",
+        "consulting",
+        "sales support"
+      ]
+    },
+    {
+      "candidate_id": "23914451",
+      "category": "HR",
+      "score": 0.5084,
+      "skill_score": 0.1111,
+      "experience_score": 0.88,
+      "culture_score": 0.5,
+      "potential_score": 1.0,
+      "experience_years_est": 11.2,
+      "matched_skills": [
+        "training"
+      ]
+    },
+    {
+      "candidate_id": "88691367",
+      "category": "CONSULTANT",
+      "score": 0.4999,
+      "skill_score": 0.1111,
+      "experience_score": 0.8514,
+      "culture_score": 0.5,
+      "potential_score": 1.0,
+      "experience_years_est": 12.2,
+      "matched_skills": [
+        "change management"
+      ]
+    },
+    {
+      "candidate_id": "23814777",
+      "category": "HEALTHCARE",
+      "score": 0.4973,
+      "skill_score": 0.1111,
+      "experience_score": 0.8429,
+      "culture_score": 0.5,
+      "potential_score": 1.0,
+      "experience_years_est": 12.5,
+      "matched_skills": [
+        "training"
+      ]
+    },
+    {
+      "candidate_id": "29134372",
+      "category": "HEALTHCARE",
+      "score": 0.493,
+      "skill_score": 0.1111,
+      "experience_score": 0.8286,
+      "culture_score": 0.5,
+      "potential_score": 1.0,
+      "experience_years_est": 13.0,
+      "matched_skills": [
+        "change management"
+      ]
+    },
+    {
+      "candidate_id": "28092317",
+      "category": "CHEF",
+      "score": 0.4927,
+      "skill_score": 0.1111,
+      "experience_score": 0.9943,
+      "culture_score": 0.25,
+      "potential_score": 1.0,
+      "experience_years_est": 7.2,
+      "matched_skills": [
+        "training"
+      ]
+    },
+    {
+      "candidate_id": "19850482",
+      "category": "INFORMATION-TECHNOLOGY",
+      "score": 0.4784,
+      "skill_score": 0.1111,
+      "experience_score": 0.78,
+      "culture_score": 0.5,
+      "potential_score": 1.0,
+      "experience_years_est": 14.7,
+      "matched_skills": [
+        "training"
+      ]
+    }
+  ]
+}

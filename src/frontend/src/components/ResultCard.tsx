@@ -34,6 +34,20 @@ export default function ResultCard({ candidate, rank }: Props) {
     ? candidate.core_skills
     : candidate.normalized_skills
   ).slice(0, 8);
+  const negotiationPack = candidate.agent_scores?.["weight_negotiation"] as
+    | { rationale?: string; ranking_explanation?: string }
+    | undefined;
+  const negotiationRationale = (negotiationPack?.rationale ?? "").trim();
+  const rankingExplanation = (negotiationPack?.ranking_explanation ?? candidate.agent_explanation ?? "").trim();
+  const runtimeMode = String(candidate.agent_scores?.["runtime_mode"] ?? "");
+  const runtimeFallbackUsed = Boolean(candidate.agent_scores?.["runtime_fallback_used"]);
+  const runtimeLabel = runtimeMode === "sdk_handoff"
+    ? "A2A(Handoff)"
+    : runtimeMode === "live_json"
+      ? "Live JSON"
+      : runtimeMode === "heuristic"
+        ? "Fallback: Heuristic"
+        : "Runtime: Unknown";
 
   return (
     <article className="result-card" onClick={() => setExpanded((v) => !v)}>
@@ -141,16 +155,32 @@ export default function ResultCard({ candidate, rank }: Props) {
 
           {candidate.weighting_summary && (
             <div className="explanation-box">
-              <h4 className="section-title">Weighting Summary</h4>
+              <h4 className="section-title">
+                Weighting Summary
+                <span className="runtime-badge">{runtimeLabel}</span>
+              </h4>
               <p>{candidate.weighting_summary}</p>
             </div>
           )}
 
-          {/* Agent explanation */}
-          {candidate.agent_explanation && (
+          {runtimeFallbackUsed && (
             <div className="explanation-box">
-              <h4 className="section-title">AI Explanation</h4>
-              <p>{candidate.agent_explanation}</p>
+              <h4 className="section-title">Runtime Status</h4>
+              <p>{runtimeLabel}</p>
+            </div>
+          )}
+
+          {negotiationRationale && (
+            <div className="explanation-box">
+              <h4 className="section-title">Negotiation Rationale</h4>
+              <p>{negotiationRationale}</p>
+            </div>
+          )}
+
+          {rankingExplanation && (
+            <div className="explanation-box">
+              <h4 className="section-title">Ranking Explanation</h4>
+              <p>{rankingExplanation}</p>
             </div>
           )}
 

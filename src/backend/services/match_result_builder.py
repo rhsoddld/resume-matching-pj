@@ -269,6 +269,9 @@ def build_match_candidate(
         agent_scores: dict[str, Any] = {
             **confidence_scores,
             "weighted": agent_result.ranking_output.final_score,
+            "runtime_mode": agent_result.runtime_mode or "unknown",
+            "runtime_fallback_used": (agent_result.runtime_mode or "") == "heuristic",
+            "runtime_reason": agent_result.runtime_reason or "",
             "weights": agent_result.ranking_input.weights.model_dump(),
             "weight_negotiation": (
                 agent_result.weight_negotiation.model_dump()

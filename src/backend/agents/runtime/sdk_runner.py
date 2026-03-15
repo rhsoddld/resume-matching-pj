@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import inspect
 import json
 import logging
+import os
 from typing import Any
 
 from backend.agents.contracts.culture_agent import CultureAgentOutput
@@ -9,13 +11,52 @@ from backend.agents.contracts.experience_agent import ExperienceAgentOutput
 from backend.agents.contracts.skill_agent import SkillAgentOutput
 from backend.agents.contracts.technical_agent import TechnicalAgentOutput
 from backend.agents.contracts.weight_negotiation_agent import WeightNegotiationOutput, WeightProposal
+from backend.core.settings import settings
 
 from .helpers import normalize_weight_payload
-from .models import NegotiationOutput, ScorePackOutput, ViewpointProposalOutput
+from .models import HandoffRunContext, ScorePackOutput, ViewpointProposalOutput
 from .prompts import PROMPTS
 from .types import AgentExecutionResult
 
 logger = logging.getLogger(__name__)
+
+
+def _build_agent(agent_cls: Any, **kwargs: Any) -> Any:
+    """Construct agent instance while tolerating SDK signature differences."""
+    sig = inspect.signature(agent_cls)
+    accepts_var_kwargs = any(
+        param.kind == inspect.Parameter.VAR_KEYWORD for param in sig.parameters.values()
+    )
+    accepted = kwargs if accepts_var_kwargs else {name: value for name, value in kwargs.items() if name in sig.parameters}
+    return agent_cls(**accepted)
+
+
+def _run_sync_with_context(
+    runner_cls: Any,
+    *,
+    start_agent: Any,
+    input_text: str,
+    run_context: dict[str, Any],
+    max_turns: int,
+) -> Any:
+    run_sig = inspect.signature(runner_cls.run_sync)
+    kwargs: dict[str, Any] = {}
+    if "context" in run_sig.parameters:
+        kwargs["context"] = run_context
+    elif "run_context" in run_sig.parameters:
+        kwargs["run_context"] = run_context
+    if "max_turns" in run_sig.parameters:
+        kwargs["max_turns"] = max_turns
+    return runner_cls.run_sync(start_agent, input_text, **kwargs)
+
+
+def _proposal_distance(a: WeightProposal, b: WeightProposal) -> float:
+    return (
+        abs(a.skill - b.skill)
+        + abs(a.experience - b.experience)
+        + abs(a.technical - b.technical)
+        + abs(a.culture - b.culture)
+    ) / 4.0
 
 
 def run_agents_sdk(
@@ -26,8 +67,16 @@ def run_agents_sdk(
     payload: dict[str, Any],
 ) -> AgentExecutionResult | None:
     payload_json = json.dumps(payload, ensure_ascii=False)
+    prior_env_api_key = os.environ.get("OPENAI_API_KEY")
+    injected_env_api_key = False
 
     try:
+        # Agents SDK runtime resolves credentials from OPENAI_API_KEY env var.
+        # Keep local Settings as source of truth and bridge it only when missing.
+        if not prior_env_api_key and settings.openai_api_key:
+            os.environ["OPENAI_API_KEY"] = settings.openai_api_key
+            injected_env_api_key = True
+
         skill_agent = agent_cls(
             name="SkillEvalAgent",
             model=model,
@@ -76,58 +125,90 @@ def run_agents_sdk(
         )
         score_pack = runner_cls.run_sync(score_pack_agent, score_pack_input).final_output
 
-        recruiter_agent = agent_cls(
-            name="RecruiterAgent",
+        handoff_context = HandoffRunContext(payload=payload, score_pack=score_pack)
+
+        negotiation_agent = _build_agent(
+            agent_cls,
+            name="WeightNegotiationAgent",
             model=model,
-            instructions=PROMPTS.recruiter_view,
-            output_type=ViewpointProposalOutput,
+            instructions=PROMPTS.negotiation,
+            output_type=WeightNegotiationOutput,
         )
-        hiring_manager_agent = agent_cls(
+        hiring_manager_agent = _build_agent(
+            agent_cls,
             name="HiringManagerAgent",
             model=model,
             instructions=PROMPTS.hiring_manager_view,
             output_type=ViewpointProposalOutput,
+            handoffs=[negotiation_agent],
         )
-        viewpoint_input = json.dumps(
-            {"payload": payload, "score_pack": score_pack.model_dump()},
-            ensure_ascii=False,
-        )
-        recruiter_view = runner_cls.run_sync(recruiter_agent, viewpoint_input).final_output
-        hiring_manager_view = runner_cls.run_sync(hiring_manager_agent, viewpoint_input).final_output
-
-        negotiation_agent = agent_cls(
-            name="WeightNegotiationAgent",
+        recruiter_agent = _build_agent(
+            agent_cls,
+            name="RecruiterAgent",
             model=model,
-            instructions=PROMPTS.negotiation,
-            output_type=NegotiationOutput,
+            instructions=PROMPTS.recruiter_view,
+            output_type=ViewpointProposalOutput,
+            handoffs=[hiring_manager_agent],
         )
-        negotiation_input = json.dumps(
+
+        recruit_sig = inspect.signature(agent_cls)
+        accepts_var_kwargs = any(
+            param.kind == inspect.Parameter.VAR_KEYWORD for param in recruit_sig.parameters.values()
+        )
+        if "handoffs" not in recruit_sig.parameters and not accepts_var_kwargs:
+            raise RuntimeError("Agents SDK handoffs are not supported by installed runtime.")
+
+        handoff_input = json.dumps(
             {
                 "payload": payload,
                 "score_pack": score_pack.model_dump(),
-                "recruiter": recruiter_view.model_dump(),
-                "hiring_manager": hiring_manager_view.model_dump(),
+                "constraints": handoff_context.constraints.model_dump(),
+                "instruction": (
+                    "RecruiterAgent must propose weights then hand off to HiringManagerAgent. "
+                    "HiringManagerAgent must review/challenge then hand off to WeightNegotiationAgent. "
+                    "WeightNegotiationAgent must return final structured output."
+                ),
             },
             ensure_ascii=False,
         )
-        negotiation = runner_cls.run_sync(negotiation_agent, negotiation_input).final_output
+        run_result = _run_sync_with_context(
+            runner_cls,
+            start_agent=recruiter_agent,
+            input_text=handoff_input,
+            run_context=handoff_context.model_dump(),
+            max_turns=handoff_context.constraints.max_turns,
+        )
+        raw_negotiation = getattr(run_result, "final_output", run_result)
+        weight_negotiation = (
+            raw_negotiation
+            if isinstance(raw_negotiation, WeightNegotiationOutput)
+            else WeightNegotiationOutput.model_validate(raw_negotiation)
+        )
 
         recruiter = WeightProposal.model_validate(
-            normalize_weight_payload(recruiter_view.proposal.model_dump())
+            normalize_weight_payload(weight_negotiation.recruiter.model_dump())
         )
         hiring_manager = WeightProposal.model_validate(
-            normalize_weight_payload(hiring_manager_view.proposal.model_dump())
+            normalize_weight_payload(weight_negotiation.hiring_manager.model_dump())
         )
-        final = WeightProposal.model_validate(normalize_weight_payload(negotiation.final.model_dump()))
+        final = WeightProposal.model_validate(normalize_weight_payload(weight_negotiation.final.model_dump()))
         weight_negotiation = WeightNegotiationOutput(
             recruiter=recruiter,
             hiring_manager=hiring_manager,
             final=final,
-            rationale=(negotiation.rationale or "").strip(),
+            rationale=(weight_negotiation.rationale or "").strip(),
+            ranking_explanation=(weight_negotiation.ranking_explanation or "").strip(),
         )
 
+        disagreement = _proposal_distance(recruiter, hiring_manager)
+        if disagreement > handoff_context.constraints.disagreement_threshold:
+            raise ValueError(
+                "A2A negotiation disagreement exceeded threshold "
+                f"({disagreement:.3f}>{handoff_context.constraints.disagreement_threshold:.3f})"
+            )
+
         ranking_explanation = (
-            (negotiation.ranking_explanation or "").strip()
+            (weight_negotiation.ranking_explanation or "").strip()
             or (score_pack.ranking_explanation or "").strip()
             or "Agent weighted ranking from negotiated A2A policy."
         )
@@ -138,7 +219,12 @@ def run_agents_sdk(
             culture_output=score_pack.culture_output,
             weight_negotiation=weight_negotiation,
             ranking_explanation=ranking_explanation,
+            runtime_mode="sdk_handoff",
+            runtime_reason="agents_sdk_handoff_success",
         )
     except Exception:
         logger.exception("Agents SDK runtime scoring failed; fallback to legacy live/heuristic path.")
         return None
+    finally:
+        if injected_env_api_key:
+            os.environ.pop("OPENAI_API_KEY", None)

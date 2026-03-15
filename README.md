@@ -141,9 +141,9 @@ JD Query Understanding은 다음 정보를 공통 Query 객체로 만든다.
 | Offline ingestion / normalization | Implemented | `src/backend/services/ingest_resumes.py` 기반으로 MongoDB + Milvus 적재 |
 | Deterministic query understanding | Implemented v3 baseline | ontology-aligned role/skill/capability normalization + 저신뢰 구간 constrained LLM fallback + `query_profile` 확장 필드 제공 |
 | Hybrid retrieval | Implemented v2 baseline | `src/backend/repositories/hybrid_retriever.py`에서 vector + keyword + metadata fusion score 기반 shortlist 생성 |
-| Multi-agent evaluation | Implemented baseline (custom orchestration) | Skill / Experience / Technical / Culture agent 계약 및 heuristic/live orchestration 존재 (OpenAI Agents SDK runtime은 아직 미적용) |
-| Recruiter / Hiring Manager weight proposal | Implemented baseline (custom orchestration) | `WeightNegotiationAgent`와 orchestration 경로 존재 (OpenAI Agents SDK runtime은 아직 미적용) |
-| Explainable recommendation | Implemented v2 baseline | `possible_gaps`, `weighting_summary`, `relevant_experience`를 API 응답과 UI에서 확인 가능 |
+| Multi-agent evaluation | Implemented baseline (hybrid runtime) | Skill / Experience / Technical / Culture score pack은 SDK/live/heuristic fallback 기반으로 실행 (`src/backend/agents/runtime/service.py`) |
+| Recruiter / Hiring Manager weight proposal | Implemented baseline (A2A handoff in SDK path) | Negotiation 구간은 OpenAI Agents SDK handoff(`Recruiter -> HiringManager -> WeightNegotiation`)를 시도하고 실패 시 live/heuristic으로 degrade |
+| Explainable recommendation | Implemented v3 baseline | `possible_gaps`, `weighting_summary`, `relevant_experience` + runtime mode/fallback reason + recruiter/hiring/final policy를 API/UI에서 확인 가능 |
 | Retrieval performance benchmark (R2.6) | Partial | `scripts/benchmark_retrieval.py` + `.github/workflows/retrieval-benchmark-archive.yml`로 자동 아카이브 경로는 구현, 고부하 성능 테스트 자동화는 추가 필요 |
 | DeepEval / LLM-as-Judge | Implemented | diversity/custom/culture+potential metric + rubric + CI 결과 아카이빙(`docs/eval/eval-results.md`, `.github/workflows/eval-archive.yml`) |
 | Bias guardrails | Implemented (backend v1) | `matching_service`에서 fairness guardrail 검사 및 `fairness.warnings`/`bias_warnings` 응답 반영, 남은 갭은 fairness metric 운영 대시보드/정책 튜닝 |
@@ -153,7 +153,7 @@ JD Query Understanding은 다음 정보를 공통 Query 객체로 만든다.
 | 구분 | 선택 |
 |------|------|
 | Backend | Python 3.10+, FastAPI, Uvicorn |
-| Agents / LLM | OpenAI Chat / Embedding API + custom agent orchestration (Agents SDK migration planned) |
+| Agents / LLM | OpenAI Chat / Embedding API + OpenAI Agents SDK(`openai-agents`) handoff negotiation + live/heuristic fallback |
 | Vector DB | Milvus |
 | Document DB | MongoDB 7 |
 | Evaluation | DeepEval, LLM-as-Judge, LangSmith |
@@ -212,6 +212,16 @@ export QUERY_FALLBACK_MODEL=gpt-4.1-mini
 export RERANK_ENABLED=true
 export RERANK_TOP_N=50
 export RERANK_MODEL=gpt-4.1-mini
+```
+
+### 3-4. Agent Runtime Mode (선택)
+
+```bash
+# live 호출 게이트 (false면 heuristic fallback 사용)
+export OPENAI_AGENT_LIVE_MODE=true
+
+# true면 SDK handoff 경로(negotiation)를 우선 시도
+export OPENAI_AGENTS_SDK_ENABLED=true
 ```
 
 ### 4. Resume Ingestion
@@ -273,7 +283,7 @@ docker compose exec -T backend python -V
 
 ## 다음에 해야 할 일
 
-1. 4개 평가 agent + recruiter/hiring-manager + negotiation 체인을 OpenAI Agents SDK runtime으로 마이그레이션한다.
+1. 현재 SDK handoff가 적용된 negotiation 구간을 4개 평가 agent 실행 경로까지 확대해 handoff-native orchestration으로 전환한다.
 2. query understanding release gate와 fallback 정책을 CI 배포 게이트에 연결한다.
 3. retrieval fusion weight를 직군별로 튜닝하고 offline ranking metric으로 calibration한다.
 4. Bias guardrails 운영 고도화(공정성 지표 대시보드, 임계치 정책 튜닝, 경고 triage 체계)를 진행한다.

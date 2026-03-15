@@ -28,3 +28,5 @@ class AgentExecutionResult:
     culture_output: CultureAgentOutput
     weight_negotiation: WeightNegotiationOutput
     ranking_explanation: str
+    runtime_mode: str
+    runtime_reason: str = ""

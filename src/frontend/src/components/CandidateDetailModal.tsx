@@ -43,6 +43,21 @@ function toNumber(value: unknown): number | null {
   return null;
 }
 
+function formatWeightLine(label: string, value: unknown): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const row = value as Record<string, unknown>;
+  const skill = toNumber(row.skill);
+  const experience = toNumber(row.experience);
+  const technical = toNumber(row.technical);
+  const culture = toNumber(row.culture);
+  if ([skill, experience, technical, culture].some((v) => v == null)) {
+    return null;
+  }
+  return `${label} (S:${(skill as number).toFixed(2)}, E:${(experience as number).toFixed(2)}, T:${(technical as number).toFixed(2)}, C:${(culture as number).toFixed(2)})`;
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -78,6 +93,24 @@ const AGENT_SECTIONS: Array<{ key: string; label: string }> = [
 ];
 
 export default function CandidateDetailModal({ candidate, queryProfile, jobDescription, onClose }: CandidateDetailModalProps) {
+  const negotiationPack = toRecord(candidate?.agent_scores?.["weight_negotiation"]);
+  const negotiationRationale = typeof negotiationPack?.rationale === "string"
+    ? negotiationPack.rationale.trim()
+    : "";
+  const rankingExplanation = (candidate?.agent_explanation ?? "").trim();
+  const runtimeMode = String(candidate?.agent_scores?.["runtime_mode"] ?? "");
+  const runtimeReason = String(candidate?.agent_scores?.["runtime_reason"] ?? "").trim();
+  const runtimeLabel = runtimeMode === "sdk_handoff"
+    ? "A2A(Handoff)"
+    : runtimeMode === "live_json"
+      ? "Live JSON"
+      : runtimeMode === "heuristic"
+        ? "Fallback: Heuristic"
+        : "";
+  const recruiterLine = formatWeightLine("Recruiter proposal", negotiationPack?.recruiter);
+  const hiringLine = formatWeightLine("Hiring manager proposal", negotiationPack?.hiring_manager);
+  const finalLine = formatWeightLine("Final policy", negotiationPack?.final);
+
   const warnings = useMemo(() => {
     if (!candidate) {
       return [];
@@ -284,7 +317,29 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
 
             <article className="detail-panel detail-panel--comment">
               <h3>Final Agent Comment</h3>
-              <p>{finalComment}</p>
+              {runtimeLabel && <p className="runtime-status-line">{runtimeLabel}</p>}
+              {runtimeReason && <p className="runtime-reason-line">Reason: {runtimeReason}</p>}
+              {(recruiterLine || hiringLine || finalLine) && (
+                <ul className="detail-list">
+                  {recruiterLine && <li>{recruiterLine}</li>}
+                  {hiringLine && <li>{hiringLine}</li>}
+                  {finalLine && <li>{finalLine}</li>}
+                </ul>
+              )}
+              {negotiationRationale && (
+                <>
+                  <strong>Negotiation rationale</strong>
+                  <p>{negotiationRationale}</p>
+                </>
+              )}
+              {rankingExplanation ? (
+                <>
+                  <strong>Ranking explanation</strong>
+                  <p>{rankingExplanation}</p>
+                </>
+              ) : (
+                <p>{finalComment}</p>
+              )}
             </article>
           </section>
 

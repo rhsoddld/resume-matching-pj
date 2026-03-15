@@ -32,3 +32,4 @@ class WeightNegotiationOutput(BaseModel):
     hiring_manager: WeightProposal
     final: WeightProposal
     rationale: str = ""
+    ranking_explanation: str = ""

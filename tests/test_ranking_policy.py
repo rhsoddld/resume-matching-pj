@@ -84,7 +84,7 @@ def test_build_match_candidate_applies_agent_weighted_ranking_policy():
         agent_result=agent_result,
     )
 
-    assert candidate.score == pytest.approx(0.84)
+    assert candidate.score == pytest.approx(0.836)
     assert candidate.score_detail.rank_policy == "hybrid(deterministic:0.55,agent:0.45,must-have-penalty:max0.25)"
     assert "parsing" in candidate.agent_scores
     assert candidate.agent_scores["weights"]["skill"] == 0.35

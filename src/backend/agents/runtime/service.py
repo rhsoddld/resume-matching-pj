@@ -98,6 +98,8 @@ class AgentOrchestrationService:
             ranking_input=ranking_input,
             ranking_output=ranking_output,
             weight_negotiation=execution.weight_negotiation,
+            runtime_mode=execution.runtime_mode,
+            runtime_reason=execution.runtime_reason,
         )
 
     def _execute(
@@ -109,7 +111,10 @@ class AgentOrchestrationService:
         job_profile: JobProfile,
         category_filter: str | None,
     ):
-        if self._should_use_live_agent_calls() and should_try_agents_sdk():
+        live_enabled, live_reason = self._live_gate_status()
+        fallback_reason = live_reason
+
+        if live_enabled and should_try_agents_sdk():
             runtime = load_agents_sdk_runtime()
             if runtime is not None:
                 agent_cls, runner_cls = runtime
@@ -121,8 +126,13 @@ class AgentOrchestrationService:
                 )
                 if sdk_result is not None:
                     return sdk_result
+                fallback_reason = "agents_sdk_failed"
+            else:
+                fallback_reason = "agents_sdk_unavailable"
+        elif live_enabled and not should_try_agents_sdk():
+            fallback_reason = "agents_sdk_disabled"
 
-        if self._should_use_live_agent_calls():
+        if live_enabled:
             live_result = run_live_agents(
                 client=get_openai_client(),
                 model=settings.openai_agent_model,
@@ -130,23 +140,25 @@ class AgentOrchestrationService:
             )
             if live_result is not None:
                 return live_result
+            fallback_reason = "live_json_failed"
 
         return run_heuristic_agents(
             bundle=bundle,
             hit=hit,
             job_profile=job_profile,
             category_filter=category_filter,
+            runtime_reason=fallback_reason,
         )
 
     @staticmethod
-    def _should_use_live_agent_calls() -> bool:
+    def _live_gate_status() -> tuple[bool, str]:
         if not settings.openai_agent_live_mode:
-            return False
+            return False, "openai_agent_live_mode_false"
         if os.getenv("PYTEST_CURRENT_TEST"):
-            return False
+            return False, "pytest_context"
         if not settings.openai_api_key:
-            return False
-        return True
+            return False, "openai_api_key_missing"
+        return True, "live_calls_enabled"
 
 
 agent_orchestration_service = AgentOrchestrationService()

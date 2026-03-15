@@ -656,6 +656,37 @@ button:focus-visible {
   font-size: 11px;
 }
 
+.runtime-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(14, 116, 144, 0.28);
+  background: rgba(14, 116, 144, 0.08);
+  color: #0e7490;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.runtime-status-line {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(51, 65, 85, 0.24);
+  background: rgba(148, 163, 184, 0.12);
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.runtime-reason-line {
+  margin: 0.15rem 0 0.5rem;
+  color: #475569;
+  font-size: 12px;
+}
+
 .sr-only {
   border: 0;
   clip: rect(0 0 0 0);

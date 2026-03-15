@@ -158,14 +158,15 @@ def run_live_agents(
             normalize_weight_payload(raw_negotiation.get("hiring_manager", {}))
         )
         final = WeightProposal.model_validate(normalize_weight_payload(raw_negotiation.get("final", {})))
+        ranking_explanation = str(data.get("ranking_explanation", ""))
+        ranking_explanation = ranking_explanation or "Agent weighted ranking from negotiated A2A policy."
         weight_negotiation = WeightNegotiationOutput(
             recruiter=recruiter,
             hiring_manager=hiring_manager,
             final=final,
             rationale=str(raw_negotiation.get("rationale", "")),
+            ranking_explanation=ranking_explanation,
         )
-        ranking_explanation = str(data.get("ranking_explanation", ""))
-        ranking_explanation = ranking_explanation or "Agent weighted ranking from negotiated A2A policy."
 
         return AgentExecutionResult(
             skill_output=skill_output,
@@ -174,6 +175,8 @@ def run_live_agents(
             culture_output=culture_output,
             weight_negotiation=weight_negotiation,
             ranking_explanation=ranking_explanation,
+            runtime_mode="live_json",
+            runtime_reason="live_json_success",
         )
     except Exception:
         logger.exception("Live agent scoring failed; fallback heuristics will be used.")

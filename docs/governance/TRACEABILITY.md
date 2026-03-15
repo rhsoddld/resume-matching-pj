@@ -56,7 +56,7 @@
 | R2.5 | token usage optimization | `docs/governance/PLAN.md` | Planned | 토큰 예산/캐시/배치 전략 구현 |
 | R2.6 | performance benchmark(candidates/sec) | `scripts/benchmark_retrieval.py`, `scripts/generate_retrieval_benchmark_archive.py`, `.github/workflows/retrieval-benchmark-archive.yml`, `src/backend/services/retrieval_service.py`, `src/backend/repositories/hybrid_retriever.py` | Partial | 자동 아카이브는 구현, 고부하 부하 테스트 자동화/기준선 관리 고도화 필요 |
 | R2.7 | bias detection guardrails | `src/backend/services/matching_service.py`, `tests/test_matching_service_fairness.py`, `src/backend/core/settings.py`, `src/frontend/src/components/BiasGuardrailBanner.tsx`, `docs/architecture/system-architecture.md` | Implemented | fairness metric 운영 대시보드 및 정책 튜닝 고도화 |
-| R2.8 | simple frontend interface | `src/frontend/src/App.tsx`, `src/frontend/src/components/MatchForm.tsx`, `src/frontend/src/components/CandidateResults.tsx` | Implemented | UX polishing 및 에러 상태 강화 |
+| R2.8 | simple frontend interface | `src/frontend/src/App.tsx`, `src/frontend/src/components/JobRequirementForm.tsx`, `src/frontend/src/components/CandidateResults.tsx` | Implemented | UX polishing 및 에러 상태 강화 |
 
 ---
 
@@ -67,7 +67,7 @@
 | HCR.1 | vector + keyword hybrid search | `src/backend/repositories/hybrid_retriever.py`, `src/backend/services/retrieval_service.py` | Implemented | fusion weight 실험 자동화 |
 | HCR.2 | dynamic filtering(exp/skill/edu/industry) | `src/backend/schemas/job.py`, `src/backend/repositories/hybrid_retriever.py`, `src/backend/services/candidate_enricher.py`, `tests/test_candidate_enricher_filters.py` | Implemented | 필터별 drop-off 모니터링 지표 추가 |
 | HCR.3 | cross-encoder reranking | `src/backend/services/cross_encoder_rerank_service.py`, `tests/test_rerank_pipeline.py` | Implemented | latency 최적화 필요 |
-| MSA.1 | multi-agent pipeline | `src/backend/agents/contracts/orchestrator.py`, `src/backend/agents/runtime/service.py` | Implemented | Agents SDK runtime 정식화 |
+| MSA.1 | multi-agent pipeline | `src/backend/agents/contracts/orchestrator.py`, `src/backend/agents/runtime/service.py`, `src/backend/agents/runtime/sdk_runner.py` | Partial | negotiation handoff는 SDK 적용 완료, 4-agent 실행 경로 handoff-native 확장 필요 |
 | MSA.2 | Resume Parsing Agent | `src/backend/services/resume_parsing.py` | Implemented | 파싱 신뢰도 점수 노출 |
 | MSA.3 | Skill Matching Agent | `src/backend/agents/contracts/skill_agent.py` | Implemented | 근거 span 추출 강화 |
 | MSA.4 | Experience Evaluation Agent | `src/backend/agents/contracts/experience_agent.py` | Implemented | 경력 단절/전환 해석 보강 |
@@ -77,7 +77,7 @@
 | AHI.2 | recruiter feedback loop | `docs/governance/PLAN.md` | Planned | 피드백 수집 API/저장 모델 추가 |
 | AHI.3 | hiring analytics dashboard | `docs/governance/PLAN.md` | Planned | 대시보드 구현 및 지표 정의 |
 | AHI.4 | interview scheduling handoff | `docs/governance/PLAN.md` | Planned | 스케줄링 에이전트/이벤트 연동 필요 |
-| AHI.5 | recruiter↔hiring manager A2A | `src/backend/agents/runtime/service.py`, `src/backend/agents/contracts/weight_negotiation_agent.py`, `tests/test_agent_orchestration_service.py` | Implemented | 협의 이력(audit trail) 강화 |
+| AHI.5 | recruiter↔hiring manager A2A | `src/backend/agents/runtime/service.py`, `src/backend/agents/runtime/sdk_runner.py`, `src/backend/agents/runtime/prompts.py`, `src/backend/agents/contracts/weight_negotiation_agent.py` | Implemented | 협의 이력(audit trail) 및 turn-level observability 강화 |
 
 ---
 
@@ -103,7 +103,7 @@
 |---|---|---|
 | 핵심 API로 매칭이 가능한가 | Yes | `src/backend/api/jobs.py`, `tests/test_api_endpoints.py` |
 | 하이브리드 검색(벡터+키워드+필터)이 동작하는가 | Yes | `src/backend/repositories/hybrid_retriever.py`, `tests/test_retrieval_fallback.py` |
-| 멀티에이전트 평가와 가중치 협의가 있는가 | Yes | `src/backend/agents/runtime/service.py`, `src/backend/agents/contracts/*` |
+| 멀티에이전트 평가와 가중치 협의가 있는가 | Yes (SDK handoff + fallback) | `src/backend/agents/runtime/service.py`, `src/backend/agents/runtime/sdk_runner.py`, `src/backend/agents/contracts/*` |
 | 설명 가능한 결과를 UI까지 확인 가능한가 | Yes | `src/backend/services/match_result_builder.py`, `src/frontend/src/components/*` |
 | 평가/편향/성능 요구가 완결됐는가 | No (Partial) | eval(density/custom/potential)과 bias guardrails backend v1은 구현 완료, perf는 자동 아카이브 구현/고부하 자동화 보완 필요 |
 | deliverable 산출물 완성도가 충분한가 | No (Partial) | 아키텍처 JPEG/PDF, 발표자료, eval 결과 문서 추가 필요 |

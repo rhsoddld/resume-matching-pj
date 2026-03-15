@@ -25,6 +25,7 @@ def run_heuristic_agents(
     hit: dict[str, Any],
     job_profile: JobProfile,
     category_filter: str | None,
+    runtime_reason: str = "",
 ) -> AgentExecutionResult:
     skill_input = bundle.skill_input
     experience_input = bundle.experience_input
@@ -118,4 +119,6 @@ def run_heuristic_agents(
         ranking_explanation=(
             "Fallback weighted ranking from deterministic domain-agent heuristics and A2A weight policy."
         ),
+        runtime_mode="heuristic",
+        runtime_reason=runtime_reason or "heuristic_fallback",
     )
