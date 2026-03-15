@@ -12,6 +12,7 @@ from backend.agents.contracts.skill_agent import SkillAgentOutput
 from backend.agents.contracts.technical_agent import TechnicalAgentOutput
 from backend.agents.contracts.weight_negotiation_agent import WeightNegotiationOutput, WeightProposal
 from backend.core.settings import settings
+from typing import Callable
 
 try:
     from agents import AgentOutputSchema
@@ -114,6 +115,7 @@ def run_agents_sdk(
     runner_cls: Any,
     model: str,
     payload: dict[str, Any],
+    on_event: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> AgentExecutionResult | None:
     _maybe_enable_langsmith_tracing()
     payload_json = json.dumps(payload, ensure_ascii=False)
@@ -138,6 +140,14 @@ def run_agents_sdk(
             Search specific evidence (like project metrics, specific skills, architecture details) 
             deeply within the current candidate's resume when the context doesn't have enough details.
             """
+            if on_event:
+                on_event("thought_process", {
+                    "agent": "CandidateEvaluator",
+                    "action": "search_candidate_evidence",
+                    "query": query,
+                    "message": f"🔍 이력서 원문에서 '{query}' 검색 중..."
+                })
+
             if not _candidate_id:
                 return "Candidate ID is unknown. Cannot search."
             return _retriever.search_within_candidate(_candidate_id, query)
@@ -166,8 +176,8 @@ def run_agents_sdk(
             model=model,
             instructions=(
                 PROMPTS.skill_eval + 
-                "\n증거가 불충분하다면 반드시 search_candidate_evidence 도구를 사용하여 이력서 원문을 검색하세요. "
-                "단, 도구 호출은 최대 2회까지만 허용되며, 그 후에는 찾은 정보만으로 결론을 내리세요."
+                "\n정말 중대한 필수 요구 스킬(Core JD Requirements)이 누락되었다고 판단될 경우에만 search_candidate_evidence 도구를 사용하여 이력서 구조화 데이터를 1회 검색하세요. "
+                "그 외의 정보 부족은 명시된 요약 데이터만으로 추론하여 결론을 내리세요."
             ),
             output_type=_wrap_output(SkillAgentOutput),
             tools=[search_candidate_evidence],
@@ -178,8 +188,8 @@ def run_agents_sdk(
             model=model,
             instructions=(
                 PROMPTS.experience_eval + 
-                "\n구체적인 성과 지표나 기간이 명확하지 않다면 search_candidate_evidence 도구를 사용하여 확인하세요. "
-                "단, 도구 호출은 최대 2회까지만 허용되며, 그 후에는 찾은 정보만으로 결론을 내리세요."
+                "\n가장 핵심적인 성과 지표나 필수 경력 기간이 불분명할 경우에만 search_candidate_evidence 도구를 1회 호출하세요. "
+                "그 외의 정보 부족은 명시된 데이터와 문맥만으로 평가를 완료하세요."
             ),
             output_type=_wrap_output(ExperienceAgentOutput),
             tools=[search_candidate_evidence],
@@ -190,8 +200,8 @@ def run_agents_sdk(
             model=model,
             instructions=(
                 PROMPTS.technical_eval + 
-                "\n기술 스택 활용의 깊이나 구체적 사례가 부족하다면 search_candidate_evidence 도구를 사용하여 깊이 있는 문맥을 찾으세요. "
-                "단, 도구 호출은 최대 2회까지만 허용되며, 그 후에는 찾은 정보만으로 결론을 내리세요."
+                "\n지원 직무의 핵심 필수 기술 스택의 실제 활용 여부를 도무지 파악할 수 없을 때만 search_candidate_evidence 도구를 1회 사용하세요. "
+                "그 외의 경우는 주어진 정보 내에서 최선의 판단을 내리세요."
             ),
             output_type=_wrap_output(TechnicalAgentOutput),
             tools=[search_candidate_evidence],
@@ -202,8 +212,7 @@ def run_agents_sdk(
             model=model,
             instructions=(
                 PROMPTS.culture_eval + 
-                "\n협업/소통/문제해결 등 정성적 평가의 근거 문장이 부족할 땐 search_candidate_evidence 도구를 사용하세요. "
-                "단, 도구 호출은 최대 2회까지만 허용되며, 그 후에는 찾은 정보만으로 결론을 내리세요."
+                "\n정성적 평가(협업/소통/문제해결 등)에 대한 단서가 아예 전무하여 심각한 감점이 예상될 때만 제한적으로 search_candidate_evidence 도구를 1회 호출하세요."
             ),
             output_type=_wrap_output(CultureAgentOutput),
             tools=[search_candidate_evidence],

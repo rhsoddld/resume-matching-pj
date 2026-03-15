@@ -12,6 +12,7 @@ from backend.core.observability import traceable_op
 from backend.core.providers import get_openai_client
 from backend.core.settings import settings
 from backend.services.job_profile_extractor import JobProfile
+from typing import Callable
 
 from .candidate_mapper import build_candidate_input_bundle, build_runtime_payload
 from .helpers import compute_weighted_score
@@ -43,6 +44,7 @@ class AgentOrchestrationService:
         hit: dict[str, Any],
         candidate_doc: dict[str, Any],
         category_filter: str | None,
+        on_event: Callable[[str, dict[str, Any]], None] | None = None,
     ) -> CandidateAgentResult:
         bundle = build_candidate_input_bundle(
             job_description=job_description,
@@ -64,6 +66,7 @@ class AgentOrchestrationService:
             hit=hit,
             job_profile=job_profile,
             category_filter=category_filter,
+            on_event=on_event,
         )
 
         ranking_input = RankingAgentInput(
@@ -113,6 +116,7 @@ class AgentOrchestrationService:
         hit: dict[str, Any],
         job_profile: JobProfile,
         category_filter: str | None,
+        on_event: Callable[[str, dict[str, Any]], None] | None = None,
     ):
         live_enabled, live_reason = self._live_gate_status()
         fallback_reason = live_reason
@@ -126,6 +130,7 @@ class AgentOrchestrationService:
                     runner_cls=runner_cls,
                     model=settings.openai_agent_model,
                     payload=payload,
+                    on_event=on_event,
                 )
                 if sdk_result is not None:
                     return sdk_result

@@ -65,7 +65,6 @@ export default function CandidateCard({ candidate, onOpen }: CandidateCardProps)
           <div>
             <h3>
               {candidate.candidate_id}
-              {isFastProfile && <span className="fast-profile-badge fast-profile-badge--inline">Fast Profile</span>}
             </h3>
             <p>{role}</p>
           </div>

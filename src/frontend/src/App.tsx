@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { matchCandidates } from "./api/match";
+import { streamMatchCandidates } from "./api/match";
 import CandidateDetailModal from "./components/CandidateDetailModal";
 import CandidateResults from "./components/CandidateResults";
 import JobRequirementForm from "./components/JobRequirementForm";
@@ -14,6 +14,7 @@ export default function App() {
   const [selectedCandidate, setSelectedCandidate] = useState<JobMatchCandidate | null>(null);
   const [lastJobDescription, setLastJobDescription] = useState("");
   const [queryProfile, setQueryProfile] = useState<QueryUnderstandingProfile | null>(null);
+  const [thoughtProcess, setThoughtProcess] = useState<{agent: string, message: string} | null>(null);
 
   const liveMessage = useMemo(() => {
     if (isLoading) {
@@ -31,17 +32,31 @@ export default function App() {
     setError(null);
     setSelectedCandidate(null);
     setLastJobDescription(request.job_description);
+    
+    setCandidates([]);
+    setQueryProfile(null);
+    setThoughtProcess(null);
 
     try {
-      const response = await matchCandidates(request);
-      setCandidates(response.matches);
-      setQueryProfile(response.query_profile);
+      await streamMatchCandidates(request, (type, data) => {
+        if (type === "profile") {
+          setQueryProfile(data as QueryUnderstandingProfile);
+        } else if (type === "thought_process") {
+          setThoughtProcess(data as {agent: string, message: string});
+        } else if (type === "candidate") {
+          setCandidates((prev) => {
+            const newArray = [...prev, data as JobMatchCandidate];
+            return newArray.sort((a, b) => b.score - a.score);
+          });
+        }
+      });
     } catch (submissionError) {
       setCandidates([]);
       setQueryProfile(null);
       setError(submissionError instanceof Error ? submissionError.message : "Search failed.");
     } finally {
       setIsLoading(false);
+      setThoughtProcess(null);
     }
   }
 
@@ -68,10 +83,28 @@ export default function App() {
         )}
 
         {isLoading && (
-          <section className="loading-grid" aria-label="Loading candidates">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={`loading-${index}`} className="loading-card" />
-            ))}
+          <section className="loading-section" aria-label="Loading candidates">
+            {thoughtProcess ? (
+              <div className="thought-process-banner">
+                <span className="live-pulse"></span>
+                <span className="thought-message">{thoughtProcess.message}</span>
+              </div>
+            ) : (
+              <div className="thought-process-banner">
+                <span className="live-pulse"></span>
+                <span className="thought-message">Evaluating candidate profiles...</span>
+              </div>
+            )}
+            
+            {candidates.length > 0 && (
+              <CandidateResults candidates={candidates} onOpenDetail={setSelectedCandidate} />
+            )}
+            
+            <div className="loading-grid">
+              {Array.from({ length: Math.max(1, 6 - candidates.length) }).map((_, index) => (
+                <div key={`loading-${index}`} className="loading-card" />
+              ))}
+            </div>
           </section>
         )}
 

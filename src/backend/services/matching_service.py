@@ -239,7 +239,180 @@ class MatchingService:
             self._cache.set(cache_key, response)
         return response
 
-    @traceable_op(name="matching.build_query_profile", run_type="chain", tags=["matching", "query"])
+    @traceable_op(name="matching.stream_match_jobs", run_type="chain", tags=["matching", "pipeline", "stream"])
+    def stream_match_jobs(
+        self,
+        *,
+        job_description: str,
+        top_k: int = 10,
+        category: str | None = None,
+        min_experience_years: float | None = None,
+        education: str | None = None,
+        region: str | None = None,
+        industry: str | None = None,
+    ):
+        """Yields matching results as Server-Sent Events (SSE) for streaming UI rendering."""
+        import json
+        import queue
+        import threading
+        
+        event_queue = queue.Queue()
+        
+        job_profile = self._build_query_profile(
+            job_description=job_description,
+            category_override=category,
+            min_experience_years=min_experience_years,
+            education_override=education,
+            region_override=region,
+            industry_override=industry,
+        )
+
+        # Yield query understanding profile first
+        profile_dict = {
+            "job_category": job_profile.job_category,
+            "roles": job_profile.roles,
+            "required_skills": job_profile.required_skills,
+            "confidence": job_profile.confidence,
+        }
+        event_queue.put(f"event: profile\ndata: {json.dumps(profile_dict, ensure_ascii=False)}\n\n")
+
+        retrieval_top_n = self._resolve_retrieval_top_n(top_k)
+        hits = self._retrieve_candidates(
+            job_description=job_description,
+            job_profile=job_profile,
+            top_k=retrieval_top_n,
+            category=category,
+            min_experience_years=min_experience_years,
+        )
+        
+        enriched_hits = self._enrich_candidates(
+            hits=hits,
+            min_experience_years=min_experience_years,
+            education=education,
+            region=region,
+            industry=industry,
+        )
+        
+        shortlisted_hits = self._shortlist_candidates(
+            job_description=job_description,
+            job_profile=job_profile,
+            enriched_hits=enriched_hits,
+            top_k=top_k,
+        )
+        
+        # Drain the queue initially
+        while not event_queue.empty():
+            yield event_queue.get_nowait()
+        
+        # We manually process candidates here to yield them one by one
+        agent_eval_top_n = self._resolve_agent_eval_top_n(top_k)
+        
+        prelim_results: list[JobMatchCandidate] = []
+        for hit, candidate_doc in shortlisted_hits:
+            prelim_results.append(
+                build_match_candidate(
+                    hit=hit,
+                    candidate_doc=candidate_doc,
+                    job_profile=job_profile,
+                    category=category,
+                    agent_result=None,
+                )
+            )
+
+        sorted_indices = sorted(range(len(prelim_results)), key=lambda idx: prelim_results[idx].score, reverse=True)
+        eval_index_set = set(sorted_indices[:agent_eval_top_n])
+
+        def _on_agent_event(event_type: str, data: dict[str, Any]):
+            event_queue.put(f"event: {event_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n")
+
+        def _evaluate_candidate(
+            idx: int, 
+            hit: dict[str, Any], 
+            candidate_doc: dict[str, Any]
+        ) -> JobMatchCandidate:
+            if idx in eval_index_set:
+                agent_result = agent_orchestration_service.run_for_candidate(
+                    job_description=job_description,
+                    job_profile=job_profile,
+                    hit=hit,
+                    candidate_doc=candidate_doc,
+                    category_filter=category,
+                    on_event=_on_agent_event,
+                )
+                return build_match_candidate(
+                    hit=hit,
+                    candidate_doc=candidate_doc,
+                    job_profile=job_profile,
+                    category=category,
+                    agent_result=agent_result,
+                    agent_evaluation_applied=True,
+                )
+            
+            return build_match_candidate(
+                hit=hit,
+                candidate_doc=candidate_doc,
+                job_profile=job_profile,
+                category=category,
+                agent_result=None,
+                agent_evaluation_applied=False,
+                agent_evaluation_reason=f"outside_agent_eval_top_n({agent_eval_top_n})",
+            )
+
+        finished_candidates = []
+        active_futures = set()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(shortlisted_hits))) as executor:
+            future_to_idx = {
+                executor.submit(_evaluate_candidate, idx, hit, candidate_doc): idx
+                for idx, (hit, candidate_doc) in enumerate(shortlisted_hits)
+            }
+            active_futures.update(future_to_idx.keys())
+            
+            while active_futures:
+                # Yield any pending thought process events
+                while not event_queue.empty():
+                    yield event_queue.get_nowait()
+
+                # Wait for at least one future to complete, with a small timeout
+                # to allow draining the event queue frequently.
+                done, not_done = concurrent.futures.wait(
+                    active_futures, 
+                    timeout=0.1, 
+                    return_when=concurrent.futures.FIRST_COMPLETED
+                )
+                
+                for future in done:
+                    active_futures.remove(future)
+                    try:
+                        candidate_result = future.result()
+                        finished_candidates.append(candidate_result)
+                        # Put candidate result into the queue to maintain ordering
+                        event_queue.put(f"event: candidate\ndata: {candidate_result.model_dump_json()}\n\n")
+                    except Exception as exc:
+                        logger.exception("Failed streaming candidate evaluation.")
+            
+            # Final drain of the queue after all futures complete
+            while not event_queue.empty():
+                yield event_queue.get_nowait()
+
+        # Finally, yield fairness audit
+        finished_candidates.sort(
+            key=lambda item: (
+                0 if self._is_agent_evaluated(item) else 1,
+                -item.score,
+            )
+        )
+        fairness_audit = self._run_fairness_guardrails(
+            job_description=job_description,
+            job_profile=job_profile,
+            matches=finished_candidates,
+            top_k=top_k,
+        )
+        yield f"event: fairness\ndata: {fairness_audit.model_dump_json()}\n\n"
+        
+        # End stream
+        yield "event: done\ndata: {}\n\n"
+
+
     def _build_query_profile(
         self,
         *,

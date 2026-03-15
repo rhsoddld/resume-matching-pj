@@ -234,7 +234,6 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
           <div>
             <h2>
               {candidate.candidate_id}
-              {isFastProfile && <span className="fast-profile-badge">Fast Profile</span>}
             </h2>
             <p>
               {candidate.seniority_level || candidate.category || "Candidate profile"}
