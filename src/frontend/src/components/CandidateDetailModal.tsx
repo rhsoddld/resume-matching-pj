@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import type { JobMatchCandidate, QueryUnderstandingProfile } from "../types";
 import BiasGuardrailBanner from "./BiasGuardrailBanner";
 import ExplainabilityPanel from "./ExplainabilityPanel";
+import { isFastProfileCandidate } from "../utils/agentEvaluation";
 
 interface CandidateDetailModalProps {
   candidate: JobMatchCandidate | null;
@@ -17,9 +18,9 @@ function toRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
-function confidenceFrom(value: unknown): number {
+function confidenceOrNull(value: unknown): number | null {
   if (typeof value !== "number" || Number.isNaN(value)) {
-    return 0;
+    return null;
   }
   const normalized = value <= 1 ? value * 100 : value;
   return Math.max(0, Math.min(100, Math.round(normalized)));
@@ -106,6 +107,8 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
       ? "Live JSON"
       : runtimeMode === "heuristic"
         ? "Fallback: Heuristic"
+        : runtimeMode === "deterministic_only"
+          ? "Deterministic only"
         : "";
   const recruiterLine = formatWeightLine("Recruiter proposal", negotiationPack?.recruiter);
   const hiringLine = formatWeightLine("Hiring manager proposal", negotiationPack?.hiring_manager);
@@ -116,11 +119,15 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
       return [];
     }
 
+    const isFastProfile = isFastProfileCandidate(candidate);
     const list: string[] = [...(candidate.bias_warnings ?? [])];
     if ((candidate.possible_gaps?.length ?? 0) > 2) {
       list.push("Several potential skill gaps were detected. Validate job-critical requirements manually.");
     }
-    if (confidenceFrom(candidate.agent_scores.culture) < 40) {
+    const cultureConfidence = isFastProfile
+      ? null
+      : confidenceOrNull(toRecord(candidate.agent_scores.confidence)?.culture ?? candidate.agent_scores.culture);
+    if (!isFastProfile && cultureConfidence !== null && cultureConfidence < 40) {
       list.push("Culture-fit confidence is low. Use structured interviews before making decisions.");
     }
     return Array.from(new Set(list));
@@ -206,6 +213,7 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
   if (!candidate) {
     return null;
   }
+  const isFastProfile = isFastProfileCandidate(candidate);
 
   const safeJobDescription = jobDescription.trim();
   const highlightRegex = jdMatch.highlightTerms.length > 0
@@ -224,7 +232,10 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
       <div className="candidate-modal" onClick={(event) => event.stopPropagation()}>
         <header className="candidate-modal__header">
           <div>
-            <h2>{candidate.candidate_id}</h2>
+            <h2>
+              {candidate.candidate_id}
+              {isFastProfile && <span className="fast-profile-badge">Fast Profile</span>}
+            </h2>
             <p>
               {candidate.seniority_level || candidate.category || "Candidate profile"}
               {" · "}
@@ -351,17 +362,20 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
               <div className="agent-list">
                 {AGENT_SECTIONS.map((section) => {
                   const confidencePack = toRecord(candidate.agent_scores.confidence);
-                  const confidence = confidenceFrom(confidencePack?.[section.key] ?? candidate.agent_scores[section.key]);
+                  const confidence = confidenceOrNull(confidencePack?.[section.key] ?? candidate.agent_scores[section.key]);
                   const evidencePack = toRecord(candidate.agent_scores.evidence);
                   const evidenceList = evidencePack?.[section.key];
-                  const evidenceText = Array.isArray(evidenceList) && evidenceList.length > 0
-                    ? String(evidenceList[0])
-                    : (confidence >= 60 ? "Strong signal from profile content" : "Limited explicit evidence");
+                  const notEvaluated = section.key !== "parsing" && (isFastProfile || confidence === null);
+                  const evidenceText = notEvaluated
+                    ? (runtimeReason || "Not evaluated in this run (outside AGENT_EVAL_TOP_N scope).")
+                    : (Array.isArray(evidenceList) && evidenceList.length > 0
+                      ? String(evidenceList[0])
+                      : ((confidence ?? 0) >= 60 ? "Strong signal from profile content" : "Limited explicit evidence"));
                   return (
                     <article key={section.key} className="agent-card">
                       <div>
                         <strong>{section.label}</strong>
-                        <p>Confidence {confidence}%</p>
+                        <p>Confidence {notEvaluated ? "N/A" : `${confidence ?? 0}%`}</p>
                       </div>
                       <p className="agent-evidence">Evidence: {evidenceText}</p>
                     </article>

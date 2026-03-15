@@ -14,6 +14,7 @@ from pymilvus import (
     utility,
 )
 
+from .observability import traceable_op
 from .settings import settings
 
 logger = logging.getLogger(__name__)
@@ -141,6 +142,7 @@ def preload_collection() -> None:
     logger.info("Milvus collection preloaded aliases=%s", _MILVUS_ALIASES)
 
 
+@traceable_op(name="milvus.upsert_embeddings", run_type="tool", tags=["milvus", "ingestion"])
 def upsert_embeddings(items: Sequence[CandidateEmbedding]) -> None:
     if not items:
         return
@@ -173,6 +175,7 @@ def upsert_embeddings(items: Sequence[CandidateEmbedding]) -> None:
     collection.flush()
 
 
+@traceable_op(name="milvus.search_embeddings", run_type="retriever", tags=["milvus", "retrieval"])
 def search_embeddings(
     query_vector: List[float],
     top_k: int = 10,

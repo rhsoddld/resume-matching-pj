@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     rerank_gate_top2_gap_threshold: float = 0.04
     rerank_gate_confidence_threshold: float = 0.65
     rerank_gate_unknown_ratio_threshold: float = 0.5
+    agent_eval_top_n: int = 5
     eval_judge_model: str = "gpt-4o"
     eval_judge_model_version: str = "judge-v1"
     fairness_guardrails_enabled: bool = True
@@ -79,6 +80,8 @@ class Settings(BaseSettings):
     milvus_load_timeout_sec: int = 60
 
     # LangSmith (observability for LLM flows)
+    langsmith_tracing: bool = True
+    langsmith_endpoint: str = "https://api.smith.langchain.com"
     langsmith_api_key: str | None = None
     langsmith_project: str | None = None
 

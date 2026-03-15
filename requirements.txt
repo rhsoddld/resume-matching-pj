@@ -9,7 +9,7 @@ python-dotenv
 openai
 openai-agents
 pandas
-langsmith
+langsmith[openai-agents]
 # pyresparser removed: incompatible with spaCy 3.x on Python 3.10
 # NER-based extraction is handled by spaCy (en_core_web_sm) directly
 spacy

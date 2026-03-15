@@ -8,6 +8,7 @@ from typing import Any
 from backend.agents.contracts.orchestrator import CandidateAgentResult
 from backend.agents.contracts.ranking_agent import RankingAgentInput, RankingAgentOutput, RankingBreakdown
 
+from backend.core.observability import traceable_op
 from backend.core.providers import get_openai_client
 from backend.core.settings import settings
 from backend.services.job_profile_extractor import JobProfile
@@ -33,6 +34,7 @@ class AgentOrchestrationService:
     - falls back to deterministic heuristics on API/runtime errors
     """
 
+    @traceable_op(name="agents.run_for_candidate", run_type="chain", tags=["agents", "ranking"])
     def run_for_candidate(
         self,
         *,
@@ -102,6 +104,7 @@ class AgentOrchestrationService:
             runtime_reason=execution.runtime_reason,
         )
 
+    @traceable_op(name="agents.execute_runtime", run_type="chain", tags=["agents", "runtime"])
     def _execute(
         self,
         *,

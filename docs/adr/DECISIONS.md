@@ -248,6 +248,7 @@ RAG + Agent 파이프라인의 품질을 정량적으로 측정하고 변경에 
 ### 결과 (Consequences)
 - **긍정**: 자동화된 품질 루프. 실험 단위 재현 가능. LangSmith로 프롬프트 변경 효과 추적.
 - **부정**: LangSmith API Key 필요. Eval 실행 시 LLM 비용 발생.
+- **운영 보충 (2026-03-15)**: Confident AI 업로드 연동은 optional이며 현재 검토 보류. 기본 운영은 DeepEval 로컬/CI 실행 + 문서 아카이브를 우선 사용하고, 대시보드는 MongoDB(상세 보관) + Prometheus/Grafana(시계열/알림) 경로를 검토한다.
 
 ---
 

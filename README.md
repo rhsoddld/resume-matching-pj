@@ -191,7 +191,61 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3-1. 로컬 테스트 (.venv 활성화 필수)
+### 3-1. LangSmith + OpenAI Agents SDK tracing (선택)
+
+```bash
+# uv 사용 시
+uv pip install -U 'langsmith[openai-agents]'
+
+# pip 사용 시
+pip install -U 'langsmith[openai-agents]'
+```
+
+`.env`에 아래 값을 설정하면 Agents SDK 경로에서 LangSmith tracing이 자동으로 활성화된다.
+
+```bash
+LANGSMITH_TRACING=true
+LANGSMITH_ENDPOINT=https://api.smith.langchain.com
+LANGSMITH_API_KEY=your-langsmith-api-key
+LANGSMITH_PROJECT=resume-matching
+```
+
+현재 구현 기준으로 LangSmith는 다음 경로를 추적한다.
+
+- `matching.match_jobs` 상위 파이프라인 span
+- `retrieval.hybrid_search` / `retrieval.vector_search` / `retrieval.keyword_search` / `milvus.search_embeddings`
+- `matching.enrich_hits` / `mongo.get_candidates_by_ids`
+- `agents.run_for_candidate` / `agents.execute_runtime`
+- OpenAI 호출(`chat.completions`, `embeddings`)은 LangSmith OpenAI wrapper로 별도 run 수집
+
+`request_id` 연동:
+
+- `X-Request-Id` 헤더를 보내면 동일 값이 로그와 LangSmith trace에 함께 기록된다.
+- LangSmith에서는 `metadata.request_id` 또는 `tag=request_id:<id>`로 검색 가능하다.
+
+예시 요청:
+
+```bash
+curl -X POST http://localhost:8000/api/jobs/match \
+  -H "Content-Type: application/json" \
+  -H "X-Request-Id: req-20260315-001" \
+  -d '{"job_description":"Need a data engineer with Python","top_k":5}'
+```
+
+비용(cost) 확인 참고:
+
+- `matching.*`, `retrieval.*`, `mongo.*`, `milvus.*` 같은 커스텀 span은 비용이 표시되지 않는다.
+- 비용/토큰은 OpenAI `llm` run에서만 보인다.
+- LangSmith 테이블에서 `Cost`, `Prompt tokens`, `Completion tokens` 컬럼을 켜서 확인한다.
+
+Quickstart 스크립트 실행:
+
+```bash
+source .venv/bin/activate
+PYTHONPATH=src python scripts/langsmith_agents_quickstart.py
+```
+
+### 3-2. 로컬 테스트 (.venv 활성화 필수)
 
 ```bash
 source .venv/bin/activate
@@ -199,7 +253,42 @@ source .venv/bin/activate
 ./scripts/run_local_tests.sh smoke  # 핵심 스모크 테스트
 ```
 
-### 3-2. Query Fallback 임계치 (선택)
+### 3-2-1. DeepEval + Confident AI 연동 (선택, 현재 검토 보류)
+
+`.env`에 아래 키를 설정하면 DeepEval 실행 결과가 Confident AI에 자동 업로드된다.
+
+```bash
+OPENAI_API_KEY=sk-...
+CONFIDENT_API_KEY=...
+# Optional: US 또는 EU
+CONFIDENT_REGION=US
+```
+
+원하면 1회 로그인으로 키를 저장할 수도 있다.
+
+```bash
+source .venv/bin/activate
+deepeval login --save dotenv:.env.local
+```
+
+프로젝트 기본 실행 스크립트:
+
+```bash
+./scripts/run_deepeval.sh           # 기본: src/eval 전체
+./scripts/run_deepeval.sh src/eval/test_match_quality.py
+```
+
+- `CONFIDENT_API_KEY`가 있으면 Confident AI에 run이 기록된다.
+- `CONFIDENT_API_KEY`가 없으면 로컬 모드로만 실행된다.
+- run 식별자는 `DEEPEVAL_IDENTIFIER`가 없을 때 `resume-matching-YYYYmmdd-HHMMSS`로 자동 생성된다.
+
+현재 운영 원칙(2026-03-15 기준):
+
+- Confident AI 연동은 optional이며, 본 저장소 기준으로는 검토 보류 상태다.
+- 기본 실행 경로는 `DeepEval 로컬/CI`이며 결과 아카이브(`docs/eval/`)를 우선 근거로 사용한다.
+- Grafana 시각화는 `MongoDB(상세 run 보관) + Prometheus/Grafana(시계열/알림)` 조합으로 설계 검토 중이다.
+
+### 3-3. Query Fallback 임계치 (선택)
 
 ```bash
 export QUERY_FALLBACK_ENABLED=true
@@ -208,7 +297,7 @@ export QUERY_FALLBACK_UNKNOWN_RATIO_THRESHOLD=0.55
 export QUERY_FALLBACK_MODEL=gpt-4.1-mini
 ```
 
-### 3-3. Rerank Layer (선택)
+### 3-4. Rerank Layer (선택)
 
 ```bash
 export RERANK_ENABLED=true
@@ -234,8 +323,9 @@ export RERANK_MODEL=gpt-4.1-mini
   - `RERANK_GATE_TOP2_GAP_THRESHOLD=0.04`
   - `RERANK_GATE_CONFIDENCE_THRESHOLD=0.65`
   - `RERANK_GATE_UNKNOWN_RATIO_THRESHOLD=0.5`
+  - `AGENT_EVAL_TOP_N=5` (rerank 후 상위 5명만 A2A 평가, 나머지는 deterministic 점수)
 
-### 3-4. Agent Runtime Mode (선택)
+### 3-5. Agent Runtime Mode (선택)
 
 ```bash
 # live 호출 게이트 (false면 heuristic fallback 사용)

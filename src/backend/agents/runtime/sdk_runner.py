@@ -19,6 +19,41 @@ from .prompts import PROMPTS
 from .types import AgentExecutionResult
 
 logger = logging.getLogger(__name__)
+_LANGSMITH_TRACING_CONFIGURED = False
+
+
+def _maybe_enable_langsmith_tracing() -> None:
+    """Attach LangSmith tracing processor for OpenAI Agents SDK when enabled."""
+    global _LANGSMITH_TRACING_CONFIGURED
+    if _LANGSMITH_TRACING_CONFIGURED or not settings.langsmith_tracing:
+        return
+
+    if not settings.langsmith_api_key:
+        logger.info("LANGSMITH_TRACING is enabled but LANGSMITH_API_KEY is missing; skip tracing setup.")
+        return
+
+    # Keep app settings as the source of truth even when process env is not exported.
+    os.environ.setdefault("LANGSMITH_TRACING", "true")
+    os.environ.setdefault("LANGSMITH_API_KEY", settings.langsmith_api_key)
+    if settings.langsmith_endpoint:
+        os.environ.setdefault("LANGSMITH_ENDPOINT", settings.langsmith_endpoint)
+    if settings.langsmith_project:
+        os.environ.setdefault("LANGSMITH_PROJECT", settings.langsmith_project)
+
+    try:
+        from agents import set_trace_processors
+        from langsmith.integrations.openai_agents_sdk import OpenAIAgentsTracingProcessor
+    except Exception:
+        logger.exception("Failed to import LangSmith OpenAI Agents tracing integration; skip tracing setup.")
+        return
+
+    try:
+        set_trace_processors(
+            [OpenAIAgentsTracingProcessor(project_name=settings.langsmith_project)]
+        )
+        _LANGSMITH_TRACING_CONFIGURED = True
+    except Exception:
+        logger.exception("Failed to initialize LangSmith tracing processor; skip tracing setup.")
 
 
 def _build_agent(agent_cls: Any, **kwargs: Any) -> Any:
@@ -66,6 +101,7 @@ def run_agents_sdk(
     model: str,
     payload: dict[str, Any],
 ) -> AgentExecutionResult | None:
+    _maybe_enable_langsmith_tracing()
     payload_json = json.dumps(payload, ensure_ascii=False)
     prior_env_api_key = os.environ.get("OPENAI_API_KEY")
     injected_env_api_key = False

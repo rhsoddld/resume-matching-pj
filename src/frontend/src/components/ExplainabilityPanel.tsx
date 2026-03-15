@@ -1,4 +1,5 @@
 import type { JobMatchCandidate } from "../types";
+import { isFastProfileCandidate } from "../utils/agentEvaluation";
 
 interface ExplainabilityPanelProps {
   candidate: JobMatchCandidate;
@@ -12,12 +13,28 @@ function toPercent(value: number | undefined): number {
   return Math.max(0, Math.min(100, Math.round(normalized)));
 }
 
+function getCultureFit(candidate: JobMatchCandidate): number | null {
+  if (isFastProfileCandidate(candidate)) {
+    return null;
+  }
+  const confidencePack =
+    candidate.agent_scores && typeof candidate.agent_scores.confidence === "object" && !Array.isArray(candidate.agent_scores.confidence)
+      ? (candidate.agent_scores.confidence as Record<string, unknown>)
+      : null;
+  const value = confidencePack?.culture ?? candidate.agent_scores.culture;
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return null;
+  }
+  return toPercent(value);
+}
+
 export default function ExplainabilityPanel({ candidate }: ExplainabilityPanelProps) {
   const evidence = candidate.relevant_experience.slice(0, 4);
   const missing = candidate.possible_gaps.slice(0, 4);
   const transferable = candidate.expanded_skills
     .filter((skill) => !candidate.core_skills.includes(skill))
     .slice(0, 6);
+  const cultureFit = getCultureFit(candidate);
 
   return (
     <section className="explainability-panel" aria-label="Explainable match breakdown">
@@ -33,7 +50,7 @@ export default function ExplainabilityPanel({ candidate }: ExplainabilityPanelPr
         </div>
         <div>
           <span className="metric-label">Culture Fit</span>
-          <strong>{toPercent((candidate.agent_scores.culture as number) ?? 0)}%</strong>
+          <strong>{cultureFit === null ? "N/A" : `${cultureFit}%`}</strong>
         </div>
       </div>
 

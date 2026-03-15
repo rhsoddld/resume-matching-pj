@@ -6,6 +6,7 @@ import re
 
 from backend.core.collections import dedupe_preserve
 from backend.core.model_routing import resolve_rerank_model
+from backend.core.observability import traceable_op
 from backend.core.providers import get_skill_ontology
 from backend.core.settings import settings
 from backend.repositories.hybrid_retriever import HybridRetriever
@@ -63,6 +64,7 @@ class MatchingService:
         self.hybrid_retriever = HybridRetriever()
         self.rerank_service = cross_encoder_rerank_service
 
+    @traceable_op(name="matching.match_jobs", run_type="chain", tags=["matching", "pipeline"])
     def match_jobs(
         self,
         *,
@@ -74,71 +76,25 @@ class MatchingService:
         region: str | None = None,
         industry: str | None = None,
     ) -> JobMatchResponse:
-        ontology = get_skill_ontology()
-        deterministic_profile = build_job_profile(
+        job_profile = self._build_query_profile(
             job_description=job_description,
-            ontology=ontology,
             category_override=category,
             min_experience_years=min_experience_years,
             education_override=education,
             region_override=region,
             industry_override=industry,
         )
-        job_profile = deterministic_profile
-        should_fallback, fallback_reason, fallback_trigger = self._should_use_query_fallback(deterministic_profile)
-        if should_fallback:
-            fallback_draft = query_fallback_service.extract(job_description=job_description)
-            if fallback_draft is not None:
-                fallback_text = query_fallback_service.to_deterministic_text(fallback_draft)
-                fallback_profile = build_job_profile(
-                    job_description=fallback_text or job_description,
-                    ontology=ontology,
-                    category_override=category,
-                    min_experience_years=min_experience_years,
-                    education_override=education,
-                    region_override=region,
-                    industry_override=industry,
-                )
-                job_profile = self._merge_profiles(primary=deterministic_profile, fallback=fallback_profile)
-                job_profile.fallback_used = True
-                job_profile.fallback_reason = fallback_reason
-                job_profile.fallback_rationale = fallback_draft.rationale
-                job_profile.fallback_trigger = {
-                    **fallback_trigger,
-                    "llm_model": settings.query_fallback_model,
-                }
-                logger.info(
-                    "query_fallback_applied reason=%s confidence=%.3f unknown_ratio=%.3f",
-                    fallback_reason,
-                    job_profile.confidence,
-                    float(job_profile.signal_quality.get("unknown_ratio", 0.0)),
-                )
-            else:
-                logger.warning(
-                    "query_fallback_skipped reason=%s deterministic_confidence=%.3f deterministic_unknown_ratio=%.3f",
-                    fallback_reason,
-                    deterministic_profile.confidence,
-                    float(deterministic_profile.signal_quality.get("unknown_ratio", 0.0)),
-                )
-        logger.info(
-            "query_profile_built category=%s confidence=%.3f unknown_ratio=%.3f total_signals=%s fallback_used=%s",
-            job_profile.job_category,
-            job_profile.confidence,
-            float(job_profile.signal_quality.get("unknown_ratio", 0.0)),
-            job_profile.signal_quality.get("total_signals", 0),
-            job_profile.fallback_used,
-        )
 
         retrieval_top_n = self._resolve_retrieval_top_n(top_k)
-        hits = self.hybrid_retriever.search_candidates(
+        hits = self._retrieve_candidates(
             job_description=job_description,
             job_profile=job_profile,
             top_k=retrieval_top_n,
             category=category,
             min_experience_years=min_experience_years,
         )
-        enriched_hits = enrich_hits(
-            hits,
+        enriched_hits = self._enrich_candidates(
+            hits=hits,
             min_experience_years=min_experience_years,
             education=education,
             region=region,
@@ -150,26 +106,13 @@ class MatchingService:
             enriched_hits=enriched_hits,
             top_k=top_k,
         )
-
-        results: list[JobMatchCandidate] = []
-        for hit, candidate_doc in shortlisted_hits:
-            agent_result = agent_orchestration_service.run_for_candidate(
-                job_description=job_description,
-                job_profile=job_profile,
-                hit=hit,
-                candidate_doc=candidate_doc,
-                category_filter=category,
-            )
-            results.append(
-                build_match_candidate(
-                    hit=hit,
-                    candidate_doc=candidate_doc,
-                    job_profile=job_profile,
-                    category=category,
-                    agent_result=agent_result,
-                )
-            )
-        results.sort(key=lambda item: item.score, reverse=True)
+        results = self._score_candidates(
+            job_description=job_description,
+            job_profile=job_profile,
+            shortlisted_hits=shortlisted_hits,
+            top_k=top_k,
+            category=category,
+        )
         fairness_audit = self._run_fairness_guardrails(
             job_description=job_description,
             job_profile=job_profile,
@@ -217,6 +160,189 @@ class MatchingService:
             fairness=fairness_audit,
         )
 
+    @traceable_op(name="matching.build_query_profile", run_type="chain", tags=["matching", "query"])
+    def _build_query_profile(
+        self,
+        *,
+        job_description: str,
+        category_override: str | None,
+        min_experience_years: float | None,
+        education_override: str | None,
+        region_override: str | None,
+        industry_override: str | None,
+    ) -> JobProfile:
+        ontology = get_skill_ontology()
+        deterministic_profile = build_job_profile(
+            job_description=job_description,
+            ontology=ontology,
+            category_override=category_override,
+            min_experience_years=min_experience_years,
+            education_override=education_override,
+            region_override=region_override,
+            industry_override=industry_override,
+        )
+        job_profile = deterministic_profile
+        should_fallback, fallback_reason, fallback_trigger = self._should_use_query_fallback(deterministic_profile)
+        if should_fallback:
+            fallback_draft = query_fallback_service.extract(job_description=job_description)
+            if fallback_draft is not None:
+                fallback_text = query_fallback_service.to_deterministic_text(fallback_draft)
+                fallback_profile = build_job_profile(
+                    job_description=fallback_text or job_description,
+                    ontology=ontology,
+                    category_override=category_override,
+                    min_experience_years=min_experience_years,
+                    education_override=education_override,
+                    region_override=region_override,
+                    industry_override=industry_override,
+                )
+                job_profile = self._merge_profiles(primary=deterministic_profile, fallback=fallback_profile)
+                job_profile.fallback_used = True
+                job_profile.fallback_reason = fallback_reason
+                job_profile.fallback_rationale = fallback_draft.rationale
+                job_profile.fallback_trigger = {
+                    **fallback_trigger,
+                    "llm_model": settings.query_fallback_model,
+                }
+                logger.info(
+                    "query_fallback_applied reason=%s confidence=%.3f unknown_ratio=%.3f",
+                    fallback_reason,
+                    job_profile.confidence,
+                    float(job_profile.signal_quality.get("unknown_ratio", 0.0)),
+                )
+            else:
+                logger.warning(
+                    "query_fallback_skipped reason=%s deterministic_confidence=%.3f deterministic_unknown_ratio=%.3f",
+                    fallback_reason,
+                    deterministic_profile.confidence,
+                    float(deterministic_profile.signal_quality.get("unknown_ratio", 0.0)),
+                )
+        logger.info(
+            "query_profile_built category=%s confidence=%.3f unknown_ratio=%.3f total_signals=%s fallback_used=%s",
+            job_profile.job_category,
+            job_profile.confidence,
+            float(job_profile.signal_quality.get("unknown_ratio", 0.0)),
+            job_profile.signal_quality.get("total_signals", 0),
+            job_profile.fallback_used,
+        )
+        return job_profile
+
+    @traceable_op(name="matching.retrieve_candidates", run_type="retriever", tags=["matching", "retrieval"])
+    def _retrieve_candidates(
+        self,
+        *,
+        job_description: str,
+        job_profile: JobProfile,
+        top_k: int,
+        category: str | None,
+        min_experience_years: float | None,
+    ) -> list[dict[str, object]]:
+        return self.hybrid_retriever.search_candidates(
+            job_description=job_description,
+            job_profile=job_profile,
+            top_k=top_k,
+            category=category,
+            min_experience_years=min_experience_years,
+        )
+
+    @traceable_op(name="matching.enrich_candidates", run_type="tool", tags=["matching", "mongo"])
+    def _enrich_candidates(
+        self,
+        hits: list[dict[str, object]],
+        *,
+        min_experience_years: float | None,
+        education: str | None,
+        region: str | None,
+        industry: str | None,
+    ) -> list[tuple[dict[str, object], dict[str, object]]]:
+        return enrich_hits(
+            hits,
+            min_experience_years=min_experience_years,
+            education=education,
+            region=region,
+            industry=industry,
+        )
+
+    @traceable_op(name="matching.score_candidates", run_type="chain", tags=["matching", "ranking"])
+    def _score_candidates(
+        self,
+        *,
+        job_description: str,
+        job_profile: JobProfile,
+        shortlisted_hits: list[tuple[dict[str, object], dict[str, object]]],
+        top_k: int,
+        category: str | None,
+    ) -> list[JobMatchCandidate]:
+        agent_eval_top_n = self._resolve_agent_eval_top_n(top_k)
+        logger.info(
+            "agent_eval_scope top_k=%s agent_eval_top_n=%s shortlisted=%s",
+            top_k,
+            agent_eval_top_n,
+            len(shortlisted_hits),
+        )
+
+        prelim_results: list[JobMatchCandidate] = []
+        for hit, candidate_doc in shortlisted_hits:
+            prelim_results.append(
+                build_match_candidate(
+                    hit=hit,
+                    candidate_doc=candidate_doc,
+                    job_profile=job_profile,
+                    category=category,
+                    agent_result=None,
+                )
+            )
+
+        sorted_indices = sorted(range(len(prelim_results)), key=lambda idx: prelim_results[idx].score, reverse=True)
+        eval_index_set = set(sorted_indices[:agent_eval_top_n])
+        logger.info(
+            "agent_eval_selection selected=%s candidate_ids=%s",
+            len(eval_index_set),
+            [prelim_results[idx].candidate_id for idx in sorted_indices[:agent_eval_top_n]],
+        )
+
+        results: list[JobMatchCandidate] = []
+        for idx, (hit, candidate_doc) in enumerate(shortlisted_hits):
+            if idx in eval_index_set:
+                agent_result = agent_orchestration_service.run_for_candidate(
+                    job_description=job_description,
+                    job_profile=job_profile,
+                    hit=hit,
+                    candidate_doc=candidate_doc,
+                    category_filter=category,
+                )
+                results.append(
+                    build_match_candidate(
+                        hit=hit,
+                        candidate_doc=candidate_doc,
+                        job_profile=job_profile,
+                        category=category,
+                        agent_result=agent_result,
+                        agent_evaluation_applied=True,
+                    )
+                )
+                continue
+
+            results.append(
+                build_match_candidate(
+                    hit=hit,
+                    candidate_doc=candidate_doc,
+                    job_profile=job_profile,
+                    category=category,
+                    agent_result=None,
+                    agent_evaluation_applied=False,
+                    agent_evaluation_reason=f"outside_agent_eval_top_n({agent_eval_top_n})",
+                )
+            )
+        results.sort(
+            key=lambda item: (
+                0 if self._is_agent_evaluated(item) else 1,
+                -item.score,
+            )
+        )
+        return results
+
+    @traceable_op(name="matching.fairness_guardrails", run_type="tool", tags=["matching", "fairness"])
     def _run_fairness_guardrails(
         self,
         *,
@@ -415,12 +541,20 @@ class MatchingService:
             return "mid"
         return token
 
+    @staticmethod
+    def _is_agent_evaluated(candidate: JobMatchCandidate) -> bool:
+        value = candidate.agent_scores.get("agent_evaluation_applied")
+        if isinstance(value, bool):
+            return value
+        return candidate.agent_scores.get("runtime_mode") != "deterministic_only"
+
     def _resolve_retrieval_top_n(self, top_k: int) -> int:
         if not settings.rerank_enabled:
             return top_k
         rerank_pool_n = self._resolve_rerank_pool_n(top_k)
         return max(top_k, rerank_pool_n)
 
+    @traceable_op(name="matching.shortlist_candidates", run_type="retriever", tags=["matching", "rerank"])
     def _shortlist_candidates(
         self,
         *,
@@ -471,6 +605,11 @@ class MatchingService:
         max_pool = max(1, int(settings.rerank_gate_max_top_n))
         requested = max(1, int(settings.rerank_top_n))
         return max(top_k, min(requested, max_pool))
+
+    @staticmethod
+    def _resolve_agent_eval_top_n(top_k: int) -> int:
+        requested = max(0, int(settings.agent_eval_top_n))
+        return min(top_k, requested)
 
     def _should_apply_rerank(
         self,

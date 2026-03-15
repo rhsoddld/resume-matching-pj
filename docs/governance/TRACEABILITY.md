@@ -77,7 +77,7 @@
 | AHI.2 | recruiter feedback loop | `docs/governance/PLAN.md` | Planned | 피드백 수집 API/저장 모델 추가 |
 | AHI.3 | hiring analytics dashboard | `docs/governance/PLAN.md` | Planned | 대시보드 구현 및 지표 정의 |
 | AHI.4 | interview scheduling handoff | `docs/governance/PLAN.md` | Planned | 스케줄링 에이전트/이벤트 연동 필요 |
-| AHI.5 | recruiter↔hiring manager A2A | `src/backend/agents/runtime/service.py`, `src/backend/agents/runtime/sdk_runner.py`, `src/backend/agents/runtime/prompts.py`, `src/backend/agents/contracts/weight_negotiation_agent.py` | Implemented | 협의 이력(audit trail) 및 turn-level observability 강화 |
+| AHI.5 | recruiter↔hiring manager A2A | `src/backend/agents/runtime/service.py`, `src/backend/agents/runtime/sdk_runner.py`, `src/backend/agents/runtime/prompts.py`, `src/backend/agents/contracts/weight_negotiation_agent.py`, `src/backend/core/observability.py`, `src/ops/middleware.py`, `src/ops/logging.py` | Implemented | request_id 기반 로그↔trace 상관관계 운영 대시보드 고도화 |
 
 ---
 

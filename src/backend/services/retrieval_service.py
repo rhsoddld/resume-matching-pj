@@ -5,6 +5,7 @@ import logging
 import time
 
 from backend.core.exceptions import ExternalDependencyError
+from backend.core.observability import traceable_op
 from backend.core.providers import get_openai_client
 from backend.core.settings import settings
 from backend.core.vector_store import search_embeddings
@@ -20,6 +21,7 @@ def _compute_candidates_per_sec(*, candidates: int, elapsed_sec: float) -> float
 
 
 class RetrievalService:
+    @traceable_op(name="retrieval.vector_search", run_type="retriever", tags=["retrieval", "milvus"])
     def search_candidates(
         self,
         *,

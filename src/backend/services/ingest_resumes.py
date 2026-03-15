@@ -20,10 +20,10 @@ warnings.filterwarnings(
 )
 
 import pandas as pd
-from openai import OpenAI
 from pymongo import UpdateOne
 
 from backend.core.database import get_collection
+from backend.core.providers import get_openai_client
 from backend.core.settings import settings
 from backend.core.vector_store import CandidateEmbedding, upsert_embeddings
 from backend.services.skill_ontology import RuntimeSkillOntology, SkillNormalizationResult
@@ -109,7 +109,7 @@ SNEHA_CATEGORY_SKILL_MAP: dict[str, str] = {
 }
 
 
-client = OpenAI(api_key=settings.openai_api_key)
+client = get_openai_client()
 logger = logging.getLogger(__name__)
 
 

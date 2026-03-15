@@ -7,6 +7,7 @@ from typing import Any
 
 from backend.core.database import get_collection
 from backend.core.exceptions import ExternalDependencyError, RepositoryError
+from backend.core.observability import traceable_op
 from backend.schemas.job import INDUSTRY_STANDARD_DICTIONARY, normalize_industry_label
 from backend.services.retrieval_service import RetrievalService
 from backend.services.job_profile_extractor import JobProfile
@@ -65,6 +66,7 @@ class HybridRetriever:
     def __init__(self) -> None:
         self.retrieval_service = RetrievalService()
 
+    @traceable_op(name="retrieval.hybrid_search", run_type="retriever", tags=["retrieval", "hybrid"])
     def search_candidates(
         self,
         *,
@@ -125,6 +127,7 @@ class HybridRetriever:
                 return keyword_hits[:top_k]
             raise
 
+    @traceable_op(name="retrieval.keyword_search", run_type="retriever", tags=["retrieval", "mongo"])
     def _search_keyword_candidates(
         self,
         *,
@@ -188,6 +191,7 @@ class HybridRetriever:
                 raise ExternalDependencyError("Both vector retrieval and Mongo fallback failed.") from exc
             raise ExternalDependencyError("Both vector retrieval and Mongo fallback failed.") from exc
 
+    @traceable_op(name="retrieval.merge_fusion_hits", run_type="tool", tags=["retrieval", "fusion"])
     def _merge_fusion_hits(
         self,
         *,

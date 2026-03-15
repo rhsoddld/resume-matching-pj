@@ -211,6 +211,8 @@ def build_match_candidate(
     job_profile: JobProfile,
     category: str | None,
     agent_result: CandidateAgentResult | None = None,
+    agent_evaluation_applied: bool | None = None,
+    agent_evaluation_reason: str | None = None,
 ) -> JobMatchCandidate:
     parsed = candidate_doc.get("parsed", {})
     parsed = parsed if isinstance(parsed, dict) else {}
@@ -251,6 +253,8 @@ def build_match_candidate(
     rank_score = max(0.0, min(1.0, rank_score * (1.0 - must_have_penalty)))
     parsing_score = _compute_parsing_score(parsed)
 
+    evaluation_applied = bool(agent_result is not None) if agent_evaluation_applied is None else bool(agent_evaluation_applied)
+
     if agent_result is not None:
         confidence_scores = {
             "parsing": parsing_score,
@@ -272,6 +276,7 @@ def build_match_candidate(
             "runtime_mode": agent_result.runtime_mode or "unknown",
             "runtime_fallback_used": (agent_result.runtime_mode or "") == "heuristic",
             "runtime_reason": agent_result.runtime_reason or "",
+            "agent_evaluation_applied": True,
             "weights": agent_result.ranking_input.weights.model_dump(),
             "weight_negotiation": (
                 agent_result.weight_negotiation.model_dump()
@@ -284,6 +289,9 @@ def build_match_candidate(
     else:
         agent_scores = {
             "parsing": parsing_score,
+            "runtime_mode": "deterministic_only",
+            "runtime_reason": agent_evaluation_reason or "outside_agent_eval_scope",
+            "agent_evaluation_applied": evaluation_applied,
             "confidence": {"parsing": parsing_score},
             "evidence": {"parsing": ["No agent outputs available; deterministic-only match."]},
         }

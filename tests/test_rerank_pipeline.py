@@ -22,6 +22,15 @@ def test_resolve_retrieval_top_n_when_rerank_enabled(monkeypatch):
     assert service._resolve_retrieval_top_n(80) == 80
 
 
+def test_resolve_agent_eval_top_n_caps_with_top_k(monkeypatch):
+    service = MatchingService()
+    monkeypatch.setattr(settings, "agent_eval_top_n", 5)
+    assert service._resolve_agent_eval_top_n(10) == 5
+    assert service._resolve_agent_eval_top_n(3) == 3
+    monkeypatch.setattr(settings, "agent_eval_top_n", 0)
+    assert service._resolve_agent_eval_top_n(10) == 0
+
+
 def test_shortlist_without_rerank_uses_first_top_k(monkeypatch):
     service = MatchingService()
     monkeypatch.setattr(settings, "rerank_enabled", False)

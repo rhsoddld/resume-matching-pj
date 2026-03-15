@@ -70,7 +70,7 @@ isProject: false
 | Multi-agent evaluation | Done baseline (hybrid runtime) | score pack 생성은 SDK/live/heuristic 경로를 지원하며 서비스 레벨 fallback 유지 |
 | Weight negotiation | Done baseline (SDK handoff + fallback) | negotiation 구간은 `Recruiter -> HiringManager -> WeightNegotiation` handoff를 시도하고 실패 시 degrade |
 | Explainable ranking output | Done v3 baseline | UI에서 runtime mode/fallback reason/recruiter·hiring·final policy까지 노출 |
-| Eval / guardrails | Partial | DeepEval/LLM-as-Judge(quality/diversity/custom/potential) + live judge 아카이빙 + bias guardrails backend v1 구현 완료, 남은 작업은 fairness metric 운영 고도화 |
+| Eval / guardrails | Partial | DeepEval/LLM-as-Judge(quality/diversity/custom/potential) + live judge 아카이빙 + bias guardrails backend v1 구현 완료. Confident AI 연동은 optional/검토 보류(2026-03-15)이며 기본 경로는 로컬/CI 아카이브. 남은 작업은 fairness metric 운영 고도화와 Grafana 메트릭 파이프라인 설계 확정 |
 
 ## 다음 구현 우선순위 (requirements/requirements.md 기준)
 
@@ -123,3 +123,4 @@ isProject: false
 | BL-07 | Agents SDK observability tracing 표준화 | Medium |
 | BL-08 | ingestion API endpoint + 인증/레이트리밋 설계 | High |
 | BL-09 | candidates/sec 고부하 부하 테스트 자동화 및 CI 리포트 고도화 | High |
+| BL-10 | DeepEval 로컬/CI 결과의 MongoDB 적재 + Prometheus/Grafana 시각화 경로 확정 | Medium |

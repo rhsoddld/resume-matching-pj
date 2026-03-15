@@ -3,6 +3,7 @@ from typing import Optional
 from backend.core.collections import dedupe_preserve
 from backend.core.database import get_collection
 from backend.core.exceptions import RepositoryError
+from backend.core.observability import traceable_op
 
 
 def _normalize_doc(doc: dict | None) -> dict | None:
@@ -19,6 +20,7 @@ def get_candidate_by_id(candidate_id: str) -> Optional[dict]:
         raise RepositoryError("Failed to read candidate document.") from exc
 
 
+@traceable_op(name="mongo.get_candidates_by_ids", run_type="retriever", tags=["mongo"])
 def get_candidates_by_ids(candidate_ids: list[str]) -> dict[str, dict]:
     """Batch-load candidate documents indexed by candidate_id."""
     if not candidate_ids:

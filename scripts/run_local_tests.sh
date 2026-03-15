@@ -29,9 +29,12 @@ case "${MODE}" in
   full)
     python3 -m pytest -q
     ;;
+  eval)
+    ./scripts/run_deepeval.sh "${2:-src/eval}"
+    ;;
   *)
     echo "Unknown mode: ${MODE}"
-    echo "Usage: ./scripts/run_local_tests.sh [smoke|full]"
+    echo "Usage: ./scripts/run_local_tests.sh [smoke|full|eval] [eval_target]"
     exit 1
     ;;
 esac

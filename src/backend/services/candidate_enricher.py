@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from backend.core.observability import traceable_op
 from backend.core.providers import get_skill_ontology
 from backend.repositories.mongo_repo import get_candidates_by_ids
 
@@ -212,6 +213,7 @@ def _matches_industry(candidate_doc: dict[str, Any], industry: str | None) -> bo
     return len(candidate_taxonomy_tags.intersection(industry_taxonomy_terms)) > 0
 
 
+@traceable_op(name="matching.enrich_hits", run_type="tool", tags=["matching", "mongo"])
 def enrich_hits(
     hits: list[dict[str, Any]],
     *,
