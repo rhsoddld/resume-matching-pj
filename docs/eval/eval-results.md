@@ -1,7 +1,7 @@
 # Eval Results Archive
 
-- Generated at (UTC): `2026-03-14 22:38:14`
-- Commit: `ae3d64aad2db`
+- Generated at (UTC): `2026-03-15 06:16:30`
+- Commit: `726bfe031fb3`
 - Golden set: `src/eval/golden_set.jsonl`
 - Rubric: `docs/eval/llm_judge_softskill_potential_rubric.md`
 
@@ -17,10 +17,10 @@
   "by_label_avg": {
     "good": {
       "skill": 0.9554,
-      "experience": 1.0,
+      "experience": 0.7932,
       "culture": 1.0,
       "potential": 1.0,
-      "quality": 0.9821
+      "quality": 0.9201
     },
     "neutral": {
       "skill": 0.4,
