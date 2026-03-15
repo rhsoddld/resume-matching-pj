@@ -88,10 +88,10 @@ def test_deterministic_score_uses_weighted_components():
     )
 
     assert detail["semantic_similarity"] == pytest.approx(0.8)
-    assert detail["experience_fit"] == pytest.approx(1.0)
+    assert detail["experience_fit"] == pytest.approx(0.96)
     assert detail["seniority_fit"] == pytest.approx(1.0)
     assert detail["category_fit"] == pytest.approx(0.03)
-    assert score == pytest.approx(0.88)
+    assert score == pytest.approx(0.8728)
 
 
 def test_deterministic_score_handles_missing_optional_signals():

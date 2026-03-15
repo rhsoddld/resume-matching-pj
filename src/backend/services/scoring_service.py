@@ -59,7 +59,13 @@ def _experience_fit(candidate_years: float | None, required_years: float | None)
         return 0.5
     if candidate_years is None:
         return 0.0
-    return _clip_01(candidate_years / required_years)
+    ratio = candidate_years / required_years
+    if ratio <= 1.0:
+        return _clip_01(ratio)
+
+    # Prevent over-saturating at 1.0 for highly overqualified profiles.
+    over_penalty = min(0.35, (ratio - 1.0) * 0.20)
+    return _clip_01(1.0 - over_penalty)
 
 
 def _seniority_fit(candidate_level: str | None, preferred_level: str | None) -> float:

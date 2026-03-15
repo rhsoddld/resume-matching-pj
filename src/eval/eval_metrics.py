@@ -129,8 +129,14 @@ def score_experience_fit(required_years: float | None, candidate_years: float | 
     if candidate_years is None:
         return 0.0
     if required_years is None or required_years <= 0:
-        return 1.0
-    return round(max(0.0, min(1.0, float(candidate_years) / float(required_years))), 4)
+        return 0.5
+
+    ratio = float(candidate_years) / float(required_years)
+    if ratio <= 1.0:
+        return round(max(0.0, min(1.0, ratio)), 4)
+
+    over_penalty = min(0.35, (ratio - 1.0) * 0.20)
+    return round(max(0.0, min(1.0, 1.0 - over_penalty)), 4)
 
 
 def score_culture_fit(

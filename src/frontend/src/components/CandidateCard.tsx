@@ -18,6 +18,14 @@ function stateLabel(score: number): "Stable" | "Risk" {
   return score >= 65 ? "Stable" : "Risk";
 }
 
+function formatExperienceYears(years: number | undefined): string {
+  if (typeof years !== "number" || Number.isNaN(years)) {
+    return "Experience not provided";
+  }
+  const rounded = Number.isInteger(years) ? years.toFixed(0) : years.toFixed(1);
+  return `${rounded} years`;
+}
+
 export default function CandidateCard({ candidate, onOpen }: CandidateCardProps) {
   const score = scoreToPercent(candidate.score);
   const skillCoverage = scoreToPercent(candidate.skill_overlap);
@@ -26,7 +34,7 @@ export default function CandidateCard({ candidate, onOpen }: CandidateCardProps)
   const riskState = stateLabel(score);
 
   const role = candidate.seniority_level || candidate.category || "Generalist";
-  const years = candidate.experience_years != null ? `${candidate.experience_years} yrs` : "N/A";
+  const years = formatExperienceYears(candidate.experience_years);
 
   return (
     <article className="candidate-card" aria-label={`Candidate ${candidate.candidate_id}`}>

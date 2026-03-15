@@ -132,8 +132,14 @@ def compute_experience_fit(*, required_experience_years: float | None, candidate
     if candidate_experience_years is None:
         return 0.0
     if required_experience_years <= 0:
-        return 1.0
-    return round(min(1.0, candidate_experience_years / required_experience_years), 4)
+        return 0.5
+
+    ratio = candidate_experience_years / required_experience_years
+    if ratio <= 1.0:
+        return round(max(0.0, min(1.0, ratio)), 4)
+
+    over_penalty = min(0.35, (ratio - 1.0) * 0.20)
+    return round(max(0.0, min(1.0, 1.0 - over_penalty)), 4)
 
 
 def compute_seniority_fit(*, preferred_seniority: str | None, candidate_seniority: str | None) -> float:

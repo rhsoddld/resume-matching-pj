@@ -4,7 +4,7 @@ import CandidateDetailModal from "./components/CandidateDetailModal";
 import CandidateResults from "./components/CandidateResults";
 import JobRequirementForm from "./components/JobRequirementForm";
 import RecruiterHero from "./components/RecruiterHero";
-import type { JobMatchCandidate, JobMatchRequest } from "./types";
+import type { JobMatchCandidate, JobMatchRequest, QueryUnderstandingProfile } from "./types";
 
 export default function App() {
   const [candidates, setCandidates] = useState<JobMatchCandidate[]>([]);
@@ -12,6 +12,8 @@ export default function App() {
   const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<JobMatchCandidate | null>(null);
+  const [lastJobDescription, setLastJobDescription] = useState("");
+  const [queryProfile, setQueryProfile] = useState<QueryUnderstandingProfile | null>(null);
 
   const liveMessage = useMemo(() => {
     if (isLoading) {
@@ -28,12 +30,15 @@ export default function App() {
     setHasSearched(true);
     setError(null);
     setSelectedCandidate(null);
+    setLastJobDescription(request.job_description);
 
     try {
       const response = await matchCandidates(request);
       setCandidates(response.matches);
+      setQueryProfile(response.query_profile);
     } catch (submissionError) {
       setCandidates([]);
+      setQueryProfile(null);
       setError(submissionError instanceof Error ? submissionError.message : "Search failed.");
     } finally {
       setIsLoading(false);
@@ -58,7 +63,7 @@ export default function App() {
         {!hasSearched && !isLoading && (
           <section className="welcome-panel" aria-label="Dashboard guide">
             <h2>How This Dashboard Works</h2>
-            <p>JD를 입력하고 필터를 설정하면 AI가 후보를 분석하고 점수와 근거를 제공합니다.</p>
+            <p>Enter a job description and filters, and AI will rank candidates with scores and evidence.</p>
           </section>
         )}
 
@@ -75,7 +80,12 @@ export default function App() {
         )}
       </main>
 
-      <CandidateDetailModal candidate={selectedCandidate} onClose={() => setSelectedCandidate(null)} />
+      <CandidateDetailModal
+        candidate={selectedCandidate}
+        queryProfile={queryProfile}
+        jobDescription={lastJobDescription}
+        onClose={() => setSelectedCandidate(null)}
+      />
     </div>
   );
 }

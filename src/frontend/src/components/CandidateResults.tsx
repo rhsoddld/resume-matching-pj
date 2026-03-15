@@ -12,7 +12,7 @@ export default function CandidateResults({ candidates, onOpenDetail }: Candidate
     return (
       <section className="empty-panel" aria-live="polite">
         <h2>No candidates found</h2>
-        <p>필터를 조정하거나 JD를 더 구체적으로 입력해보세요.</p>
+        <p>Try adjusting filters or making the job description more specific.</p>
       </section>
     );
   }
@@ -28,7 +28,7 @@ export default function CandidateResults({ candidates, onOpenDetail }: Candidate
         <div className="candidate-table__head" role="row">
           <span>Name</span>
           <span>Role</span>
-          <span>Years</span>
+          <span>Experience</span>
           <span>Score</span>
         </div>
         {candidates.slice(0, 6).map((candidate) => (

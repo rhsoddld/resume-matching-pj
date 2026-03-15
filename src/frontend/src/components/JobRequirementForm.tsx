@@ -41,7 +41,7 @@ export default function JobRequirementForm({ onSubmit, isLoading }: JobRequireme
     event.preventDefault();
     const normalized = jobDescription.trim();
     if (normalized.length < 20) {
-      setError("JD는 최소 20자 이상 입력해주세요.");
+      setError("Please enter at least 20 characters for the job description.");
       return;
     }
 
@@ -65,7 +65,7 @@ export default function JobRequirementForm({ onSubmit, isLoading }: JobRequireme
           <textarea
             id="jd-input"
             aria-label="Natural language job description"
-            placeholder="자연어로 JD를 입력하세요. 예: Python 기반 추천 시스템 운영 경험과 대규모 데이터 파이프라인 구축 경험이 있는 시니어 엔지니어"
+            placeholder="Enter a natural-language JD. Example: Senior engineer with Python-based recommendation system operations and large-scale data pipeline experience."
             value={jobDescription}
             onChange={(event) => setJobDescription(event.target.value)}
             rows={7}
@@ -84,52 +84,52 @@ export default function JobRequirementForm({ onSubmit, isLoading }: JobRequireme
             aria-controls="jd-filters"
             onClick={() => setFiltersOpen((value) => !value)}
           >
-            {filtersOpen ? "필터 접기" : "필터 열기"}
+            {filtersOpen ? "Hide filters" : "Show filters"}
           </button>
         </div>
 
         <div className={`filters-grid ${filtersOpen ? "is-open" : ""}`} id="jd-filters">
           <div className="field-group">
-            <label htmlFor="seniority">경력</label>
+            <label htmlFor="seniority">Seniority</label>
             <select id="seniority" value={seniority} onChange={(event) => setSeniority(event.target.value)}>
               {SENIORITY.map((option) => (
-                <option key={option || "all"} value={option}>{option || "전체"}</option>
+                <option key={option || "all"} value={option}>{option || "All"}</option>
               ))}
             </select>
           </div>
 
           <div className="field-group">
-            <label htmlFor="job-family">직무군</label>
+            <label htmlFor="job-family">Job family</label>
             <select id="job-family" value={jobFamily} onChange={(event) => setJobFamily(event.target.value)}>
               {JOB_FAMILY.map((option) => (
-                <option key={option || "all"} value={option}>{option || "전체"}</option>
+                <option key={option || "all"} value={option}>{option || "All"}</option>
               ))}
             </select>
           </div>
 
           <div className="field-group">
-            <label htmlFor="education">학력</label>
+            <label htmlFor="education">Education</label>
             <select id="education" value={education} onChange={(event) => setEducation(event.target.value)}>
               {EDUCATION.map((option) => (
-                <option key={option || "all"} value={option}>{option || "전체"}</option>
+                <option key={option || "all"} value={option}>{option || "All"}</option>
               ))}
             </select>
           </div>
 
           <div className="field-group">
-            <label htmlFor="region">지역</label>
+            <label htmlFor="region">Region</label>
             <select id="region" value={region} onChange={(event) => setRegion(event.target.value)}>
               {REGION.map((option) => (
-                <option key={option || "all"} value={option}>{option || "전체"}</option>
+                <option key={option || "all"} value={option}>{option || "All"}</option>
               ))}
             </select>
           </div>
 
           <div className="field-group">
-            <label htmlFor="industry">산업</label>
+            <label htmlFor="industry">Industry</label>
             <select id="industry" value={industry} onChange={(event) => setIndustry(event.target.value)}>
               {INDUSTRY.map((option) => (
-                <option key={option || "all"} value={option}>{option || "전체"}</option>
+                <option key={option || "all"} value={option}>{option || "All"}</option>
               ))}
             </select>
           </div>
