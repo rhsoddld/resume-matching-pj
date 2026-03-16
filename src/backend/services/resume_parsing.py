@@ -55,7 +55,8 @@ SPACY_CHAR_LIMIT = 80_000
 _SKILL_NOISE_PREFIXES = ("and ", "or ", "with ", "the ", "a ", "an ", "to ", "in ", "of ", "for ", "type ", "provide ")
 _SKILL_NOISE_SUBSTRINGS = ("bilingual", "languages:", "language:", "proficient in", "including",
                             "such as", "etc.", "experience in", "knowledge of", " and ", " or ",
-                            "background in", "10-key", "wpm", "consisting of", "evolved", ".com")
+                            "background in", "10-key", "wpm", "consisting of", "evolved", ".com",
+                            "as well as", "understanding of", "ability to", "familiarity with")
 _SKILL_MAX_CHARS = 50   # single skills are rarely longer than 50 chars
 _SKILL_MIN_CHARS = 2
 

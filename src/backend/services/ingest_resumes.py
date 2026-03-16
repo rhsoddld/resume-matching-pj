@@ -107,7 +107,32 @@ SNEHA_CATEGORY_SKILL_MAP: dict[str, str] = {
     "AGRICULTURE": "agriculture",
     "AUTOMOBILE": "automotive",
 }
+# Rule-based category mapping for Suriyaganesh dataset imputation
+CATEGORY_RULES = {
+    "DATABASE": ["dba", "database administrator", "oracle dba", "sql server", "database developer", "database admin", "mysql dba", "postgresql dba"],
+    "BACKEND": ["backend", "java developer", "python developer", "c# developer", "c++ developer", "nodejs", "spring boot", "django", "ruby on rails", ".net developer", "golang", "php developer"],
+    "FRONTEND": ["frontend", "react", "angular", "vue", "ui developer", "html", "css", "javascript developer", "web developer"],
+    "DATA-ENGINEERING": ["data engineer", "hadoop", "spark", "etl", "data pipeline", "kafka", "snowflake", "big data"],
+    "DATA-ANALYSIS": ["data analyst", "data scientist", "business analyst", "machine learning", "deep learning", "nlp", "computer vision", "statistics"],
+    "DEVOPS": ["devops", "sre", "site reliability", "aws", "azure", "gcp", "docker", "kubernetes", "jenkins", "cicd", "terraform"],
+    "QA": ["qa", "quality assurance", "tester", "test engineer", "automation testing", "manual testing", "selenium", "cypress"],
+    "PROJECT-MANAGEMENT": ["scrum master", "product manager", "project manager", "agile", "pmp", "product owner"],
+    "SYSTEM-ADMINISTRATION": ["system admin", "sysadmin", "linux admin", "windows admin", "network admin", "infrastructure"],
+    "MOBILE": ["ios developer", "android developer", "mobile developer", "flutter", "react native", "swift", "kotlin"],
+    "SECURITY": ["security", "cybersecurity", "penetration testing", "infosec", "soc analyst", "ethical hacker"]
+}
 
+def _impute_category_rule_based(experience_titles: list[str], core_skills: list[str]) -> str:
+    score_board = {category: 0 for category in CATEGORY_RULES}
+    combined_text = " ".join([t for t in experience_titles if t] + [s for s in core_skills if s]).lower()
+    
+    for category, keywords in CATEGORY_RULES.items():
+        for kw in keywords:
+            if re.search(r"\b" + re.escape(kw) + r"\b", combined_text):
+                score_board[category] += 1
+                
+    best_category = max(score_board, key=score_board.get)
+    return best_category if score_board[best_category] > 0 else "SOFTWARE-ENGINEERING"
 
 client = get_openai_client()
 logger = logging.getLogger(__name__)
@@ -877,7 +902,7 @@ def iter_suri(limit_people: int = 3000, *, csv_chunk_size: int = DEFAULT_CSV_CHU
         location = next((item.location for item in experience_items if item.location), None)
         summary = f"{name} resume profile" if name else None
         experience_titles = _dedupe_preserve([item.title for item in experience_items if item.title])
-
+        
         parsed = ParsedSection(
             summary=summary,
             skills=raw_skills,
@@ -895,25 +920,56 @@ def iter_suri(limit_people: int = 3000, *, csv_chunk_size: int = DEFAULT_CSV_CHU
             education=education_items,
             experience_items=experience_items,
         )
+        
+        # --- Rule-based Category Imputation ---
+        category = _impute_category_rule_based(experience_titles, parsed.core_skills)
+        
+        # --- Synthetic Resume Text Generation ---
+        synthetic_parts = []
+        if name:
+            synthetic_parts.append(f"Name: {name}")
+        if category:
+            synthetic_parts.append(f"Category: {category}")
+        if parsed.skills:
+            synthetic_parts.append(f"Skills: {', '.join(parsed.skills)}")
+        if parsed.abilities:
+            synthetic_parts.append("Abilities:")
+            synthetic_parts.extend([f" - {abl}" for abl in parsed.abilities])
+        if experience_items:
+            synthetic_parts.append("Experience:")
+            for exp in experience_items:
+                exp_meta = f"{exp.title} at {exp.company}"
+                exp_date = f" ({exp.start_date} to {exp.end_date})" if exp.start_date else ""
+                synthetic_parts.append(f" - {exp_meta}{exp_date}")
+                if exp.description:
+                    synthetic_parts.append(f"   {exp.description}")
+        if education_items:
+            synthetic_parts.append("Education:")
+            for edu in education_items:
+                edu_meta = f"{edu.degree} at {edu.institution}"
+                edu_date = f" ({edu.start_date})" if edu.start_date else ""
+                synthetic_parts.append(f" - {edu_meta}{edu_date}")
+                
+        synthetic_resume_text = "\n".join(synthetic_parts)
 
         embedding_text = _build_embedding_text(
             name=name,
-            category=None,
+            category=category,
             summary=summary,
             core_skills=parsed.core_skills,
             canonical_skills=parsed.canonical_skills,
             expanded_skills=parsed.expanded_skills,
             capability_phrases=parsed.capability_phrases,
             experience_titles=experience_titles,
-            fallback_text=None,
+            fallback_text=synthetic_resume_text,
         )
 
         yield Candidate(
             candidate_id=candidate_id,
             source_dataset="suriyaganesh",
             source_keys={"person_id": pid},
-            category=None,
-            raw={"structured": True},
+            category=category,
+            raw={"resume_text": synthetic_resume_text},
             parsed=parsed,
             metadata={
                 "name": name,
