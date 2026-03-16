@@ -95,7 +95,16 @@ export interface FairnessAudit {
 }
 
 export interface JobMatchResponse {
+  session_id?: string;
   query_profile: QueryUnderstandingProfile;
   matches: JobMatchCandidate[];
   fairness: FairnessAudit;
+}
+
+export type FeedbackRating = "pass" | "reject" | "review";
+
+export interface InterviewEmailDraft {
+  subject: string;
+  body: string;
+  generated_at?: string;
 }

@@ -255,6 +255,7 @@ class MatchingService:
         import json
         import queue
         import threading
+        from backend.repositories.session_repo import create_jd_session
         
         event_queue = queue.Queue()
         
@@ -275,6 +276,16 @@ class MatchingService:
             "confidence": job_profile.confidence,
         }
         event_queue.put(f"event: profile\ndata: {json.dumps(profile_dict, ensure_ascii=False)}\n\n")
+
+        # Create JD session and emit session_id for AHI.2 / AHI.4 (non-fatal)
+        try:
+            session_id = create_jd_session(
+                job_description=job_description,
+                query_profile=profile_dict,
+            )
+            event_queue.put(f"event: session\ndata: {json.dumps({'session_id': session_id})}\n\n")
+        except Exception as _session_exc:
+            logger.warning("stream: Failed to create JD session (non-fatal): %s", _session_exc)
 
         retrieval_top_n = self._resolve_retrieval_top_n(top_k)
         hits = self._retrieve_candidates(

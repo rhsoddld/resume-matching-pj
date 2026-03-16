@@ -74,9 +74,9 @@
 | MSA.5 | Technical Evaluation Agent | `src/backend/agents/contracts/technical_agent.py` | Implemented | 아키텍처 역량 평가 정교화 |
 | MSA.6 | Culture Fit Agent | `src/backend/agents/contracts/culture_agent.py` | Implemented | 편향 완화 규칙 추가 |
 | AHI.1 | explainable ranking breakdown | `src/backend/services/match_result_builder.py`, `src/frontend/src/components/ExplainabilityPanel.tsx` | Implemented | 근거 문장 링크화 |
-| AHI.2 | recruiter feedback loop | `docs/governance/PLAN.md` | Planned (Backlog) | 업무 연기 |
+| AHI.2 | recruiter feedback loop | `src/backend/api/feedback.py`, `src/frontend/src/components/CandidateDetailModal.tsx` | Implemented | 피드백 기반 랭킹 보정 알고리즘 추가 |
 | AHI.3 | hiring analytics dashboard | `docs/governance/PLAN.md` | Resolved | LangSmith 대시보드로 대체 |
-| AHI.4 | interview scheduling handoff | `docs/governance/PLAN.md` | Planned (Backlog) | 업무 연기 |
+| AHI.4 | interview scheduling handoff | `src/backend/api/jobs.py`, `src/frontend/src/components/CandidateDetailModal.tsx` | Implemented | 커스텀 이메일 템플릿 지원 확장 |
 | AHI.5 | recruiter↔hiring manager A2A | `src/backend/agents/runtime/service.py`, `src/backend/agents/runtime/sdk_runner.py`, `src/backend/agents/runtime/prompts.py`, `src/backend/agents/contracts/weight_negotiation_agent.py`, `src/backend/core/observability.py`, `src/ops/middleware.py`, `src/ops/logging.py` | Implemented | request_id 기반 로그↔trace 상관관계 운영 대시보드 고도화 |
 
 ---
@@ -115,5 +115,5 @@
 1. `R2.3` actual fine-tuned embedding 모델 학습/배포 증거(runbook, rollback, A/B)와 calibration 자동화.
 2. `R2.5` token 최적화와 `R2.6` 고부하 부하 테스트/벤치마크 자동화 고도화.
 3. `R2.7` fairness metric 운영 대시보드 및 경고 정책 튜닝.
-4. `AHI.2~AHI.4` feedback loop, analytics dashboard, interview scheduling handoff 구현.
+4. `AHI.3`, `AHI.5` feedback proxy analytics, interview orchestration audit 확정.
 5. `D.1`, `D.4` 제출용 아키텍처 이미지(JPEG/PDF)와 발표자료 완성.

@@ -170,6 +170,7 @@ class JobMatchCandidate(BaseModel):
 
 
 class JobMatchResponse(BaseModel):
+    session_id: Optional[str] = None
     query_profile: QueryUnderstandingProfile
     matches: List[JobMatchCandidate] = Field(default_factory=list)
     fairness: FairnessAudit = Field(default_factory=FairnessAudit)

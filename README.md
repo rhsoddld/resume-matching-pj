@@ -153,6 +153,7 @@ JD Query Understanding은 다음 정보를 공통 Query 객체로 만든다.
 | Bias guardrails | Implemented (backend v1) | `matching_service`에서 fairness guardrail 검사 및 `fairness.warnings`/`bias_warnings` 응답 반영. fairness metric 모니터링은 LangSmith로 대체 완료. |
 | JD Input Guardrails | Implemented | 프롬프트 인젝션 탐지(`scan_for_prompt_injection`) 및 토큰 최적화(`optimize_jd_tokens`, 8000자 제한) 지원. 안전한 평가를 위해 `<job_description>` 래핑. |
 | Token Budget & Cache (R2.5) | Partial | `matching_service.py`에 JD hash 기반 LRU 캐시(TTL 300s, max 128 entries) + token budget 동적 `agent_eval_top_n` 조정. `settings.py`에 `TOKEN_BUDGET_ENABLED`, `TOKEN_CACHE_ENABLED`, `TOKEN_CACHE_TTL_SEC` 등 설정 추가 |
+| Recruiter Feedback & Email (AHI.2, AHI.4) | Implemented | `CandidateDetailModal`에 Action Bar 추가, Pass/Reject/Needs Review 상태 저장 및 면접 제안 이메일 초안 생성 지원 |
 
 ## 기술 스택
 
@@ -436,11 +437,13 @@ docker compose exec -T backend python -V
 | 추적 매트릭스 | [docs/governance/TRACEABILITY.md](docs/governance/TRACEABILITY.md) |
 | 요구사항 | [requirements/requirements.md](requirements/requirements.md) |
 
-## 다음에 해야 할 일
+## 다음에 해야 할 일 (Development Gaps)
 
-1. (진행 완료) 현재 SDK handoff가 적용된 negotiation 구간을 4개 평가 agent 실행 경로까지 확대해 handoff-native orchestration으로 전환한다. (RAG Tool 통합)
-6. 병렬 실행(Parallel Scoring) 도입 완료에 따른 고부하 부하 테스트 재수행 및 레이트리밋(Rate-Limit) 정책 세밀화.
-2. query understanding release gate와 fallback 정책을 CI 배포 게이트에 연결한다.
-3. retrieval fusion weight를 직군별로 튜닝하고 offline ranking metric으로 calibration한다.
-4. Bias guardrails 운영 고도화(임계치 정책 튜닝, 경고 triage 체계) 및 LangSmith 메타데이터 추적 보강.
-5. Eval/benchmark 결과 추세 비교(주간/모델 버전별)를 CI 리포트로 확장한다.
+시스템 주요 기능과 파이프라인(Ingestion, Query Understanding, Retrieval, Multi-Agent Evaluation)은 완료되었습니다. 향후 추가 및 고도화해야 할 과제는 다음과 같습니다:
+
+1. **포트폴리오 링크 외부 파싱 (PO.4)**: PDF 직업 설명서 분석은 추가되었으나, 외부 포트폴리오(ex: GitHub, LinkedIn) 링크 스크래핑 및 파싱 연동이 필요합니다.
+2. **Fairness 및 Bias Metric 튜닝 (R2.7)**: Bias Guardrails 로직은 추가되었으나, 실제 운영 기준의 직군별 편향 모델 임계치 설정 및 Triage 체계 운영 고도화가 남아있습니다.
+3. **고부하 벤치마킹 자동화 (R2.6)**: 시스템 동시 채점 병렬화 결과물에 대한 대량 API Stress Test 자동화 스크립트 구축이 요구됩니다.
+4. **Token Budget 정밀도 (R2.5)**: 단순 글자/단어 단위가 아닌 `tiktoken` 기반의 정확한 토큰 수 계측 및 Budgeting 개선 프레임워크가 필요합니다.
+5. **LLM Rerank 벤치마크 확정 (HCR.3)**: 기본값으로 유지 중인 Embedding Rerank에 더해 LLM Rerank의 정확한 대조군 실험 문서화가 남아있습니다. (Fine-tuned Embedding 모델 운영 R2.3은 의도적 보류)
+6. **산출물 및 발표 준비 (D.1, D.4)**: 최종 프레젠테이션용 슬라이드 덱과 아키텍처 추출본 생성 작업이 필요합니다.

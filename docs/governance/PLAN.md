@@ -72,6 +72,8 @@ isProject: false
 | Explainable ranking output | Done v3 baseline | UI에서 runtime mode/fallback reason/recruiter·hiring·final policy까지 노출 |
 | Eval / guardrails | Partial | DeepEval/LLM-as-Judge(quality/diversity/custom/potential) + live judge 아카이빙 + bias guardrails backend v1 구현. fairness metric 모니터링은 LangSmith로 대체 (Resolved). |
 | JD Input Guardrails | Done | JD Truncation (8,000자 제한) 및 Prompt Injection Defense 방어 구현 완료 |
+| AHI.2 Recruiter Feedback Loop | **Done** | `jd_sessions` + `candidate_feedback` MongoDB 컬렉션 및 UI(Action Bar) 통합 완료. |
+| AHI.4 Interview Email Draft | **Done** | `POST /api/jobs/draft-interview-email` 기반 이메일 초안 생성 및 UI 패널 통합 완료. |
 
 ## 다음 구현 우선순위 (requirements/requirements.md 기준)
 
@@ -104,8 +106,9 @@ isProject: false
 아래 조건을 만족하면 목표 설계와 현재 구현이 충분히 수렴했다고 본다.
 
 1. `requirements/requirements.md`의 모든 ID가 TRACEABILITY에 증거 링크를 가진다.
-2. `R1.9`, `R2.5~R2.6`, `AHI.2~AHI.4`가 Planned에서 최소 Partial 이상으로 상승한다.
-3. 최소 1회 이상 평가 실행 결과가 `docs/eval/eval-results.md`로 기록된다.
+2. `R1.9`, `R2.5~R2.6`가 Planned에서 최소 Partial 이상으로 상승한다.
+3. `AHI.2~AHI.4`가 Implemented로 완료된다. (완료)
+4. 최소 1회 이상 평가 실행 결과가 `docs/eval/eval-results.md`로 기록된다.
 4. README, AGENT, TRACEABILITY, ADR의 상태 표기가 동일한 기준(Implemented/Partial/Planned)을 유지한다.
 5. 제출물 기준으로 `D.1`(JPEG/PDF 아키텍처), `D.4`(발표 자료)가 준비된다.
 
@@ -114,8 +117,8 @@ isProject: false
 | ID | 항목 | 우선순위 |
 |----|------|---------|
 | BL-01 | fairness dashboard / bias monitoring 시각화 | Low (Resolved via LangSmith) |
-| BL-01a | AHI.2: recruiter feedback loop | Low |
-| BL-01b | AHI.4: interview scheduling handoff | Low |
+| BL-01a | AHI.2: recruiter feedback loop | **Done** (UI 통합 완료) |
+| BL-01b | AHI.4: interview scheduling handoff | **Done** (UI 통합 완료) |
 | BL-02 | retrieval fusion weight 실험 자동화 | Medium |
 | BL-03 | role-specific weight profiles 저장 / 버전 관리 | Medium |
 | BL-04 | reviewer demo용 canned dataset 및 시나리오 추가 | Medium |

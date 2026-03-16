@@ -15,6 +15,7 @@ export default function App() {
   const [lastJobDescription, setLastJobDescription] = useState("");
   const [queryProfile, setQueryProfile] = useState<QueryUnderstandingProfile | null>(null);
   const [thoughtProcess, setThoughtProcess] = useState<{agent: string, message: string} | null>(null);
+  const [sessionId, setSessionId] = useState<string | undefined>(undefined);
 
   const liveMessage = useMemo(() => {
     if (isLoading) {
@@ -36,11 +37,15 @@ export default function App() {
     setCandidates([]);
     setQueryProfile(null);
     setThoughtProcess(null);
+    setSessionId(undefined);
 
     try {
       await streamMatchCandidates(request, (type, data) => {
         if (type === "profile") {
           setQueryProfile(data as QueryUnderstandingProfile);
+        } else if (type === "session") {
+          // Capture session_id for AHI.2 feedback and AHI.4 email draft
+          if (data?.session_id) setSessionId(data.session_id as string);
         } else if (type === "thought_process") {
           setThoughtProcess(data as {agent: string, message: string});
         } else if (type === "candidate") {
@@ -117,6 +122,7 @@ export default function App() {
         candidate={selectedCandidate}
         queryProfile={queryProfile}
         jobDescription={lastJobDescription}
+        sessionId={sessionId}
         onClose={() => setSelectedCandidate(null)}
       />
     </div>

@@ -1,13 +1,15 @@
-import { useEffect, useMemo } from "react";
-import type { JobMatchCandidate, QueryUnderstandingProfile } from "../types";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import type { FeedbackRating, InterviewEmailDraft, JobMatchCandidate, QueryUnderstandingProfile } from "../types";
 import BiasGuardrailBanner from "./BiasGuardrailBanner";
 import ExplainabilityPanel from "./ExplainabilityPanel";
 import { isFastProfileCandidate } from "../utils/agentEvaluation";
+import { submitFeedback, draftInterviewEmail } from "../api/feedback";
 
 interface CandidateDetailModalProps {
   candidate: JobMatchCandidate | null;
   queryProfile: QueryUnderstandingProfile | null;
   jobDescription: string;
+  sessionId?: string;
   onClose: () => void;
 }
 
@@ -93,7 +95,7 @@ const AGENT_SECTIONS: Array<{ key: string; label: string }> = [
   { key: "culture", label: "Culture" },
 ];
 
-export default function CandidateDetailModal({ candidate, queryProfile, jobDescription, onClose }: CandidateDetailModalProps) {
+export default function CandidateDetailModal({ candidate, queryProfile, jobDescription, sessionId, onClose }: CandidateDetailModalProps) {
   const negotiationPack = toRecord(candidate?.agent_scores?.["weight_negotiation"]);
   const negotiationRationale = typeof negotiationPack?.rationale === "string"
     ? negotiationPack.rationale.trim()
@@ -132,6 +134,63 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
     }
     return Array.from(new Set(list));
   }, [candidate]);
+
+  // AHI.2 – Recruiter feedback state
+  const [activeFeedback, setActiveFeedback] = useState<FeedbackRating | null>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+
+  // AHI.4 – Interview email draft state
+  const [emailDraft, setEmailDraft] = useState<InterviewEmailDraft | null>(null);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleFeedback = useCallback(async (rating: FeedbackRating) => {
+    if (!candidate || !sessionId) return;
+    setFeedbackLoading(true);
+    try {
+      await submitFeedback(sessionId, candidate.candidate_id, rating);
+      setActiveFeedback(rating);
+    } catch {
+      // silently ignore; button still toggles optimistically
+      setActiveFeedback(rating);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  }, [candidate, sessionId]);
+
+  const handleDraftEmail = useCallback(async () => {
+    if (!candidate || !sessionId) return;
+    setEmailLoading(true);
+    setEmailError(null);
+    setEmailDraft(null);
+    setCopied(false);
+    try {
+      const draft = await draftInterviewEmail(sessionId, candidate.candidate_id, candidate);
+      setEmailDraft(draft);
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : "Failed to generate email draft.");
+    } finally {
+      setEmailLoading(false);
+    }
+  }, [candidate, sessionId]);
+
+  const handleCopy = useCallback(() => {
+    if (!emailDraft) return;
+    const text = `Subject: ${emailDraft.subject}\n\n${emailDraft.body}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [emailDraft]);
+
+  // Reset email draft and feedback when candidate changes
+  useEffect(() => {
+    setEmailDraft(null);
+    setEmailError(null);
+    setActiveFeedback(null);
+    setCopied(false);
+  }, [candidate?.candidate_id]);
 
   const requirementInfo = useMemo(() => {
     if (!queryProfile) {
@@ -384,6 +443,89 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
             </section>
           </aside>
         </div>
+
+        {/* AHI.2 + AHI.4 – Recruiter Action Bar */}
+        <footer className="candidate-modal__action-bar">
+          <div className="action-bar__feedback">
+            <span className="action-bar__label">Recruiter Decision</span>
+
+            {activeFeedback ? (
+              /* ── 선택 완료 상태: badge만 표시 ── */
+              <div className="feedback-decided">
+                <span className={`feedback-decided__badge feedback-decided__badge--${activeFeedback}`}>
+                  {activeFeedback === "pass" && <>✔︎ Passed</>}
+                  {activeFeedback === "reject" && <>✕ Rejected</>}
+                  {activeFeedback === "review" && <>● Needs Review</>}
+                </span>
+                <span className="feedback-decided__hint">Saved to session</span>
+              </div>
+            ) : (
+              /* ── 미선택 상태: 버튼 3개 ── */
+              <div className="action-bar__buttons">
+                {(["pass", "reject", "review"] as FeedbackRating[]).map((rating) => {
+                  const meta: Record<FeedbackRating, { label: string; mark: string }> = {
+                    pass:   { label: "Pass",         mark: "✔︎" },
+                    reject: { label: "Reject",       mark: "✕" },
+                    review: { label: "Needs Review", mark: "●" },
+                  };
+                  return (
+                    <button
+                      key={rating}
+                      type="button"
+                      id={`feedback-btn-${rating}`}
+                      disabled={feedbackLoading || !sessionId}
+                      onClick={() => handleFeedback(rating)}
+                      className={`feedback-btn feedback-btn--${rating}`}
+                      title={!sessionId ? "Run a match first to enable feedback" : undefined}
+                    >
+                      <span className="feedback-btn__mark">{meta[rating].mark}</span>
+                      {meta[rating].label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="action-bar__email">
+            <button
+              type="button"
+              id="draft-email-btn"
+              disabled={emailLoading || !sessionId}
+              onClick={handleDraftEmail}
+              className="email-draft-btn"
+              title={!sessionId ? "Run a match first to enable email draft" : undefined}
+            >
+              {emailLoading ? (
+                <><span className="spinner" /> Generating…</>
+              ) : (
+                <>&#9993; Draft Interview Email</>
+              )}
+            </button>
+
+            {emailError && (
+              <p className="email-draft-error">{emailError}</p>
+            )}
+
+            {emailDraft && (
+              <div className="email-draft-panel">
+                <div className="email-draft-panel__header">
+                  <strong>Email Draft</strong>
+                  <button
+                    type="button"
+                    id="copy-email-btn"
+                    className="copy-btn"
+                    onClick={handleCopy}
+                  >
+                    {copied ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+                <p className="email-draft-subject"><strong>Subject:</strong> {emailDraft.subject}</p>
+                <pre className="email-draft-body">{emailDraft.body}</pre>
+              </div>
+            )}
+          </div>
+        </footer>
       </div>
     </div>
   );

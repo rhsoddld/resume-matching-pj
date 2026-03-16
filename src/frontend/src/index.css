@@ -827,3 +827,239 @@ button:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── AHI.2 + AHI.4 Recruiter Action Bar ─────────────────────────────────── */
+
+.candidate-modal__action-bar {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 0.85rem;
+}
+
+.action-bar__label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.5rem;
+}
+
+.action-bar__feedback {
+  display: flex;
+  flex-direction: column;
+}
+
+.action-bar__buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.feedback-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  border: 1.5px solid var(--border);
+  background: #fafaf9;
+  border-radius: 999px;
+  padding: 0.42rem 0.9rem;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #3f3f46;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.feedback-btn__mark {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.feedback-btn--pass:hover:not(:disabled) {
+  border-color: rgba(22, 101, 52, 0.55);
+  background: rgba(22, 101, 52, 0.07);
+  color: #166534;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(22, 101, 52, 0.12);
+}
+
+.feedback-btn--reject:hover:not(:disabled) {
+  border-color: rgba(153, 27, 27, 0.55);
+  background: rgba(153, 27, 27, 0.07);
+  color: #991b1b;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(153, 27, 27, 0.12);
+}
+
+.feedback-btn--review:hover:not(:disabled) {
+  border-color: rgba(146, 64, 14, 0.55);
+  background: rgba(146, 64, 14, 0.07);
+  color: #92400e;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(146, 64, 14, 0.12);
+}
+
+.feedback-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+/* ── 선택 완료 badge ── */
+.feedback-decided {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.feedback-decided__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  padding: 0.38rem 1rem;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1.5px solid;
+}
+
+.feedback-decided__badge--pass {
+  border-color: rgba(22, 101, 52, 0.45);
+  background: rgba(22, 101, 52, 0.1);
+  color: #14532d;
+}
+
+.feedback-decided__badge--reject {
+  border-color: rgba(153, 27, 27, 0.4);
+  background: rgba(153, 27, 27, 0.08);
+  color: #991b1b;
+}
+
+.feedback-decided__badge--review {
+  border-color: rgba(146, 64, 14, 0.4);
+  background: rgba(146, 64, 14, 0.08);
+  color: #92400e;
+}
+
+.feedback-decided__hint {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ─── AHI.4 Interview Email Draft ─────────────────────────────────────────── */
+
+.action-bar__email {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.email-draft-btn {
+  align-self: flex-start;
+  border: 1.5px solid rgba(79, 70, 229, 0.3);
+  background: #fafaf9;
+  color: #4338ca;
+  border-radius: 999px;
+  padding: 0.44rem 1.1rem;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all var(--transition);
+  border-left: 3px solid #6366f1;
+}
+
+.email-draft-btn:hover:not(:disabled) {
+  background: rgba(79, 70, 229, 0.13);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.email-draft-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(79, 70, 229, 0.3);
+  border-top-color: #4338ca;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.email-draft-error {
+  color: var(--bad);
+  font-size: 12px;
+  background: #fef2f2;
+  border: 1px solid rgba(153, 27, 27, 0.2);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+}
+
+.email-draft-panel {
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  background: linear-gradient(180deg, rgba(238, 242, 255, 0.55) 0%, #ffffff 100%);
+  border-radius: 12px;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.email-draft-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.email-draft-panel__header strong {
+  font-size: 13px;
+  color: #3730a3;
+}
+
+.copy-btn {
+  border: 1px solid var(--border);
+  background: #fafaf9;
+  border-radius: 8px;
+  padding: 0.28rem 0.65rem;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.copy-btn:hover {
+  background: #f5f5f4;
+}
+
+.email-draft-subject {
+  font-size: 13px;
+  color: #292524;
+}
+
+.email-draft-body {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.6;
+  color: #3f3f46;
+  white-space: pre-wrap;
+  margin: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 0.5rem 0.6rem;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(79, 70, 229, 0.12);
+  border-radius: 8px;
+}
