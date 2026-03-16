@@ -4,7 +4,7 @@ import inspect
 import json
 import logging
 import os
-from typing import Any
+from typing import Any, Callable
 
 from backend.agents.contracts.culture_agent import CultureAgentOutput
 from backend.agents.contracts.experience_agent import ExperienceAgentOutput
@@ -12,7 +12,6 @@ from backend.agents.contracts.skill_agent import SkillAgentOutput
 from backend.agents.contracts.technical_agent import TechnicalAgentOutput
 from backend.agents.contracts.weight_negotiation_agent import WeightNegotiationOutput, WeightProposal
 from backend.core.settings import settings
-from typing import Callable
 
 try:
     from agents import AgentOutputSchema
@@ -123,7 +122,7 @@ def run_agents_sdk(
     injected_env_api_key = False
 
     try:
-        from backend.repositories.hybrid_retriever import HybridRetriever
+        from backend.services.hybrid_retriever import HybridRetriever
         try:
             from agents import function_tool
         except ImportError:
@@ -141,12 +140,15 @@ def run_agents_sdk(
             deeply within the current candidate's resume when the context doesn't have enough details.
             """
             if on_event:
-                on_event("thought_process", {
-                    "agent": "CandidateEvaluator",
-                    "action": "search_candidate_evidence",
-                    "query": query,
-                    "message": f"🔍 이력서 원문에서 '{query}' 검색 중..."
-                })
+                on_event(
+                    "thought_process",
+                    {
+                        "agent": "CandidateEvaluator",
+                        "action": "search_candidate_evidence",
+                        "query": query,
+                        "message": f"Searching resume source for '{query}'.",
+                    },
+                )
 
             if not _candidate_id:
                 return "Candidate ID is unknown. Cannot search."

@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     query_fallback_enabled: bool = True
     query_fallback_confidence_threshold: float = 0.62
     query_fallback_unknown_ratio_threshold: float = 0.55
+    # Keep rerank OFF by default until measurable A/B gain is proven.
     rerank_enabled: bool = False
     # Legacy single-model field (kept for backward compatibility).
     rerank_model: str = "gpt-4.1-mini"
@@ -46,6 +47,8 @@ class Settings(BaseSettings):
     rerank_gate_top2_gap_threshold: float = 0.04
     rerank_gate_confidence_threshold: float = 0.65
     rerank_gate_unknown_ratio_threshold: float = 0.5
+    rerank_require_ab_proof: bool = True
+    rerank_ab_proven: bool = False
     agent_eval_top_n: int = 5
     eval_judge_model: str = "gpt-4o"
     eval_judge_model_version: str = "judge-v1"

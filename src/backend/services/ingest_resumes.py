@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import logging
-import re
 import time
 import warnings
 from dataclasses import dataclass
@@ -26,9 +24,42 @@ from backend.core.database import get_collection
 from backend.core.providers import get_openai_client
 from backend.core.settings import settings
 from backend.core.vector_store import CandidateEmbedding, upsert_embeddings
+from backend.services.ingestion.constants import (
+    EMBEDDING_TEXT_VERSION,
+    EXPERIENCE_YEARS_METHOD,
+    NORMALIZATION_VERSION,
+    PARSING_VERSION_STRUCTURED,
+    PARSING_VERSION_TEMPLATE,
+    TAXONOMY_VERSION,
+)
+from backend.services.ingestion.preprocessing import (
+    build_embedding_text as _build_embedding_text_impl,
+    clean_text as _clean_text,
+    dedupe_preserve as _dedupe_preserve,
+    estimate_experience_years as _estimate_experience_years,
+    extract_sneha_skills as _extract_sneha_skills,
+    impute_category_rule_based as _impute_category_rule_based,
+    infer_seniority_level as _infer_seniority_level,
+    normalize_identifier as _normalize_identifier,
+    normalize_skill_list as _normalize_skill_list,
+    prepare_embedding_text as _prepare_embedding_text,
+)
+from backend.services.ingestion.state import (
+    ExistingState,
+    candidate_key as _candidate_key,
+    ensure_embedding_hash as _ensure_embedding_hash,
+    ensure_ingestion_versions as _ensure_ingestion_versions,
+    ensure_normalization_hash as _ensure_normalization_hash,
+)
+from backend.services.ingestion.transformers import (
+    build_synthetic_resume_text,
+    inject_sneha_category_skill,
+    to_parsed_education,
+    to_parsed_experience,
+)
 from backend.services.skill_ontology import RuntimeSkillOntology, SkillNormalizationResult
 from backend.services.resume_parsing import parse_resume_text
-from backend.schemas.candidate import Candidate, ParsedEducation, ParsedExperienceItem, ParsedSection
+from backend.schemas.candidate import Candidate, ParsedSection
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -38,101 +69,6 @@ CONFIG_DIR = ROOT / "config"
 DEFAULT_BATCH_SIZE = 32
 DEFAULT_CSV_CHUNK_SIZE = 2000
 EMBEDDING_TEXT_CHAR_LIMIT = 4000
-PARSING_VERSION_TEMPLATE = "v4-{parser_mode}-ontology"
-PARSING_VERSION_STRUCTURED = "v4-structured-ontology"
-NORMALIZATION_VERSION = "norm-v6-substring"
-TAXONOMY_VERSION = "taxonomy-v5-suri"
-EMBEDDING_TEXT_VERSION = "emb-v2-core-skill"
-EXPERIENCE_YEARS_METHOD = "month-union-v1"
-
-MONTH_NAME_MAP = {
-    "jan": 1,
-    "january": 1,
-    "feb": 2,
-    "february": 2,
-    "mar": 3,
-    "march": 3,
-    "apr": 4,
-    "april": 4,
-    "may": 5,
-    "jun": 6,
-    "june": 6,
-    "jul": 7,
-    "july": 7,
-    "aug": 8,
-    "august": 8,
-    "sep": 9,
-    "sept": 9,
-    "september": 9,
-    "oct": 10,
-    "october": 10,
-    "nov": 11,
-    "november": 11,
-    "dec": 12,
-    "december": 12,
-}
-SEASON_MONTH_MAP = {
-    "spring": 3,
-    "summer": 6,
-    "fall": 9,
-    "autumn": 9,
-    "winter": 12,
-}
-
-# Sneha category → taxonomy canonical skill 매핑
-# Candidate 생성 시 core_skills에 inject 됨
-SNEHA_CATEGORY_SKILL_MAP: dict[str, str] = {
-    "INFORMATION-TECHNOLOGY": "information technology",
-    "ACCOUNTANT": "accounting",
-    "ENGINEERING": "engineering",
-    "HR": "human resources",
-    "BANKING": "banking",
-    "FINANCE": "finance",
-    "CONSULTANT": "consulting",
-    "DIGITAL-MEDIA": "digital media",
-    "DESIGNER": "design",
-    "HEALTHCARE": "healthcare",
-    "BUSINESS-DEVELOPMENT": "business development",
-    "SALES": "sales",
-    "PUBLIC-RELATIONS": "public relations",
-    "TEACHER": "teaching",
-    "ADVOCATE": "legal",
-    "AVIATION": "aviation",
-    "FITNESS": "fitness",
-    "CHEF": "culinary",
-    "CONSTRUCTION": "construction",
-    "ARTS": "arts",
-    "APPAREL": "apparel",
-    "BPO": "bpo",
-    "AGRICULTURE": "agriculture",
-    "AUTOMOBILE": "automotive",
-}
-# Rule-based category mapping for Suriyaganesh dataset imputation
-CATEGORY_RULES = {
-    "DATABASE": ["dba", "database administrator", "oracle dba", "sql server", "database developer", "database admin", "mysql dba", "postgresql dba"],
-    "BACKEND": ["backend", "java developer", "python developer", "c# developer", "c++ developer", "nodejs", "spring boot", "django", "ruby on rails", ".net developer", "golang", "php developer"],
-    "FRONTEND": ["frontend", "react", "angular", "vue", "ui developer", "html", "css", "javascript developer", "web developer"],
-    "DATA-ENGINEERING": ["data engineer", "hadoop", "spark", "etl", "data pipeline", "kafka", "snowflake", "big data"],
-    "DATA-ANALYSIS": ["data analyst", "data scientist", "business analyst", "machine learning", "deep learning", "nlp", "computer vision", "statistics"],
-    "DEVOPS": ["devops", "sre", "site reliability", "aws", "azure", "gcp", "docker", "kubernetes", "jenkins", "cicd", "terraform"],
-    "QA": ["qa", "quality assurance", "tester", "test engineer", "automation testing", "manual testing", "selenium", "cypress"],
-    "PROJECT-MANAGEMENT": ["scrum master", "product manager", "project manager", "agile", "pmp", "product owner"],
-    "SYSTEM-ADMINISTRATION": ["system admin", "sysadmin", "linux admin", "windows admin", "network admin", "infrastructure"],
-    "MOBILE": ["ios developer", "android developer", "mobile developer", "flutter", "react native", "swift", "kotlin"],
-    "SECURITY": ["security", "cybersecurity", "penetration testing", "infosec", "soc analyst", "ethical hacker"]
-}
-
-def _impute_category_rule_based(experience_titles: list[str], core_skills: list[str]) -> str:
-    score_board = {category: 0 for category in CATEGORY_RULES}
-    combined_text = " ".join([t for t in experience_titles if t] + [s for s in core_skills if s]).lower()
-    
-    for category, keywords in CATEGORY_RULES.items():
-        for kw in keywords:
-            if re.search(r"\b" + re.escape(kw) + r"\b", combined_text):
-                score_board[category] += 1
-                
-    best_category = max(score_board, key=score_board.get)
-    return best_category if score_board[best_category] > 0 else "SOFTWARE-ENGINEERING"
 
 client = get_openai_client()
 logger = logging.getLogger(__name__)
@@ -143,12 +79,6 @@ def _load_runtime_ontology() -> RuntimeSkillOntology:
 
 
 ONTOLOGY = _load_runtime_ontology()
-
-
-@dataclass
-class ExistingState:
-    normalization_hash: str | None
-    embedding_hash: str | None
 
 
 @dataclass
@@ -173,268 +103,10 @@ def _log_event(event: str, *, level: int = logging.INFO, **fields: object) -> No
     logger.log(level, json.dumps(payload, ensure_ascii=True, sort_keys=True, default=str))
 
 
-def _clean_text(value: object) -> str | None:
-    if value is None or pd.isna(value):
-        return None
-    text = str(value).strip()
-    if not text:
-        return None
-    if text.lower() in {"nan", "none", "null", "na", "n/a"}:
-        return None
-    return re.sub(r"\s+", " ", text)
-
-
-def _normalize_identifier(value: object, prefix: str) -> str:
-    if value is None:
-        return f"{prefix}-unknown"
-    try:
-        if pd.isna(value):
-            return f"{prefix}-unknown"
-    except Exception:
-        pass
-
-    if isinstance(value, int) and not isinstance(value, bool):
-        normalized = str(value)
-    elif isinstance(value, float) and value.is_integer():
-        normalized = str(int(value))
-    else:
-        normalized = str(value).strip()
-
-    if not normalized:
-        normalized = "unknown"
-    return f"{prefix}-{normalized}"
-
-
-def _dedupe_preserve(items: Iterable[str]) -> list[str]:
-    out: list[str] = []
-    seen: set[str] = set()
-    for item in items:
-        if not item:
-            continue
-        if item in seen:
-            continue
-        seen.add(item)
-        out.append(item)
-    return out
-
-
-def _stable_sorted(values: Sequence[str]) -> list[str]:
-    return sorted({v for v in values if v})
-
-
-def _normalize_skill(skill: str) -> str:
-    token = re.sub(r"\s+", " ", skill.strip().lower())
-    token = token.replace("&", " and ")
-    return re.sub(r"\s+", " ", token).strip(" ,;:/|")
-
-
-def _normalize_skill_list(values: Iterable[object]) -> tuple[list[str], list[str]]:
-    skills = [_clean_text(v) for v in values]
-    raw = _dedupe_preserve([s for s in skills if s is not None])
-    normalized = _dedupe_preserve([_normalize_skill(s) for s in raw])
-    return raw, normalized
-
-
-def _normalize_month(value: object) -> str | None:
-    text = _clean_text(value)
-    if not text:
-        return None
-    lowered = text.lower().strip(" ,.;:()[]{}")
-    lowered = re.sub(
-        r"^(from|since|starting|started|start|beginning|began|as of|effective)\s+",
-        "",
-        lowered,
-    )
-    lowered = re.sub(r"\s+", " ", lowered).strip()
-    if lowered in {"present", "current", "now"}:
-        return "present"
-    if lowered in {"00/00", "00/0000", "00/yy", "yy", "unknown", "n/a", "na"}:
-        return None
-
-    def _year_month(year: int, month: int) -> str | None:
-        if year < 1900 or year > 2100:
-            return None
-        if month < 1 or month > 12:
-            return None
-        return f"{year:04d}-{month:02d}"
-
-    match = re.match(r"^(?P<month>\d{1,2})/(?P<year>\d{4})$", lowered)
-    if match:
-        month = int(match.group("month"))
-        year = int(match.group("year"))
-        if month == 0:
-            month = 1
-        normalized = _year_month(year, month)
-        if normalized:
-            return normalized
-
-    match = re.match(r"^(?P<year>\d{4})/(?P<month>\d{1,2})$", lowered)
-    if match:
-        year = int(match.group("year"))
-        month = int(match.group("month"))
-        if month == 0:
-            month = 1
-        normalized = _year_month(year, month)
-        if normalized:
-            return normalized
-
-    match = re.match(r"^(?P<season>spring|summer|fall|autumn|winter)\s+(?P<year>\d{4})$", lowered)
-    if match:
-        season = match.group("season")
-        year = int(match.group("year"))
-        month = SEASON_MONTH_MAP.get(season)
-        if month is not None:
-            normalized = _year_month(year, month)
-            if normalized:
-                return normalized
-
-    match = re.match(
-        r"^(?P<month>jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|"
-        r"jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+"
-        r"(?P<year>\d{4})$",
-        lowered,
-    )
-    if match:
-        month = MONTH_NAME_MAP.get(match.group("month"))
-        year = int(match.group("year"))
-        if month is not None:
-            normalized = _year_month(year, month)
-            if normalized:
-                return normalized
-
-    if re.match(r"^\d{1,2}/yy$", lowered):
-        return None
-
-    match = re.match(r"^(?P<year>\d{4})$", lowered)
-    if match:
-        year = int(match.group("year"))
-        normalized = _year_month(year, 1)
-        if normalized:
-            return normalized
-
-    try:
-        from dateparser import parse as date_parse  # type: ignore
-
-        parsed = date_parse(
-            lowered,
-            settings={
-                "PREFER_DAY_OF_MONTH": "first",
-                "DATE_ORDER": "MDY",
-                "PREFER_DATES_FROM": "past",
-            },
-        )
-        if parsed:
-            return parsed.strftime("%Y-%m")
-    except Exception:
-        pass
-
-    formats = ("%m/%Y", "%Y-%m", "%b %Y", "%B %Y", "%Y")
-    for fmt in formats:
-        try:
-            dt = datetime.strptime(lowered, fmt)
-            return dt.strftime("%Y-%m")
-        except ValueError:
-            continue
-
-    year_match = re.search(r"\b(19\d{2}|20\d{2}|21\d{2})\b", lowered)
-    if year_match:
-        year = int(year_match.group(1))
-        normalized = _year_month(year, 1)
-        if normalized:
-            return normalized
-
-    return None
-
-
-def _month_to_datetime(value: str | None, *, default_now: bool) -> datetime | None:
-    if not value:
-        return None
-    if value == "present":
-        return datetime.utcnow() if default_now else None
-
-    for fmt in ("%Y-%m", "%Y"):
-        try:
-            dt = datetime.strptime(value, fmt)
-            if fmt == "%Y":
-                return dt.replace(month=1)
-            return dt
-        except ValueError:
-            continue
-    return None
-
-
-def _estimate_experience_years(items: Sequence[ParsedExperienceItem]) -> float | None:
-    """
-    Estimate years using month-union over intervals to avoid double-counting overlaps.
-    """
-    intervals: list[tuple[int, int]] = []
-    for item in items:
-        start = _month_to_datetime(item.start_date, default_now=False)
-        end = _month_to_datetime(item.end_date, default_now=True)
-        if start is None:
-            continue
-        if end is None:
-            end = datetime.utcnow()
-        start_idx = start.year * 12 + (start.month - 1)
-        end_idx = end.year * 12 + (end.month - 1)
-        if end_idx < start_idx:
-            continue
-        intervals.append((start_idx, end_idx))
-
-    if not intervals:
-        return None
-
-    intervals.sort(key=lambda x: (x[0], x[1]))
-    merged: list[list[int]] = []
-    for start_idx, end_idx in intervals:
-        if not merged:
-            merged.append([start_idx, end_idx])
-            continue
-        prev_start, prev_end = merged[-1]
-        if start_idx <= prev_end + 1:
-            if end_idx > prev_end:
-                merged[-1][1] = end_idx
-        else:
-            merged.append([start_idx, end_idx])
-
-    total_months = sum((end - start + 1) for start, end in merged)
-    if total_months <= 0:
-        return None
-    return round(total_months / 12.0, 1)
-
-
-def _infer_seniority_level(experience_years: float | None) -> str | None:
-    if experience_years is None:
-        return None
-    if experience_years < 2:
-        return "junior"
-    if experience_years < 5:
-        return "mid"
-    if experience_years < 8:
-        return "senior"
-    return "lead"
-
-
-def _prepare_embedding_text(text: str) -> str:
-    compact = re.sub(r"\s+", " ", text).strip()
-    if not compact:
-        compact = "empty resume"
-    return compact[:EMBEDDING_TEXT_CHAR_LIMIT]
-
-
 def embed_texts(texts: Sequence[str]) -> List[List[float]]:
-    payload = [_prepare_embedding_text(text) for text in texts]
+    payload = [_prepare_embedding_text(text, char_limit=EMBEDDING_TEXT_CHAR_LIMIT) for text in texts]
     resp = client.embeddings.create(model=settings.openai_embedding_model, input=payload)
     return [item.embedding for item in resp.data]  # type: ignore[no-any-return]
-
-
-def _extract_sneha_skills(resume_text: str) -> tuple[list[str], list[str]]:
-    match = re.search(r"\bskills\b(.*)", resume_text, flags=re.IGNORECASE | re.DOTALL)
-    if not match:
-        return [], []
-    tail = match.group(1)[:1200]
-    tokens = re.split(r"[,\n;|]", tail)
-    return _normalize_skill_list(tokens[:60])
 
 
 def _apply_skill_normalization(
@@ -459,178 +131,22 @@ def _build_embedding_text(
     experience_titles: Sequence[str],
     fallback_text: str | None,
 ) -> str:
-    parts: list[str] = []
-    core_set = set(core_skills)
-    capability_set = set(capability_phrases)
-    specialized = [
-        token
-        for token in canonical_skills
-        if token not in core_set and token not in capability_set and len(token.split()) <= 3
-    ]
-
-    if name:
-        parts.append(f"Name: {name}")
-    if category:
-        parts.append(f"Category: {category}")
-    if summary:
-        parts.append(f"Summary: {summary}")
-    if core_skills:
-        parts.append("Core skills: " + "; ".join(core_skills[:30]))
-    if specialized:
-        parts.append("Specialized skills: " + "; ".join(specialized[:20]))
-    if expanded_skills:
-        parts.append("Expanded skills: " + "; ".join(expanded_skills[:30]))
-    if capability_phrases:
-        parts.append("Capabilities: " + "; ".join(capability_phrases[:5]))
-    if experience_titles:
-        parts.append("Experience titles: " + "; ".join(experience_titles[:20]))
-    if fallback_text and not parts:
-        parts.append(fallback_text)
-    return _prepare_embedding_text("\n".join(parts))
+    return _build_embedding_text_impl(
+        name=name,
+        category=category,
+        summary=summary,
+        core_skills=core_skills,
+        canonical_skills=canonical_skills,
+        expanded_skills=expanded_skills,
+        capability_phrases=capability_phrases,
+        experience_titles=experience_titles,
+        fallback_text=fallback_text,
+        char_limit=EMBEDDING_TEXT_CHAR_LIMIT,
+    )
 
 
 def _iter_csv_chunks(path: Path, csv_chunk_size: int) -> Iterable[pd.DataFrame]:
     yield from pd.read_csv(path, chunksize=csv_chunk_size)
-
-
-def _candidate_key(cand: Candidate) -> tuple[str, str]:
-    return (cand.source_dataset, cand.candidate_id)
-
-
-def _normalization_payload(cand: Candidate) -> dict:
-    parsed = cand.parsed
-    ingestion = cand.ingestion
-    return {
-        "candidate_id": cand.candidate_id,
-        "source_dataset": cand.source_dataset,
-        "category": cand.category,
-        "parsed": {
-            "summary": parsed.summary,
-            "skills": parsed.skills,
-            "normalized_skills": parsed.normalized_skills,
-            "abilities": parsed.abilities,
-            "canonical_skills": _stable_sorted(parsed.canonical_skills),
-            "core_skills": _stable_sorted(parsed.core_skills),
-            "expanded_skills": _stable_sorted(parsed.expanded_skills),
-            "capability_phrases": _stable_sorted(parsed.capability_phrases),
-            "role_candidates": _stable_sorted(parsed.role_candidates),
-            "review_required_skills": _stable_sorted(parsed.review_required_skills),
-            "versioned_skills": [item.model_dump() for item in parsed.versioned_skills],
-            "experience_years": parsed.experience_years,
-            "seniority_level": parsed.seniority_level,
-            "education": [item.model_dump() for item in parsed.education],
-            "experience_items": [item.model_dump() for item in parsed.experience_items],
-        },
-        "metadata": {
-            "name": cand.metadata.name,
-            "location": cand.metadata.location,
-        },
-        "ingestion": {
-            "parsing_version": ingestion.parsing_version,
-            "normalization_version": ingestion.normalization_version,
-            "taxonomy_version": ingestion.taxonomy_version,
-            "embedding_text_version": ingestion.embedding_text_version,
-            "experience_years_method": ingestion.experience_years_method,
-            "alias_applied": ingestion.alias_applied,
-            "taxonomy_applied": ingestion.taxonomy_applied,
-            "has_structured_enrichment": ingestion.has_structured_enrichment,
-        },
-    }
-
-
-def _compute_normalization_hash(cand: Candidate) -> str:
-    payload = _normalization_payload(cand)
-    raw = json.dumps(payload, ensure_ascii=True, sort_keys=True, default=str)
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-
-def _ensure_ingestion_versions(cand: Candidate) -> None:
-    if not cand.ingestion.normalization_version:
-        cand.ingestion.normalization_version = NORMALIZATION_VERSION
-    if not cand.ingestion.taxonomy_version:
-        cand.ingestion.taxonomy_version = TAXONOMY_VERSION
-    if not cand.ingestion.embedding_text_version:
-        cand.ingestion.embedding_text_version = EMBEDDING_TEXT_VERSION
-    if not cand.ingestion.experience_years_method:
-        cand.ingestion.experience_years_method = EXPERIENCE_YEARS_METHOD
-
-
-def _ensure_normalization_hash(cand: Candidate) -> str:
-    had_version_triplet = bool(
-        cand.ingestion.normalization_version
-        and cand.ingestion.taxonomy_version
-        and cand.ingestion.experience_years_method
-    )
-    _ensure_ingestion_versions(cand)
-    norm_hash = cand.ingestion.normalization_hash
-    if (
-        norm_hash
-        and had_version_triplet
-        and cand.ingestion.normalization_version == NORMALIZATION_VERSION
-        and cand.ingestion.taxonomy_version == TAXONOMY_VERSION
-        and cand.ingestion.experience_years_method == EXPERIENCE_YEARS_METHOD
-    ):
-        return norm_hash
-    norm_hash = _compute_normalization_hash(cand)
-    cand.ingestion.normalization_hash = norm_hash
-    return norm_hash
-
-
-def _compute_embedding_hash(cand: Candidate) -> str:
-    norm_hash = _ensure_normalization_hash(cand)
-    payload = {
-        "candidate_id": cand.candidate_id,
-        "source_dataset": cand.source_dataset,
-        "embedding_text": _prepare_embedding_text(cand.embedding_text or ""),
-        "embedding_text_version": cand.ingestion.embedding_text_version,
-        "normalization_version": cand.ingestion.normalization_version,
-        "taxonomy_version": cand.ingestion.taxonomy_version,
-        "normalization_hash": norm_hash,
-    }
-    raw = json.dumps(payload, ensure_ascii=True, sort_keys=True, default=str)
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-
-def _ensure_embedding_hash(cand: Candidate) -> str:
-    had_text_version = bool(cand.ingestion.embedding_text_version)
-    _ensure_ingestion_versions(cand)
-    emb_hash = cand.ingestion.embedding_hash
-    if emb_hash and had_text_version and cand.ingestion.embedding_text_version == EMBEDDING_TEXT_VERSION:
-        return emb_hash
-    emb_hash = _compute_embedding_hash(cand)
-    cand.ingestion.embedding_hash = emb_hash
-    return emb_hash
-
-
-def _to_parsed_education(records: Sequence) -> list[ParsedEducation]:
-    items: list[ParsedEducation] = []
-    for record in records:
-        items.append(
-            ParsedEducation(
-                degree=_clean_text(getattr(record, "degree", None)),
-                institution=_clean_text(getattr(record, "institution", None)),
-                start_date=_normalize_month(getattr(record, "start_date", None)),
-                end_date=_normalize_month(getattr(record, "end_date", None)),
-                location=_clean_text(getattr(record, "location", None)),
-            )
-        )
-    return items
-
-
-def _to_parsed_experience(records: Sequence) -> list[ParsedExperienceItem]:
-    items: list[ParsedExperienceItem] = []
-    for record in records:
-        items.append(
-            ParsedExperienceItem(
-                title=_clean_text(getattr(record, "title", None)),
-                company=_clean_text(getattr(record, "company", None)),
-                start_date=_normalize_month(getattr(record, "start_date", None)),
-                end_date=_normalize_month(getattr(record, "end_date", None)),
-                location=_clean_text(getattr(record, "location", None)),
-                description=_clean_text(getattr(record, "description", None)),
-            )
-        )
-    return items
 
 
 def _upgrade_candidate_to_v2(cand: Candidate) -> Candidate:
@@ -695,8 +211,8 @@ def iter_sneha(
             source_skills = extracted.skills if extracted.skills else fallback_skills
             raw_skills, skill_norm = _apply_skill_normalization(raw_skills=source_skills, abilities=[])
 
-            education_items = _to_parsed_education(extracted.education)
-            experience_items = _to_parsed_experience(extracted.experience)
+            education_items = to_parsed_education(extracted.education)
+            experience_items = to_parsed_experience(extracted.experience)
             experience_years = _estimate_experience_years(experience_items)
             seniority = _infer_seniority_level(experience_years)
             summary = extracted.summary or (resume_text[:280] if resume_text else None)
@@ -719,20 +235,7 @@ def iter_sneha(
                 experience_items=experience_items,
             )
 
-            # Sneha category → domain skill inject
-            # taxonomy에 등록된 canonical form을 core_skills 앞에 삽입
-            if category:
-                cat_skill = SNEHA_CATEGORY_SKILL_MAP.get(category.upper())
-                if cat_skill:
-                    if cat_skill not in parsed.core_skills:
-                        parsed.core_skills = [cat_skill, *parsed.core_skills]
-                    if cat_skill not in parsed.canonical_skills:
-                        parsed.canonical_skills = [cat_skill, *parsed.canonical_skills]
-                    if cat_skill not in parsed.expanded_skills:
-                        # taxonomy parent등 추가
-                        parents = ONTOLOGY.core_taxonomy.get(cat_skill, {}).get("parents", [])
-                        parsed.expanded_skills = [cat_skill, *parents, *parsed.expanded_skills]
-                        parsed.expanded_skills = _dedupe_preserve(parsed.expanded_skills)
+            inject_sneha_category_skill(parsed=parsed, category=category, ontology=ONTOLOGY)
             experience_titles = _dedupe_preserve([item.title for item in experience_items if item.title])
 
             embedding_text = _build_embedding_text(
@@ -872,30 +375,30 @@ def iter_suri(limit_people: int = 3000, *, csv_chunk_size: int = DEFAULT_CSV_CHU
         abilities_raw, _ = _normalize_skill_list(abil_map.get(pid, []))
         raw_skills, skill_norm = _apply_skill_normalization(raw_skills=skill_map.get(pid, []), abilities=abilities_raw)
 
-        education_items: list[ParsedEducation] = []
-        for edu in edu_map.get(pid, []):
-            education_items.append(
-                ParsedEducation(
-                    degree=_clean_text(edu.get("program")),
-                    institution=_clean_text(edu.get("institution")),
-                    start_date=_normalize_month(edu.get("start_date")),
-                    end_date=None,
-                    location=_clean_text(edu.get("location")),
-                )
-            )
+        education_records = [
+            {
+                "degree": edu.get("program"),
+                "institution": edu.get("institution"),
+                "start_date": edu.get("start_date"),
+                "end_date": None,
+                "location": edu.get("location"),
+            }
+            for edu in edu_map.get(pid, [])
+        ]
+        education_items = to_parsed_education(education_records)
 
-        experience_items: list[ParsedExperienceItem] = []
-        for exp in exp_map.get(pid, []):
-            experience_items.append(
-                ParsedExperienceItem(
-                    title=_clean_text(exp.get("title")),
-                    company=_clean_text(exp.get("firm")),
-                    start_date=_normalize_month(exp.get("start_date")),
-                    end_date=_normalize_month(exp.get("end_date")),
-                    location=_clean_text(exp.get("location")),
-                    description=None,
-                )
-            )
+        experience_records = [
+            {
+                "title": exp.get("title"),
+                "company": exp.get("firm"),
+                "start_date": exp.get("start_date"),
+                "end_date": exp.get("end_date"),
+                "location": exp.get("location"),
+                "description": None,
+            }
+            for exp in exp_map.get(pid, [])
+        ]
+        experience_items = to_parsed_experience(experience_records)
 
         experience_years = _estimate_experience_years(experience_items)
         seniority = _infer_seniority_level(experience_years)
@@ -924,33 +427,14 @@ def iter_suri(limit_people: int = 3000, *, csv_chunk_size: int = DEFAULT_CSV_CHU
         # --- Rule-based Category Imputation ---
         category = _impute_category_rule_based(experience_titles, parsed.core_skills)
         
-        # --- Synthetic Resume Text Generation ---
-        synthetic_parts = []
-        if name:
-            synthetic_parts.append(f"Name: {name}")
-        if category:
-            synthetic_parts.append(f"Category: {category}")
-        if parsed.skills:
-            synthetic_parts.append(f"Skills: {', '.join(parsed.skills)}")
-        if parsed.abilities:
-            synthetic_parts.append("Abilities:")
-            synthetic_parts.extend([f" - {abl}" for abl in parsed.abilities])
-        if experience_items:
-            synthetic_parts.append("Experience:")
-            for exp in experience_items:
-                exp_meta = f"{exp.title} at {exp.company}"
-                exp_date = f" ({exp.start_date} to {exp.end_date})" if exp.start_date else ""
-                synthetic_parts.append(f" - {exp_meta}{exp_date}")
-                if exp.description:
-                    synthetic_parts.append(f"   {exp.description}")
-        if education_items:
-            synthetic_parts.append("Education:")
-            for edu in education_items:
-                edu_meta = f"{edu.degree} at {edu.institution}"
-                edu_date = f" ({edu.start_date})" if edu.start_date else ""
-                synthetic_parts.append(f" - {edu_meta}{edu_date}")
-                
-        synthetic_resume_text = "\n".join(synthetic_parts)
+        synthetic_resume_text = build_synthetic_resume_text(
+            name=name,
+            category=category,
+            skills=parsed.skills,
+            abilities=parsed.abilities,
+            experience_items=experience_items,
+            education_items=education_items,
+        )
 
         embedding_text = _build_embedding_text(
             name=name,

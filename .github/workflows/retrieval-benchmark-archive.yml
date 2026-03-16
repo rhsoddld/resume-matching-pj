@@ -10,7 +10,7 @@ on:
     paths:
       - "scripts/benchmark_retrieval.py"
       - "scripts/generate_retrieval_benchmark_archive.py"
-      - "src/backend/repositories/hybrid_retriever.py"
+      - "src/backend/services/hybrid_retriever.py"
       - "src/backend/services/retrieval_service.py"
       - "src/backend/services/job_profile_extractor.py"
       - "src/eval/golden_set.jsonl"

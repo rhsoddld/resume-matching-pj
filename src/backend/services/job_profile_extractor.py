@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 import re
 
 from backend.core.collections import dedupe_preserve
+from backend.services.job_profile.signals import compute_signal_quality, dedupe_signals
 from backend.services.skill_ontology import RuntimeSkillOntology
 
 
@@ -99,16 +100,24 @@ _ROLE_PATTERNS = (
     "data engineer",
     "data scientist",
     "machine learning engineer",
+    "ml engineer",
     "devops engineer",
     "platform engineer",
     "frontend engineer",
     "full stack engineer",
+    "fullstack engineer",
+    "qa engineer",
+    "qa automation engineer",
+    "test automation engineer",
+    "business analyst",
     "hr manager",
     "hr coordinator",
     "recruiter",
     "project manager",
     "product manager",
     "database administrator",
+    "senior architect",
+    "solutions architect",
 )
 _MUST_CUES = ("must", "required", "essential", "need to", "needs to")
 _NICE_CUES = ("nice to have", "preferred", "plus", "good to have")
@@ -124,6 +133,26 @@ _PHRASE_SKILL_HINTS = {
     "connect multiple systems": ["api", "integration", "microservices"],
     "deployment environments": ["deployment", "devops", "cloud"],
     "modern deployment environments": ["deployment", "devops", "cloud"],
+    # fullstack / web
+    "fullstack engineer": ["java", "spring boot", "react", "rest api", "postgresql"],
+    "full stack engineer": ["java", "spring boot", "react", "rest api", "postgresql"],
+    "fullstack features": ["java", "spring boot", "react", "rest api"],
+    # qa / test automation
+    "test automation": ["test automation", "selenium", "pytest", "api testing", "ci/cd"],
+    "qa automation": ["test automation", "selenium", "pytest", "api testing", "ci/cd"],
+    "automated quality gates": ["test automation", "api testing"],
+    # ml / ai
+    "machine learning engineer": ["machine learning", "python", "pytorch", "feature engineering", "model deployment"],
+    "production ml pipelines": ["machine learning", "python", "pytorch", "model deployment"],
+    "nlp-powered": ["machine learning", "python"],
+    # business analyst
+    "business analyst": ["requirements gathering", "stakeholder management", "sql", "reporting", "process mapping"],
+    "requirements management": ["requirements gathering", "stakeholder management"],
+    "operational improvement": ["process mapping", "reporting"],
+    # architect
+    "senior architect": ["system architecture", "cloud architecture", "distributed systems", "security by design", "technical leadership"],
+    "enterprise-scale architecture": ["system architecture", "cloud architecture", "distributed systems"],
+    "modernization programs": ["system architecture", "cloud architecture"],
 }
 _PHRASE_CAPABILITY_HINTS = {
     "backend of web applications": "backend development",
@@ -423,7 +452,7 @@ def _extract_capability_signals(
             if capability and capability in lowered:
                 strength = _match_strength_for_term(capability, sentences, default_strength="familiarity")
                 out.append(QuerySignal(name=capability, strength=strength, signal_type="capability"))
-    return _dedupe_signals(out)
+    return dedupe_signals(out)
 
 
 def _build_skill_signals(required_skills: list[str], sentences: list[str]) -> list[QuerySignal]:
@@ -435,22 +464,7 @@ def _build_skill_signals(required_skills: list[str], sentences: list[str]) -> li
         )
         for skill in required_skills
     ]
-    return _dedupe_signals(signals)
-
-
-def _dedupe_signals(signals: list[QuerySignal]) -> list[QuerySignal]:
-    by_name: dict[str, QuerySignal] = {}
-    for signal in signals:
-        key = signal.name.strip().lower()
-        if not key:
-            continue
-        existing = by_name.get(key)
-        if existing is None:
-            by_name[key] = signal
-            continue
-        if _STRENGTH_PRIORITY.get(signal.strength, 0) > _STRENGTH_PRIORITY.get(existing.strength, 0):
-            by_name[key] = signal
-    return list(by_name.values())
+    return dedupe_signals(signals)
 
 
 def _build_lexical_query(
@@ -474,21 +488,6 @@ def _build_semantic_query_expansion(
 ) -> list[str]:
     parts = [*roles, *required_skills, *related_skills, *(c.name for c in capability_signals)]
     return dedupe_preserve([p for p in parts if p])
-
-
-def _compute_signal_quality(skill_signals: list[QuerySignal], capability_signals: list[QuerySignal]) -> dict[str, float | int]:
-    total = len(skill_signals) + len(capability_signals)
-    unknown = sum(1 for s in [*skill_signals, *capability_signals] if s.strength == "unknown")
-    must_have = sum(1 for s in [*skill_signals, *capability_signals] if s.strength == "must have")
-    familiarity = sum(1 for s in [*skill_signals, *capability_signals] if s.strength == "familiarity")
-    unknown_ratio = round((unknown / total), 4) if total > 0 else 0.0
-    return {
-        "total_signals": total,
-        "unknown_signals": unknown,
-        "must_have_signals": must_have,
-        "familiarity_signals": familiarity,
-        "unknown_ratio": unknown_ratio,
-    }
 
 
 def _compute_transferable_skill_insight(
@@ -579,8 +578,18 @@ def build_job_profile(
         normalized = ontology.normalize(raw_skills=seed_candidates, abilities=[])
         known_terms = set(ontology.core_taxonomy.keys()).union(set(ontology.alias_to_canonical.values()))
         known_canonical = [skill for skill in normalized.canonical_skills if skill in known_terms]
-        required_skills = normalized.core_skills or known_canonical or filtered_candidates
-        expanded_skills = normalized.expanded_skills or required_skills
+
+        # Prefer ontology-guided core skills, but do not lose raw tokens like
+        # concrete languages or tools (e.g., java, react, sql) that may not
+        # yet be fully represented in the ontology taxonomy.
+        base_required = normalized.core_skills or known_canonical
+        if base_required:
+            required_skills = dedupe_preserve([*base_required, *filtered_candidates])
+        else:
+            required_skills = filtered_candidates
+
+        expanded_base = normalized.expanded_skills or base_required or filtered_candidates
+        expanded_skills = dedupe_preserve([*expanded_base, *filtered_candidates])
 
     required_skills = dedupe_preserve(required_skills)
     expanded_skills = dedupe_preserve(expanded_skills)
@@ -628,7 +637,7 @@ def build_job_profile(
         related_skills=related_skills,
         capability_signals=capability_signals,
     )
-    signal_quality = _compute_signal_quality(skill_signals, capability_signals)
+    signal_quality = compute_signal_quality(skill_signals, capability_signals)
     signal_quality["transferable_score"] = transferable_skill_score
     signal_quality["transferable_evidence_count"] = len(transferable_skill_evidence)
     query_text_for_embedding = _build_query_text_for_embedding(
