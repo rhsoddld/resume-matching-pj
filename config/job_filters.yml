@@ -1,0 +1,77 @@
+# Single source of truth for Job family / Education / Region / Industry filter options.
+# Loaded by backend.core.filter_options; used by /api/jobs/filters and normalization.
+
+industries:
+  technology:
+    aliases: [it, tech, "information technology", software]
+    category_terms: ["information technology", it, software, engineering, developer, platform]
+  finance:
+    aliases: [fintech, banking, "financial services"]
+    category_terms: [finance, fintech, banking, accounting, investment, audit]
+  healthcare:
+    aliases: ["health care", "health tech", medical]
+    category_terms: [healthcare, "health care", medical, clinical, pharma]
+  e commerce:
+    aliases: [ecommerce, e-commerce, "online retail", "digital commerce"]
+    category_terms: [e commerce, ecommerce, retail, marketplace, "digital commerce", "online retail"]
+  manufacturing:
+    aliases: [industrial, automotive, production]
+    category_terms: [manufacturing, industrial, automotive, production, factory]
+
+job_families:
+  software engineering:
+    aliases: ["software engineer", sde, swe, programmer, developer, backend, frontend]
+    category_terms: [software, engineering, programming, development, backend, frontend]
+  data engineering:
+    aliases: ["data engineer"]
+    category_terms: [data, etl, pipeline, warehouse]
+  data analysis:
+    aliases: ["data analyst", "business analyst"]
+    category_terms: [analysis, bi, tableau, analytics]
+  mobile:
+    aliases: ["ios developer", "android developer", "mobile engineer"]
+    category_terms: [mobile, ios, android, flutter, "react native"]
+  devops:
+    aliases: ["site reliability engineer", sre, "devops engineer"]
+    category_terms: [devops, infrastructure, "ci/cd", aws, cloud, reliability]
+  qa:
+    aliases: ["quality assurance", "test engineer", sdet, "qa engineer"]
+    category_terms: [qa, testing, automation, "quality assurance"]
+  security:
+    aliases: [cybersecurity, infosec, "security engineer"]
+    category_terms: [security, "penetration testing", soc]
+  design:
+    aliases: [designer, "ui/ux", "product designer"]
+    category_terms: [design, ux, ui, figma]
+  product management:
+    aliases: ["product manager", pm]
+    category_terms: [product, roadmap, agile]
+  project management:
+    aliases: ["project manager", "scrum master"]
+    category_terms: [project, scrum, pmp, agile]
+  information technology:
+    aliases: [it, sysadmin, "system administration"]
+    category_terms: [it, support, network, "system administration"]
+  human resources:
+    aliases: [hr, recruiter, "talent acquisition"]
+    category_terms: [hr, recruitment, "human resources", talent]
+  finance:
+    aliases: [accountant, "financial analyst", banking]
+    category_terms: [finance, accounting, banking, financial]
+  sales:
+    aliases: ["account executive", "sales representative", "business development"]
+    category_terms: [sales, "business development", bdr]
+  marketing:
+    aliases: ["digital marketing", "seo specialist", "public relations"]
+    category_terms: [marketing, seo, content, pr, "public relations"]
+
+educations:
+  - Bachelor
+  - Master
+  - PhD
+
+regions:
+  - India
+  - Remote
+  - United Kingdom
+  - United States

@@ -5,19 +5,26 @@
 - Stores the id in the request_id_ctx ContextVar (used by ops.logging).
 - Echoes the id back in the X-Request-Id response header.
 
+APILoggingMiddleware: logs every API request/response to MongoDB (application_logs)
+with method, path, status_code, duration_ms, request_id.
+
 Registration (main.py):
-    from ops.middleware import RequestIdMiddleware
+    from ops.middleware import RequestIdMiddleware, APILoggingMiddleware
     app.add_middleware(RequestIdMiddleware)
+    app.add_middleware(APILoggingMiddleware)
 """
 from __future__ import annotations
 
+import time
 import uuid
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from ops.logging import request_id_ctx
+from ops.logging import request_id_ctx, get_logger
+
+logger = get_logger(__name__)
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
@@ -36,4 +43,24 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
             request_id_ctx.reset(token)
 
         response.headers["X-Request-Id"] = request_id
+        return response
+
+
+class APILoggingMiddleware(BaseHTTPMiddleware):
+    """Log every API request to MongoDB (application_logs) with method, path, status_code, duration_ms."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        method = request.method
+        path = request.url.path
+        start = time.perf_counter()
+        response = await call_next(request)
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        status_code = response.status_code
+        logger.info(
+            "api_request",
+            method=method,
+            path=path,
+            status_code=status_code,
+            duration_ms=duration_ms,
+        )
         return response

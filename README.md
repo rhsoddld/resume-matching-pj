@@ -62,6 +62,8 @@ resume-matching-system/
 
 ## Documentation Entry Points
 
+- **Key Design Decisions:** [docs/Key Design Decisions.md](./docs/Key%20Design%20Decisions.md)
+- **Code Structure & Extensibility:** [docs/CODE_STRUCTURE.md](./docs/CODE_STRUCTURE.md)
 - Architecture: [docs/architecture/system_architecture.md](./docs/architecture/system_architecture.md)
 - Deployment: [docs/architecture/deployment_architecture.md](./docs/architecture/deployment_architecture.md)
 - Ingestion flow: [docs/data-flow/resume_ingestion_flow.md](./docs/data-flow/resume_ingestion_flow.md)

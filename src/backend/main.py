@@ -10,7 +10,7 @@ from backend.core.database import get_mongo_client
 from backend.core.settings import settings
 from backend.api import candidates, ingestion, jobs, feedback
 from ops.logging import configure_logging, get_logger
-from ops.middleware import RequestIdMiddleware
+from ops.middleware import RequestIdMiddleware, APILoggingMiddleware
 from pymilvus import connections, utility
 
 configure_logging(log_level=settings.log_level)
@@ -25,7 +25,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
-app.add_middleware(RequestIdMiddleware)
+app.add_middleware(APILoggingMiddleware)  # innermost: log each API request to MongoDB
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -33,6 +33,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestIdMiddleware)  # outermost: set request_id for logging
 
 
 @app.exception_handler(AppError)

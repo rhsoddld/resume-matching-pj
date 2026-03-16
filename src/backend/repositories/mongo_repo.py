@@ -5,7 +5,13 @@ from backend.core.collections import dedupe_preserve
 from backend.core.database import get_collection
 from backend.core.exceptions import RepositoryError
 from backend.core.observability import traceable_op
-from backend.schemas.job import INDUSTRY_STANDARD_DICTIONARY
+from backend.core.filter_options import (
+    get_filter_options as get_filter_options_from_config,
+)
+from backend.schemas.job import (
+    INDUSTRY_STANDARD_DICTIONARY,
+    JOB_FAMILY_STANDARD_DICTIONARY,
+)
 
 
 def _normalize_doc(doc: dict | None) -> dict | None:
@@ -138,56 +144,32 @@ def _infer_industries(doc: dict[str, Any]) -> set[str]:
             matched.add(_to_display_label(canonical))
     return matched
 
+def _infer_job_families(doc: dict[str, Any]) -> set[str]:
+    tokens: set[str] = set()
+    category = _normalize_text(doc.get("category"))
+    if category:
+        tokens.add(category)
+
+    parsed = doc.get("parsed")
+    parsed = parsed if isinstance(parsed, dict) else {}
+    for field in ("core_skills", "expanded_skills", "normalized_skills"):
+        for skill in parsed.get(field) or []:
+            skill_token = _normalize_text(skill)
+            if skill_token:
+                tokens.add(skill_token)
+
+    matched: set[str] = set()
+    joined = " ".join(sorted(tokens))
+    for canonical, payload in JOB_FAMILY_STANDARD_DICTIONARY.items():
+        terms = [_normalize_text(canonical), *[_normalize_text(alias) for alias in payload.get("aliases", [])], *[_normalize_text(term) for term in payload.get("category_terms", [])]]
+        if any(term and term in joined for term in terms):
+            matched.add(_to_display_label(canonical))
+    return matched
+
 
 @traceable_op(name="mongo.get_filter_options", run_type="retriever", tags=["mongo"])
 def get_filter_options(limit_docs: int = 5000) -> dict[str, list[str]]:
-    candidates = get_collection("candidates")
     try:
-        categories = [value for value in candidates.distinct("category") if isinstance(value, str) and value.strip()]
-        job_families = sorted({_to_display_label(value) for value in categories if _to_display_label(value)})
-
-        regions: set[str] = set()
-        educations: set[str] = set()
-        industries: set[str] = set()
-
-        projection = {
-            "category": 1,
-            "metadata.location": 1,
-            "parsed.core_skills": 1,
-            "parsed.expanded_skills": 1,
-            "parsed.normalized_skills": 1,
-            "parsed.experience_items.location": 1,
-            "parsed.education.location": 1,
-            "parsed.education.degree": 1,
-        }
-        cursor = candidates.find({}, projection).limit(int(max(1, limit_docs)))
-        for doc in cursor:
-            for token in _extract_region_tokens(doc):
-                if token in _REGION_ALIASES:
-                    regions.add(_REGION_ALIASES[token])
-                    continue
-                if "remote" in token or "wfh" in token:
-                    regions.add("Remote")
-                    continue
-                if "india" in token:
-                    regions.add("India")
-                    continue
-                if "united states" in token or token in {"us", "usa"}:
-                    regions.add("United States")
-                    continue
-
-            educations.update(_extract_education_levels(doc))
-            industries.update(_infer_industries(doc))
-
-        region_values = sorted(regions)
-        education_values = [label for label in ("Bachelor", "Master", "PhD") if label in educations]
-        industry_values = sorted(industries)
-
-        return {
-            "job_families": job_families,
-            "educations": education_values,
-            "regions": region_values,
-            "industries": industry_values,
-        }
+        return get_filter_options_from_config()
     except Exception as exc:
-        raise RepositoryError("Failed to load filter options from candidate documents.") from exc
+        raise RepositoryError("Failed to load filter options from config.") from exc

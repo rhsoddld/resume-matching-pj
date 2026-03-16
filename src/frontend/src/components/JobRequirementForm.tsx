@@ -7,10 +7,10 @@ interface JobRequirementFormProps {
   isLoading: boolean;
 }
 
-const DEFAULT_JOB_FAMILY = ["", "Data Science", "Python Developer", "Java Developer", "Business Analyst", "DevOps Engineer", "HR"];
-const DEFAULT_EDUCATION = ["", "Any", "Bachelor", "Master", "PhD"];
-const DEFAULT_REGION = ["", "Remote", "India", "United States", "APAC", "EMEA"];
-const DEFAULT_INDUSTRY = ["", "Technology", "Finance", "Healthcare", "E-commerce", "Manufacturing"];
+const DEFAULT_JOB_FAMILY = [""];
+const DEFAULT_EDUCATION = [""];
+const DEFAULT_REGION = [""];
+const DEFAULT_INDUSTRY = [""];
 const SENIORITY = ["", "Junior", "Mid", "Senior"];
 
 function seniorityToExperience(seniority: string): number | undefined {

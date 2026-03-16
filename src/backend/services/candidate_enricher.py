@@ -6,6 +6,7 @@ from typing import Any
 from backend.core.observability import traceable_op
 from backend.core.providers import get_skill_ontology
 from backend.repositories.mongo_repo import get_candidates_by_ids
+from backend.core.filter_options import INDUSTRY_STANDARD_DICTIONARY
 
 
 _EDUCATION_LEVELS = {"bachelor": 1, "master": 2, "phd": 3}
@@ -24,24 +25,6 @@ _EDUCATION_PATTERNS = {
     "master": ("master", "masters", "m.tech", "mtech", "m.e", "m.sc", "msc", "mba", "ms "),
     "phd": ("phd", "doctor", "doctorate", "dphil"),
 }
-_INDUSTRY_TAXONOMY_SEEDS = {
-    "technology": {"technology", "information technology", "backend", "programming", "database", "data"},
-    "finance": {"finance", "banking", "accounting", "investment", "audit"},
-    "healthcare": {"healthcare", "medical", "clinical", "wellness"},
-    "e commerce": {
-        "e commerce",
-        "ecommerce",
-        "retail",
-        "online retail",
-        "marketplace",
-        "digital commerce",
-        "sales",
-        "marketing",
-        "business development",
-        "digital media",
-    },
-    "manufacturing": {"manufacturing", "industrial", "engineering", "automotive", "production"},
-}
 _REGION_ALIASES = {
     "us": "united states",
     "u.s.": "united states",
@@ -52,17 +35,9 @@ _REGION_ALIASES = {
     "great britain": "united kingdom",
     "england": "united kingdom",
     "uae": "united arab emirates",
-}
-_INDUSTRY_ALIASES = {
-    "it": "technology",
-    "tech": "technology",
-    "information technology": "technology",
-    "fintech": "finance",
-    "health care": "healthcare",
-    "health tech": "healthcare",
-    "ecommerce": "e commerce",
-    "e-commerce": "e commerce",
-    "online retail": "e commerce",
+    "remote": "remote",
+    "wfh": "remote",
+    "india": "india",
 }
 
 
@@ -91,7 +66,10 @@ def _normalize_industry(value: Any) -> str:
     token = _normalize_text(value)
     if not token:
         return ""
-    return _INDUSTRY_ALIASES.get(token, token)
+    for canonical, payload in INDUSTRY_STANDARD_DICTIONARY.items():
+        if token == canonical or token in payload.get("aliases", []):
+            return canonical
+    return token
 
 
 def _extract_locations(candidate_doc: dict[str, Any]) -> list[str]:
@@ -154,18 +132,26 @@ def _matches_education(candidate_doc: dict[str, Any], education: str | None) -> 
 
 
 def _matches_industry(candidate_doc: dict[str, Any], industry: str | None) -> bool:
-    normalized = _normalize_industry(industry)
-    if not normalized:
+    normalized_target = _normalize_industry(industry)
+    if not normalized_target:
         return True
 
-    seed_terms = _INDUSTRY_TAXONOMY_SEEDS.get(normalized)
+    payload = INDUSTRY_STANDARD_DICTIONARY.get(normalized_target)
+    if not payload:
+        return True
+    
+    seed_terms = {
+        _normalize_text(term) 
+        for term in [*payload.get("aliases", []), *payload.get("category_terms", [])]
+        if _normalize_text(term)
+    }
     if not seed_terms:
         return True
 
     parsed = candidate_doc.get("parsed")
     parsed = parsed if isinstance(parsed, dict) else {}
     category = _normalize_industry(candidate_doc.get("category")) or _normalize_text(candidate_doc.get("category"))
-    candidate_tokens = {
+    candidate_tokens: set[str] = {
         _normalize_text(skill)
         for field in ("core_skills", "expanded_skills", "normalized_skills")
         for skill in (parsed.get(field) or [])
@@ -176,7 +162,6 @@ def _matches_industry(candidate_doc: dict[str, Any], industry: str | None) -> bo
 
     ontology = get_skill_ontology()
     if ontology is None:
-        # Fallback: structured token match without free-text summary heuristics.
         return len(candidate_tokens.intersection(seed_terms)) > 0
 
     candidate_taxonomy_tags: set[str] = set()
@@ -197,9 +182,11 @@ def _matches_industry(candidate_doc: dict[str, Any], industry: str | None) -> bo
             if parent_token:
                 candidate_taxonomy_tags.add(parent_token)
 
-    industry_taxonomy_terms = set(seed_terms)
+    industry_taxonomy_terms: set[str] = set(seed_terms)
     for skill, meta in ontology.core_taxonomy.items():
-        related = {
+        if not isinstance(meta, dict):
+            continue
+        related: set[str] = {
             _normalize_text(skill),
             _normalize_text(meta.get("domain")),
             _normalize_text(meta.get("family")),

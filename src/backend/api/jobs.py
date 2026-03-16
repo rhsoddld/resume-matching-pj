@@ -20,15 +20,27 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
+_DEFAULT_FILTER_OPTIONS = JobFilterOptions(
+    job_families=["Software Engineering", "Data Engineering", "Product Management"],
+    educations=["Bachelor", "Master", "PhD"],
+    regions=["India", "Remote", "United Kingdom", "United States"],
+    industries=["Technology", "Finance", "Healthcare"],
+)
+
+
 @router.get("/filters", response_model=JobFilterOptions)
 def filter_options():
-    data = get_filter_options()
-    return JobFilterOptions(
-        job_families=data.get("job_families", []),
-        educations=data.get("educations", []),
-        regions=data.get("regions", []),
-        industries=data.get("industries", []),
-    )
+    try:
+        data = get_filter_options()
+        return JobFilterOptions(
+            job_families=data.get("job_families", []),
+            educations=data.get("educations", []),
+            regions=data.get("regions", []),
+            industries=data.get("industries", []),
+        )
+    except Exception as exc:
+        logger.exception("Failed to load filter options; returning defaults.", exc_info=exc)
+        return _DEFAULT_FILTER_OPTIONS
 
 
 @router.post("/match", response_model=JobMatchResponse)
@@ -62,6 +74,15 @@ def match_jobs(request: JobMatchRequest):
     return result
 
 
+def _stream_with_error_logging(inner_gen):
+    """Wrap SSE generator to log any exception before it propagates (client still gets 500)."""
+    try:
+        yield from inner_gen
+    except Exception as exc:
+        logger.exception("match/stream failed: %s", exc, exc_info=exc)
+        raise
+
+
 @router.post("/match/stream")
 def stream_match_jobs(request: JobMatchRequest):
     """Stream candidate match results iteratively via Server-Sent Events (SSE)."""
@@ -79,7 +100,7 @@ def stream_match_jobs(request: JobMatchRequest):
         region=request.region,
         industry=request.industry,
     )
-    return StreamingResponse(generator, media_type="text/event-stream")
+    return StreamingResponse(_stream_with_error_logging(generator), media_type="text/event-stream")
 
 
 @router.post("/extract-pdf")

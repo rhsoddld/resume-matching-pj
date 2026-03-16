@@ -3,7 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from backend.schemas.job import INDUSTRY_STANDARD_DICTIONARY, normalize_industry_label
+from backend.core.filter_options import INDUSTRY_STANDARD_DICTIONARY
+from backend.schemas.job import normalize_industry_label
 
 
 def normalize_token(value: str | None) -> str:

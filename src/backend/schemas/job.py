@@ -5,29 +5,10 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-
-INDUSTRY_STANDARD_DICTIONARY: dict[str, dict[str, List[str]]] = {
-    "technology": {
-        "aliases": ["it", "tech", "information technology", "software"],
-        "category_terms": ["information technology", "it", "software", "engineering", "developer", "platform"],
-    },
-    "finance": {
-        "aliases": ["fintech", "banking", "financial services"],
-        "category_terms": ["finance", "fintech", "banking", "accounting", "investment", "audit"],
-    },
-    "healthcare": {
-        "aliases": ["health care", "health tech", "medical"],
-        "category_terms": ["healthcare", "health care", "medical", "clinical", "pharma"],
-    },
-    "e commerce": {
-        "aliases": ["ecommerce", "e-commerce", "online retail", "digital commerce"],
-        "category_terms": ["e commerce", "ecommerce", "retail", "marketplace", "digital commerce", "online retail"],
-    },
-    "manufacturing": {
-        "aliases": ["industrial", "automotive", "production"],
-        "category_terms": ["manufacturing", "industrial", "automotive", "production", "factory"],
-    },
-}
+from backend.core.filter_options import (
+    INDUSTRY_STANDARD_DICTIONARY,
+    JOB_FAMILY_STANDARD_DICTIONARY,
+)
 
 
 def _normalize_industry_token(value: str | None) -> str:
@@ -46,6 +27,27 @@ def normalize_industry_label(value: str | None) -> str:
     if token in INDUSTRY_STANDARD_DICTIONARY:
         return token
     for canonical, payload in INDUSTRY_STANDARD_DICTIONARY.items():
+        aliases = payload.get("aliases", [])
+        if token in aliases:
+            return canonical
+    return token
+
+def _normalize_job_family_token(value: str | None) -> str:
+    if not isinstance(value, str):
+        return ""
+    token = value.strip().lower()
+    token = re.sub(r"[-_]+", " ", token)
+    token = re.sub(r"\s+", " ", token)
+    return token
+
+
+def normalize_job_family_label(value: str | None) -> str:
+    token = _normalize_job_family_token(value)
+    if not token:
+        return ""
+    if token in JOB_FAMILY_STANDARD_DICTIONARY:
+        return token
+    for canonical, payload in JOB_FAMILY_STANDARD_DICTIONARY.items():
         aliases = payload.get("aliases", [])
         if token in aliases:
             return canonical

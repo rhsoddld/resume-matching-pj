@@ -10,6 +10,9 @@ Usage:
 from __future__ import annotations
 
 import logging
+import logging.handlers
+import queue
+import atexit
 import sys
 from contextvars import ContextVar
 
@@ -61,8 +64,36 @@ def configure_logging(log_level: str = "INFO") -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
 
+    # Setup Async MongoDB Logging
+    from ops.mongo_handler import MongoLogHandler
+    mongo_handler = MongoLogHandler(collection_name="application_logs")
+    mongo_handler.setFormatter(formatter)
+
+    # Use an infinite queue (or limited if memory is a strict constraint)
+    log_queue: queue.Queue = queue.Queue(-1)
+    queue_handler = logging.handlers.QueueHandler(log_queue)
+    
+    # Override prepare to prevent QueueHandler from stringifying the structlog dict
+    # before it hits the MongoLogHandler's own formatter.
+    def prepare_preserve_msg(record: logging.LogRecord) -> logging.LogRecord:
+        import copy
+        rec = copy.copy(record)
+        rec.exc_info = None
+        rec.exc_text = None
+        rec.stack_info = None
+        return rec
+    
+    queue_handler.prepare = prepare_preserve_msg # type: ignore
+    
+    # The listener runs in a background thread to unblock the main execution
+    listener = logging.handlers.QueueListener(log_queue, mongo_handler, respect_handler_level=True)
+    listener.start()
+    
+    # Gracefully stop the listener on process exit
+    atexit.register(listener.stop)
+
     root = logging.getLogger()
-    root.handlers = [handler]
+    root.handlers = [handler, queue_handler]
     root.setLevel(getattr(logging, log_level.upper(), logging.INFO))
 
 
