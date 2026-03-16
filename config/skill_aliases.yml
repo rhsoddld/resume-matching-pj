@@ -113,3 +113,119 @@
 "windows":
   aliases:
     - "microsoft windows"
+
+"rest api":
+  aliases:
+    - "restful api"
+    - "restful apis"
+    - "rest apis"
+    - "rest api integration"
+    - "api integration"
+
+"ci/cd":
+  aliases:
+    - "cicd"
+    - "ci cd"
+    - "continuous integration"
+    - "continuous delivery"
+    - "continuous deployment"
+
+"spring boot":
+  aliases:
+    - "springboot"
+
+"fastapi":
+  aliases:
+    - "fast api"
+
+"api testing":
+  aliases:
+    - "api test"
+    - "api tests"
+    - "service testing"
+
+"test automation":
+  aliases:
+    - "qa automation"
+    - "automation testing"
+
+"unit testing":
+  aliases:
+    - "unit test"
+    - "unit tests"
+    - "unittest"
+
+"pytest":
+  aliases:
+    - "py test"
+
+"selenium":
+  aliases:
+    - "selenium webdriver"
+
+"data structures":
+  aliases:
+    - "data structure"
+
+"requirements gathering":
+  aliases:
+    - "requirement gathering"
+    - "requirements elicitation"
+
+"stakeholder management":
+  aliases:
+    - "stakeholder mgmt"
+
+"stakeholder reporting":
+  aliases:
+    - "executive reporting"
+
+"system architecture":
+  aliases:
+    - "solution architecture"
+    - "enterprise architecture"
+    - "reference architecture"
+
+"distributed systems":
+  aliases:
+    - "distributed system"
+
+"cloud architecture":
+  aliases:
+    - "cloud-native architecture"
+
+"technical leadership":
+  aliases:
+    - "technical lead"
+    - "architecture leadership"
+
+"security by design":
+  aliases:
+    - "secure by design"
+    - "security design"
+
+"cost optimization":
+  aliases:
+    - "cost governance"
+
+"solution governance":
+  aliases:
+    - "architecture governance"
+
+"next.js":
+  aliases:
+    - "nextjs"
+
+"a/b testing":
+  aliases:
+    - "ab testing"
+    - "a b testing"
+
+"performance testing":
+  aliases:
+    - "perf testing"
+    - "load testing"
+
+"llm fine-tuning":
+  aliases:
+    - "llm fine tuning"

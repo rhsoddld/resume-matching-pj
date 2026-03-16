@@ -273,12 +273,16 @@ python3 scripts/ingest_resumes.py \
 | **G-01** | Sneha 일부 | `experience_years = None`, `seniority_level = None` | ExperienceEvalAgent | 🟡 중간 | parser-mode=`hybrid` 유지 + null 시 `raw.resume_text` fallback |
 | **G-02** | Sneha 일부 | `parsed.experience_items = []` | ExperienceEvalAgent, TechnicalEvalAgent | 🟡 중간 | regex/global date range + spaCy 보강 후 fallback |
 | **G-03** | Sneha 일부 | `parsed.education = []` | ExperienceEvalAgent | 🟡 중간 | degree 패턴 확장 + null 시 scoring weight 조정 |
-| **G-04** | Suri 일부 | category confidence 낮음 | SkillMatchingAgent 필터, CultureFitAgent | 🟡 중간 | `impute_category_rule_based` + low-confidence 시 abilities/skills 기반 판단 |
+| **G-04** | Suri 일부 | `category_confidence` 필드 부재 + rule-based category 오분류 가능성 | SkillMatchingAgent 필터, CultureFitAgent | 🟡 중간 | `impute_category_rule_based` 유지 + abilities/skills/experience 다중근거로 category sanity-check |
 | **G-05** | Sneha 일부 | `parsed.skills` 빈 리스트 (regex 실패) | SkillMatchingAgent | 🟡 중간 | spaCy 보강 + `raw.resume_text` fallback |
 | **G-06** | 양쪽 | `SKILL_NORMALIZATION_MAP` 규칙 수 제한 | SkillMatchingAgent | 🟡 중간 | 동의어 맵 점진적 확장 (LLM 없이) |
 | **G-07** | Suri | `experience_items[].description = None` | TechnicalEvalAgent, CultureFitAgent | 🟡 중간 | Abilities 텍스트를 컨텍스트에 포함 |
-| **G-08** | Suri | `summary`가 `"{name} resume profile"` 수준 | 전반 | 🟢 낮음 | Abilities + Skills로 embedding_text 보강 (이미 구현) |
+| **G-08** | Suri | `summary`가 `"{role} resume profile"` 수준 | 전반 | 🟢 낮음 | Abilities + Skills로 embedding_text 보강 (이미 구현) |
 | **G-09** | 양쪽 | embedding_text 구성 방식 상이 | Retriever/Ranking | 🟡 중간 | 공통 템플릿 유지 + 필드 가중치 튜닝으로 편향 완화 |
+
+> 2026-03-16 기준 Mongo live count(재적재 전): `G-01=62`, `G-02=62`, `G-03=412`, `G-05=26`  
+> 2026-03-16 parser patch 반영 후 Mongo 재적재 결과: `G-01=5`, `G-02=6`, `G-03=59`, `G-05=8`
+> 2026-03-16 Sneha abilities rule-extraction 반영 후: `Sneha abilities=2464/2484 (99.2%)`, `전체 abilities=5463/5484 (99.6%)`
 
 ### 보완 전략 (모두 LLM 없이)
 
@@ -301,7 +305,7 @@ RAG Pipeline (매칭 요청 시)
 | `SkillMatchingAgent` | Sneha skills 빈 리스트 | `raw.resume_text` 컨텍스트 포함 → Agent가 JD 기반 스킬 판단 |
 | `ExperienceEvalAgent` | Sneha `experience_years=None`, 경력 없음 | `raw.resume_text` 포함 → Agent가 텍스트에서 경력 추정 |
 | `TechnicalEvalAgent` | Sneha 경력 description 없음 | `raw.resume_text` 포함 → 기술 스택 텍스트 참조 |
-| `CultureFitAgent` | Suri category 신뢰도 낮음 | Abilities 텍스트 컨텍스트 포함 → domain fit 판단 |
+| `CultureFitAgent` | Suri category confidence 필드 부재/오분류 가능성 | Abilities + Skills + Experience titles 컨텍스트 포함 → domain fit 판단 |
 | `RankingAgent` | score 일부 불완전 | 가용 점수만으로 가중 합산, 불완전 필드 explanation에 명시 |
 
 > `ResumeParsingAgent`는 **운용하지 않음** (ADR-003). 파싱은 ingestion rule-based로 완결, 부족한 부분은 RAG context로 보완.
@@ -325,15 +329,15 @@ RAG Pipeline (매칭 요청 시)
 
 기존 ontology 분석/정제 문서의 핵심 수치를 현재 문서로 통합했다.
 
-### Dataset coverage (2026-03-13 snapshot)
+### Dataset coverage (2026-03-16 snapshot)
 
 | 항목 | 값 |
 |---|---:|
 | total candidates | 5484 |
-| docs with `parsed.skills` | 5453 (99.4%) |
-| docs with `parsed.abilities` | 2999 (54.7%) |
-| docs with `parsed.experience_items.title` | 5403 (98.5%) |
-| docs with `category` | 2484 (45.3%) |
+| docs with `parsed.skills` | 5471 (99.8%) |
+| docs with `parsed.abilities` | 5463 (99.6%) |
+| docs with `parsed.experience_items.title` | 5459 (99.5%) |
+| docs with `category` | 5484 (100.0%) |
 
 ### Refinement summary
 

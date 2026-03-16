@@ -97,8 +97,8 @@ class Settings(BaseSettings):
     token_cache_max_size: int = 128  # LRU cache max entries
 
     # Retrieval Fusion Weights (R2.2 / HCR.1)
-    retrieval_vector_weight: float = 0.55   # Milvus embedding similarity weight
-    retrieval_keyword_weight: float = 0.30  # MongoDB lexical keyword score weight
+    retrieval_vector_weight: float = 0.48   # Milvus embedding similarity weight
+    retrieval_keyword_weight: float = 0.37  # MongoDB lexical keyword score weight
     retrieval_metadata_weight: float = 0.15 # Metadata filter match weight
 
     # Misc

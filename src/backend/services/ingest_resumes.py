@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import time
 import warnings
 from dataclasses import dataclass
@@ -37,12 +38,15 @@ from backend.services.ingestion.preprocessing import (
     clean_text as _clean_text,
     dedupe_preserve as _dedupe_preserve,
     estimate_experience_years as _estimate_experience_years,
+    estimate_experience_years_from_text as _estimate_experience_years_from_text,
+    extract_sneha_abilities as _extract_sneha_abilities,
     extract_sneha_skills as _extract_sneha_skills,
     impute_category_rule_based as _impute_category_rule_based,
     infer_seniority_level as _infer_seniority_level,
     normalize_identifier as _normalize_identifier,
     normalize_skill_list as _normalize_skill_list,
     prepare_embedding_text as _prepare_embedding_text,
+    sanitize_skill_tokens as _sanitize_skill_tokens,
 )
 from backend.services.ingestion.state import (
     ExistingState,
@@ -115,8 +119,31 @@ def _apply_skill_normalization(
     abilities: Sequence[object],
 ) -> tuple[list[str], SkillNormalizationResult]:
     raw, _ = _normalize_skill_list(raw_skills)
-    result = ONTOLOGY.normalize(raw_skills=raw_skills, abilities=abilities)
-    return raw, result
+    sanitized = _sanitize_skill_tokens(raw)
+    cleaned_raw = sanitized if sanitized else raw
+    result = ONTOLOGY.normalize(raw_skills=cleaned_raw, abilities=abilities)
+    return cleaned_raw, result
+
+
+def _extract_text_skill_hints(resume_text: str, *, limit: int = 30) -> list[str]:
+    if not resume_text:
+        return []
+    compact_text = re.sub(r"\s+", " ", resume_text).lower()
+    compact = f" {compact_text} "
+    hints: list[str] = []
+    # Try longer aliases first to avoid picking shorter, ambiguous substrings.
+    aliases = sorted(ONTOLOGY.alias_to_canonical.keys(), key=len, reverse=True)
+    for alias in aliases:
+        if len(alias) < 3:
+            continue
+        pattern = rf"(?<![a-z0-9]){re.escape(alias)}(?![a-z0-9])"
+        if not re.search(pattern, compact):
+            continue
+        canonical = ONTOLOGY.alias_to_canonical.get(alias, alias)
+        hints.append(canonical)
+        if len(hints) >= limit:
+            break
+    return _dedupe_preserve(hints)
 
 
 def _build_embedding_text(
@@ -209,19 +236,29 @@ def iter_sneha(
             extracted = parse_resume_text(resume_text, parser_mode=parser_mode)
             fallback_skills, _ = _extract_sneha_skills(resume_text)
             source_skills = extracted.skills if extracted.skills else fallback_skills
-            raw_skills, skill_norm = _apply_skill_normalization(raw_skills=source_skills, abilities=[])
+            if not source_skills:
+                source_skills = _extract_text_skill_hints(resume_text)
 
             education_items = to_parsed_education(extracted.education)
             experience_items = to_parsed_experience(extracted.experience)
-            experience_years = _estimate_experience_years(experience_items)
-            seniority = _infer_seniority_level(experience_years)
             summary = extracted.summary or (resume_text[:280] if resume_text else None)
+            abilities = _extract_sneha_abilities(
+                resume_text=resume_text,
+                summary=summary,
+                experience_items=experience_items,
+            )
+            raw_skills, skill_norm = _apply_skill_normalization(raw_skills=source_skills, abilities=abilities)
+
+            experience_years = _estimate_experience_years(experience_items)
+            if experience_years is None:
+                experience_years = _estimate_experience_years_from_text(resume_text)
+            seniority = _infer_seniority_level(experience_years)
 
             parsed = ParsedSection(
                 summary=summary,
                 skills=raw_skills,
                 normalized_skills=skill_norm.normalized_skills,
-                abilities=[],
+                abilities=abilities,
                 canonical_skills=skill_norm.canonical_skills,
                 core_skills=skill_norm.core_skills,
                 expanded_skills=skill_norm.expanded_skills,

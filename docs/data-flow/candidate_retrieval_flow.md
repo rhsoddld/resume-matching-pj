@@ -6,6 +6,7 @@
 |------|------|
 | Entry point | `POST /api/jobs/match` |
 | Primary orchestrator | `src/backend/services/matching_service.py` |
+| Cache layer | `src/backend/services/matching/cache.py` (`ResponseLRUCache`) |
 | Retrieval path | `RetrievalService` + `HybridRetriever` |
 | Agent path | `AgentOrchestrationService` + `src/backend/agents/contracts/*.py` |
 | Response builder | `src/backend/services/match_result_builder.py` |
@@ -19,7 +20,10 @@
 ```mermaid
 flowchart TD
   ui["React/Vite UI"] --> api["POST /api/jobs/match"]
-  api --> match["MatchingService.match_jobs"]
+  api --> cacheLookup["Token cache lookup\n(LRU+TTL, key by JD+filters)"]
+  cacheLookup -- "hit" --> cacheHit["Cached JobMatchResponse"]
+  cacheHit --> response["JobMatchResponse.matches[]"]
+  cacheLookup -- "miss" --> match["MatchingService.match_jobs"]
   match --> profile["build_job_profile"]
   match --> retriever["HybridRetriever.search_candidates"]
 
@@ -37,12 +41,21 @@ flowchart TD
   weight --> rank["Hybrid final ranking"]
   rank --> build["build_match_candidate"]
   build --> sort["Final sort by score"]
-  sort --> response["JobMatchResponse.matches[]"]
+  sort --> cacheStore["Token cache store"]
+  cacheStore --> response
 ```
 
 ---
 
 ## Runtime Stages
+
+### 0. Request-level token cache (lookup)
+- 적용 경로: `match_jobs`, `stream_match_jobs`
+- key 요소: `job_description`, `top_k`, `category`, `min_experience_years`, `education`, `region`, `industry`
+- hit 시 고비용 단계(retrieval/agent/rerank)를 건너뛴다.
+- 구현:
+  - `src/backend/services/matching/cache.py`
+  - `src/backend/services/matching_service.py`
 
 ### 1. Job profile extraction
 - `job_description`에서 roles/required skills/related skills/seniority를 추출한다.
@@ -84,6 +97,11 @@ flowchart TD
   - `src/backend/services/scoring_service.py`
   - `src/backend/services/match_result_builder.py`
 
+### 7. Request-level token cache (store)
+- miss 경로에서 최종 `JobMatchResponse`를 캐시에 저장한다.
+- `stream_match_jobs`는 조기 종료(후보 0명) 분기도 fairness 포함 응답을 저장한다.
+- 캐시는 backend 프로세스 로컬 인메모리이며 TTL 만료는 접근 시 정리(lazy expiration)된다.
+
 ---
 
 ## API Surface (Code-Aligned)
@@ -100,6 +118,11 @@ flowchart TD
 - 동기/스트리밍 모두 candidate 단위로 agent 평가 예외를 격리한다.
 - 특정 candidate 평가 실패 시 전체 요청을 실패시키지 않고 deterministic 결과로 대체한다.
 - 대체 시 runtime reason은 `agent_evaluation_failed(<ExceptionType>)` 형식으로 기록된다.
+
+### Stream cache hit event sequence
+
+- `POST /api/jobs/match/stream`에서 cache hit 시 이벤트를 아래 순서로 즉시 전송한다.
+- `profile -> session -> candidate* -> fairness -> done`
 
 ---
 
@@ -122,8 +145,8 @@ fallback if:
 
 ```text
 fusion_score =
-  0.55 * vector_score
-+ 0.30 * keyword_score
+  0.48 * vector_score
++ 0.37 * keyword_score
 + 0.15 * metadata_score
 ```
 

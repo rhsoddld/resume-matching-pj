@@ -1169,3 +1169,263 @@ reporting:
   parents:
     - business
     - data
+
+# ── Retrieval Eval Alignment Skills (2026-03-16) ───────────────────
+rest api:
+  domain: backend
+  family: api
+  parents:
+    - backend
+    - api
+spring boot:
+  domain: framework
+  family: backend
+  parents:
+    - backend
+    - java
+    - rest api
+fastapi:
+  domain: framework
+  family: backend
+  parents:
+    - backend
+    - python
+    - rest api
+ci/cd:
+  domain: devops
+  family: ci_cd
+  parents:
+    - devops
+    - automation
+test automation:
+  domain: qa
+  family: automation_testing
+  parents:
+    - qa
+    - testing
+api testing:
+  domain: qa
+  family: automation_testing
+  parents:
+    - qa
+    - testing
+    - rest api
+unit testing:
+  domain: qa
+  family: testing
+  parents:
+    - qa
+    - testing
+selenium:
+  domain: qa
+  family: test_framework
+  parents:
+    - qa
+    - testing
+pytest:
+  domain: qa
+  family: test_framework
+  parents:
+    - qa
+    - testing
+    - python
+data structures:
+  domain: fundamentals
+  family: computer_science
+  parents:
+    - programming
+    - algorithms
+dashboarding:
+  domain: data
+  family: analytics
+  parents:
+    - data
+    - reporting
+requirements gathering:
+  domain: analysis
+  family: business_analysis
+  parents:
+    - business analysis
+    - stakeholder management
+process mapping:
+  domain: analysis
+  family: business_analysis
+  parents:
+    - business analysis
+    - process improvement
+stakeholder management:
+  domain: analysis
+  family: communication
+  parents:
+    - communication
+    - business analysis
+stakeholder reporting:
+  domain: analysis
+  family: communication
+  parents:
+    - reporting
+    - stakeholder management
+pytorch:
+  domain: ml
+  family: framework
+  parents:
+    - machine learning
+    - python
+feature engineering:
+  domain: ml
+  family: machine_learning
+  parents:
+    - machine learning
+    - data analysis
+model deployment:
+  domain: ml
+  family: mlops
+  parents:
+    - machine learning
+    - deployment
+system architecture:
+  domain: architecture
+  family: system_design
+  parents:
+    - architecture
+    - software design
+distributed systems:
+  domain: architecture
+  family: distributed
+  parents:
+    - architecture
+    - scalability
+cloud architecture:
+  domain: architecture
+  family: cloud
+  parents:
+    - architecture
+    - cloud
+technical leadership:
+  domain: architecture
+  family: leadership
+  parents:
+    - architecture
+    - leadership
+security by design:
+  domain: security
+  family: architecture_security
+  parents:
+    - security
+    - architecture
+enterprise integration:
+  domain: architecture
+  family: enterprise
+  parents:
+    - architecture
+    - integration
+cost optimization:
+  domain: architecture
+  family: finops
+  parents:
+    - architecture
+    - cost
+solution governance:
+  domain: architecture
+  family: governance
+  parents:
+    - architecture
+    - governance
+kafka:
+  domain: data
+  family: streaming
+  parents:
+    - data
+    - messaging
+microservices:
+  domain: architecture
+  family: service_architecture
+  parents:
+    - architecture
+    - backend
+observability:
+  domain: devops
+  family: monitoring
+  parents:
+    - devops
+    - monitoring
+grpc:
+  domain: backend
+  family: api
+  parents:
+    - backend
+    - api
+helm:
+  domain: devops
+  family: container
+  parents:
+    - devops
+    - kubernetes
+argocd:
+  domain: devops
+  family: ci_cd
+  parents:
+    - devops
+    - ci_cd
+dbt:
+  domain: data
+  family: analytics_engineering
+  parents:
+    - data
+    - etl
+mlflow:
+  domain: ml
+  family: mlops
+  parents:
+    - machine learning
+    - deployment
+sagemaker:
+  domain: ml
+  family: mlops
+  parents:
+    - machine learning
+    - cloud
+    - deployment
+llm fine-tuning:
+  domain: ml
+  family: llm
+  parents:
+    - machine learning
+    - model deployment
+next.js:
+  domain: frontend_framework
+  family: frontend
+  parents:
+    - frontend
+    - javascript
+design systems:
+  domain: frontend
+  family: ui_ux
+  parents:
+    - frontend
+    - design
+a/b testing:
+  domain: product
+  family: experimentation
+  parents:
+    - product
+    - analytics
+performance testing:
+  domain: qa
+  family: testing
+  parents:
+    - qa
+    - testing
+jmeter:
+  domain: qa
+  family: test_framework
+  parents:
+    - qa
+    - performance testing
+playwright:
+  domain: qa
+  family: test_framework
+  parents:
+    - qa
+    - testing
+    - frontend

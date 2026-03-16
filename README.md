@@ -24,6 +24,9 @@ python3 scripts/ingest_resumes.py --source all --target milvus --milvus-from-mon
 
 # Evaluation
 ./scripts/run_eval.sh
+./scripts/run_retrieval_eval.sh
+./scripts/update_golden_set.sh
+./scripts/regen_golden_set.sh
 ```
 
 ## Repository Structure
@@ -64,4 +67,4 @@ resume-matching-system/
 - Retrieval flow: [docs/data-flow/candidate_retrieval_flow.md](/Users/lee/Desktop/resume-matching-pj/docs/data-flow/candidate_retrieval_flow.md)
 - Agent pipeline: [docs/agents/multi_agent_pipeline.md](/Users/lee/Desktop/resume-matching-pj/docs/agents/multi_agent_pipeline.md)
 - Evaluation: [docs/evaluation/evaluation_plan.md](/Users/lee/Desktop/resume-matching-pj/docs/evaluation/evaluation_plan.md), [docs/evaluation/evaluation_results.md](/Users/lee/Desktop/resume-matching-pj/docs/evaluation/evaluation_results.md)
-
+- Golden alignment: [docs/evaluation/golden_set_alignment.md](/Users/lee/Desktop/resume-matching-pj/docs/evaluation/golden_set_alignment.md)

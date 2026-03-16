@@ -89,13 +89,104 @@ _SKILL_STOPWORDS = {
     "have",
     "had",
     "looking",
+    "nice",
+}
+_GENERIC_NON_SKILL_TERMS = {
+    "responsibilities",
+    "responsibility",
+    "requirements",
+    "requirement",
+    "internal",
+    "external",
+    "across",
+    "define",
+    "target",
+    "targets",
+    "evolution",
+    "platform",
+    "platforms",
+    "talent",
+    "intelligence",
+    "team",
+    "teams",
+    "engineering",
+    "mentor",
+    "mentoring",
+    "decision",
+    "decisions",
+    "balancing",
+    "reliability",
+    "scalability",
+    "cost",
+    "costs",
+    "standards",
+    "governance",
+    "strong",
+    "excellent",
+    "communication",
+    "regulated",
+    "enterprise",
+    "equivalent",
+    "deep",
+    "expertise",
+    "include",
+    "includes",
+    "code",
+    "task",
+    "tasks",
+    "write",
+    "under",
+    "learn",
+    "proven",
+    "drive",
+    "review",
+    "layers",
+    "matching",
 }
 _SENIORITY_KEYWORDS = ("intern", "junior", "mid", "senior", "lead", "staff", "principal")
+_SINGLE_TERM_WHITELIST = {
+    "api",
+    "sql",
+    "aws",
+    "gcp",
+    "azure",
+    "java",
+    "python",
+    "scala",
+    "spark",
+    "docker",
+    "kafka",
+    "redis",
+    "linux",
+    "react",
+    "node",
+    "go",
+    "rust",
+    "ruby",
+    "php",
+    "swift",
+    "kotlin",
+    "c",
+    "c++",
+    "c#",
+    "r",
+}
 _MAX_PHRASE_WORDS = 4
 _SENTENCE_SPLIT_RE = re.compile(r"[.!?]\s+")
+_MAX_REQUIRED_SKILLS = 18
+_MAX_RELATED_SKILLS = 12
+_MAX_EMBED_REQUIRED_TERMS = 12
+_MAX_EMBED_RELATED_TERMS = 8
+_ROLE_EMBED_CAP_EXPANSION: dict[str, tuple[int, int]] = {
+    "junior software engineer": (16, 12),
+    "senior architect": (16, 12),
+}
 _ROLE_PATTERNS = (
     "backend engineer",
     "backend developer",
+    "junior software engineer",
+    "graduate software engineer",
+    "associate engineer",
     "software engineer",
     "data engineer",
     "data scientist",
@@ -153,6 +244,17 @@ _PHRASE_SKILL_HINTS = {
     "senior architect": ["system architecture", "cloud architecture", "distributed systems", "security by design", "technical leadership"],
     "enterprise-scale architecture": ["system architecture", "cloud architecture", "distributed systems"],
     "modernization programs": ["system architecture", "cloud architecture"],
+    "cross-domain architecture strategy": ["system architecture", "distributed systems", "technical leadership"],
+    "architecture standards and governance": ["system architecture", "technical leadership", "solution governance"],
+    "architecture review practices": ["system architecture", "technical leadership", "security by design"],
+    # junior software
+    "junior software engineer": ["python", "java", "git", "data structures", "unit testing"],
+    "entry-level software engineering": ["python", "java", "git", "data structures", "unit testing"],
+    "graduate software engineer": ["python", "java", "git", "data structures", "unit testing"],
+    "associate engineer": ["python", "java", "git", "unit testing"],
+    "version control": ["git"],
+    "cs fundamentals": ["data structures"],
+    "unit testing basics": ["unit testing"],
 }
 _PHRASE_CAPABILITY_HINTS = {
     "backend of web applications": "backend development",
@@ -165,6 +267,11 @@ _PHRASE_CAPABILITY_HINTS = {
     "container": "devops / cloud / container familiarity",
     "cloud": "devops / cloud / container familiarity",
     "devops": "devops / cloud / container familiarity",
+    "junior software engineer": "software engineering fundamentals",
+    "entry-level software engineering": "software engineering fundamentals",
+    "senior architect": "architecture leadership",
+    "architecture governance": "architecture leadership",
+    "architecture review practices": "architecture leadership",
 }
 _STRENGTH_PRIORITY = {
     "must have": 4,
@@ -174,6 +281,13 @@ _STRENGTH_PRIORITY = {
     "unknown": 0,
 }
 _ONTOLOGY_MAX_NGRAM = 4
+_DATE_LIKE_RE = re.compile(r"\b(?:\d{1,2}/\d{2,4}|19\d{2}|20\d{2})\b")
+_HINTED_SKILL_TERMS = {
+    hint.strip().lower()
+    for hints in _PHRASE_SKILL_HINTS.values()
+    for hint in hints
+    if isinstance(hint, str) and hint.strip()
+}
 
 
 @dataclass
@@ -290,7 +404,11 @@ def _filter_noisy_terms(terms: list[str]) -> list[str]:
         token = re.sub(r"\s+", " ", token).strip(" .,-")
         if not token:
             continue
+        if _DATE_LIKE_RE.search(token):
+            continue
         if token in _SKILL_STOPWORDS:
+            continue
+        if token in _GENERIC_NON_SKILL_TERMS:
             continue
         words = [w for w in token.split(" ") if w]
         if len(words) == 1 and words[0] in _SKILL_STOPWORDS:
@@ -300,6 +418,8 @@ def _filter_noisy_terms(terms: list[str]) -> list[str]:
         stopword_count = sum(1 for w in words if w in _SKILL_STOPWORDS)
         if stopword_count > 1:
             continue
+        if len(words) >= 4 and token not in _HINTED_SKILL_TERMS:
+            continue
         # Single-token terms keep useful skill nouns while filtering obvious noise.
         if len(words) == 1:
             word = words[0]
@@ -307,8 +427,88 @@ def _filter_noisy_terms(terms: list[str]) -> list[str]:
                 continue
             if len(word) < 4 and word not in {"api", "sql"}:
                 continue
+            if word in _GENERIC_NON_SKILL_TERMS:
+                continue
         filtered.append(token)
     return dedupe_preserve(filtered)
+
+
+def _skill_priority(term: str, *, ontology: RuntimeSkillOntology | None) -> int:
+    score = 0
+    words = [w for w in term.split(" ") if w]
+
+    if term in _HINTED_SKILL_TERMS:
+        score += 4
+    if len(words) <= 2:
+        score += 1
+    if re.search(r"[+#.]|\d", term):
+        score += 2
+
+    if ontology is not None:
+        canonical = ontology.alias_to_canonical.get(term, term)
+        if canonical in ontology.core_taxonomy:
+            score += 5
+        elif canonical in ontology.alias_to_canonical.values():
+            score += 3
+
+    if term in _GENERIC_NON_SKILL_TERMS:
+        score -= 6
+    if term in _SENIORITY_KEYWORDS:
+        score -= 6
+    if len(words) >= 3 and term not in _HINTED_SKILL_TERMS:
+        score -= 2
+    return score
+
+
+def _drop_fragment_terms(terms: list[str]) -> list[str]:
+    phrase_words: set[str] = set()
+    for term in terms:
+        words = [w for w in term.split(" ") if w]
+        if len(words) < 2:
+            continue
+        for word in words:
+            if len(word) >= 4:
+                phrase_words.add(word)
+
+    out: list[str] = []
+    for term in terms:
+        words = [w for w in term.split(" ") if w]
+        if len(words) == 1:
+            word = words[0]
+            if word in _SENIORITY_KEYWORDS:
+                continue
+            if word in phrase_words and word not in _SINGLE_TERM_WHITELIST:
+                continue
+        out.append(term)
+    return dedupe_preserve(out)
+
+
+def _compress_skill_terms(
+    terms: list[str],
+    *,
+    ontology: RuntimeSkillOntology | None,
+    max_terms: int,
+) -> list[str]:
+    unique_terms = _filter_noisy_terms(dedupe_preserve(terms))
+    if not unique_terms:
+        return []
+
+    scored = sorted(
+        unique_terms,
+        key=lambda term: (
+            _skill_priority(term, ontology=ontology),
+            -len(term.split(" ")),
+            -len(term),
+        ),
+        reverse=True,
+    )
+    selected = [term for term in scored if _skill_priority(term, ontology=ontology) > 0]
+    if not selected:
+        selected = scored
+    compact = _drop_fragment_terms(dedupe_preserve(selected))
+    if not compact:
+        compact = dedupe_preserve(selected)
+    return compact[:max_terms]
 
 
 def _extract_required_experience_years(job_description: str) -> float | None:
@@ -323,7 +523,7 @@ def _extract_required_experience_years(job_description: str) -> float | None:
 def _extract_preferred_seniority(job_description: str) -> str | None:
     lowered = job_description.lower()
     for keyword in _SENIORITY_KEYWORDS:
-        if keyword in lowered:
+        if re.search(rf"\b{re.escape(keyword)}\b", lowered):
             return keyword
     return None
 
@@ -384,6 +584,10 @@ def _infer_roles(
         roles.append("backend web application developer")
     if ("integration" in lowered) or ("connect multiple systems" in lowered) or ("services that connect" in lowered):
         roles.append("integration/service engineer")
+    if any(token in lowered for token in ("junior software engineer", "graduate software engineer", "entry-level software engineering", "associate engineer")):
+        roles.append("junior software engineer")
+    if ("senior architect" in lowered) or ("architecture leadership" in lowered):
+        roles.append("senior architect")
     return dedupe_preserve([r for r in roles if r])
 
 
@@ -422,13 +626,22 @@ def _build_query_text_for_embedding(
     required_skills: list[str],
     related_skills: list[str],
     seniority_hint: str | None,
+    required_limit: int = _MAX_EMBED_REQUIRED_TERMS,
+    related_limit: int = _MAX_EMBED_RELATED_TERMS,
 ) -> str:
+    required_for_embedding = dedupe_preserve([skill for skill in required_skills if isinstance(skill, str) and skill.strip()])
+    required_for_embedding = required_for_embedding[:required_limit]
+    related_for_embedding = [
+        skill
+        for skill in dedupe_preserve(related_skills)
+        if skill not in set(required_for_embedding)
+    ][:related_limit]
     ordered_terms = dedupe_preserve(
         [
             role_phrase or "",
             job_category or "",
-            *(required_skills or []),
-            *(related_skills or []),
+            *required_for_embedding,
+            *related_for_embedding,
             seniority_hint or "",
         ]
     )
@@ -453,6 +666,19 @@ def _extract_capability_signals(
                 strength = _match_strength_for_term(capability, sentences, default_strength="familiarity")
                 out.append(QuerySignal(name=capability, strength=strength, signal_type="capability"))
     return dedupe_signals(out)
+
+
+def _resolve_embed_term_caps(*, roles: list[str], role_phrase: str | None) -> tuple[int, int]:
+    active_roles = {role.strip().lower() for role in roles if isinstance(role, str) and role.strip()}
+    if role_phrase:
+        active_roles.add(role_phrase.strip().lower())
+    required_limit = _MAX_EMBED_REQUIRED_TERMS
+    related_limit = _MAX_EMBED_RELATED_TERMS
+    for role, (role_required, role_related) in _ROLE_EMBED_CAP_EXPANSION.items():
+        if role in active_roles:
+            required_limit = max(required_limit, role_required)
+            related_limit = max(related_limit, role_related)
+    return required_limit, related_limit
 
 
 def _build_skill_signals(required_skills: list[str], sentences: list[str]) -> list[QuerySignal]:
@@ -552,6 +778,10 @@ def _compute_query_confidence(
         score += 0.1
     if query_text_for_embedding.strip():
         score += 0.1
+    if len(required_skills) > 25:
+        score -= 0.2
+    elif len(required_skills) > 18:
+        score -= 0.1
     return round(max(0.0, min(1.0, score)), 3)
 
 
@@ -571,8 +801,17 @@ def build_job_profile(
     filtered_candidates = _filter_noisy_terms(raw_candidates)
     ontology_candidates = _extract_ontology_candidates(job_description, ontology)
     if ontology is None:
-        required_skills = filtered_candidates
-        expanded_skills = raw_candidates
+        required_skills = _compress_skill_terms(
+            filtered_candidates,
+            ontology=None,
+            max_terms=_MAX_REQUIRED_SKILLS,
+        )
+        expanded_skills = dedupe_preserve(
+            [
+                *required_skills,
+                *_compress_skill_terms(raw_candidates, ontology=None, max_terms=_MAX_REQUIRED_SKILLS + _MAX_RELATED_SKILLS),
+            ]
+        )
     else:
         seed_candidates = dedupe_preserve([*ontology_candidates, *filtered_candidates])
         normalized = ontology.normalize(raw_skills=seed_candidates, abilities=[])
@@ -587,13 +826,33 @@ def build_job_profile(
             required_skills = dedupe_preserve([*base_required, *filtered_candidates])
         else:
             required_skills = filtered_candidates
+        required_skills = _compress_skill_terms(
+            required_skills,
+            ontology=ontology,
+            max_terms=_MAX_REQUIRED_SKILLS,
+        )
 
-        expanded_base = normalized.expanded_skills or base_required or filtered_candidates
-        expanded_skills = dedupe_preserve([*expanded_base, *filtered_candidates])
+        expanded_base = normalized.expanded_skills or base_required or required_skills
+        expanded_skills = dedupe_preserve(
+            [
+                *required_skills,
+                *_compress_skill_terms(
+                    dedupe_preserve([*expanded_base, *filtered_candidates]),
+                    ontology=ontology,
+                    max_terms=_MAX_REQUIRED_SKILLS + _MAX_RELATED_SKILLS,
+                ),
+            ]
+        )
 
-    required_skills = dedupe_preserve(required_skills)
+    required_skills = dedupe_preserve(required_skills)[:_MAX_REQUIRED_SKILLS]
     expanded_skills = dedupe_preserve(expanded_skills)
     related_skills = [skill for skill in expanded_skills if skill not in set(required_skills)]
+    related_skills = _compress_skill_terms(
+        related_skills,
+        ontology=ontology,
+        max_terms=_MAX_RELATED_SKILLS,
+    )
+    expanded_skills = dedupe_preserve([*required_skills, *related_skills])
     preferred_seniority = _extract_preferred_seniority(job_description)
     role_phrase = _infer_role_phrase(job_description)
     roles = _infer_roles(job_description, role_phrase, ontology)
@@ -640,12 +899,18 @@ def build_job_profile(
     signal_quality = compute_signal_quality(skill_signals, capability_signals)
     signal_quality["transferable_score"] = transferable_skill_score
     signal_quality["transferable_evidence_count"] = len(transferable_skill_evidence)
+    required_embed_limit, related_embed_limit = _resolve_embed_term_caps(
+        roles=roles,
+        role_phrase=role_phrase,
+    )
     query_text_for_embedding = _build_query_text_for_embedding(
         role_phrase=role_phrase,
         job_category=job_category,
         required_skills=required_skills,
-        related_skills=semantic_query_expansion or related_skills,
+        related_skills=related_skills,
         seniority_hint=preferred_seniority,
+        required_limit=required_embed_limit,
+        related_limit=related_embed_limit,
     )
     required_experience_years = _extract_required_experience_years(job_description)
     confidence = _compute_query_confidence(

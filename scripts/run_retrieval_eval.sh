@@ -9,13 +9,17 @@ if [[ ! -x "$PYTHON_BIN" ]]; then
   PYTHON_BIN="python3"
 fi
 
-GOLDEN_SET="${GOLDEN_SET:-src/eval/golden_set.jsonl}"
-EVAL_MODE="${EVAL_MODE:-full}"
-RUN_LABEL="${RUN_LABEL:-manual}"
+DEFAULT_GOLDEN="src/eval/golden_set.normalized.jsonl"
+if [[ ! -f "$DEFAULT_GOLDEN" ]]; then
+  DEFAULT_GOLDEN="src/eval/golden_set.jsonl"
+fi
+
+GOLDEN_SET="${GOLDEN_SET:-$DEFAULT_GOLDEN}"
+RUN_LABEL="${RUN_LABEL:-retrieval-only}"
 OUTPUTS_DIR="${OUTPUTS_DIR:-src/eval/outputs}"
 
 PYTHONPATH=src "$PYTHON_BIN" -m eval.eval_runner \
   --golden-set "$GOLDEN_SET" \
-  --mode "$EVAL_MODE" \
+  --mode hybrid \
   --run-label "$RUN_LABEL" \
   --outputs-dir "$OUTPUTS_DIR"

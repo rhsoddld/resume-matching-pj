@@ -23,14 +23,14 @@ SEASON_TOKEN = r"(?:Spring|Summer|Fall|Autumn|Winter)"
 DATE_TOKEN = rf"(?:\d{{1,2}}/\d{{4}}|\d{{4}}/\d{{1,2}}|{MONTH_TOKEN}\s+\d{{4}}|{SEASON_TOKEN}\s+\d{{4}}|\d{{4}})"
 DATE_TOKEN_PATTERN = re.compile(rf"\b({DATE_TOKEN})\b", flags=re.IGNORECASE)
 DATE_RANGE_PATTERN = re.compile(
-    rf"(?P<start>{DATE_TOKEN})\s*(?:to|-|–|—)\s*(?P<end>(?:Present|Current|Now|{DATE_TOKEN}))",
+    rf"(?P<start>{DATE_TOKEN})\s*(?:to|-|–|—|－)\s*(?P<end>(?:Present|Current|Now|{DATE_TOKEN}))",
     flags=re.IGNORECASE,
 )
 
 SECTION_ALIASES = {
     "summary": {"summary", "professional summary", "profile", "objective"},
-    "skills": {"skills", "technical skills", "core skills", "expertise"},
-    "education": {"education", "academic background", "qualifications"},
+    "skills": {"skills", "technical skills", "core skills", "expertise", "core qualifications", "qualifications"},
+    "education": {"education", "academic background", "qualifications", "education and training", "academic credentials"},
     "experience": {"experience", "work experience", "employment history", "professional experience"},
 }
 
@@ -195,7 +195,11 @@ def _extract_contacts(text: str) -> tuple[str | None, str | None]:
 def _extract_skills_regex(sections: dict[str, str], text: str) -> list[str]:
     skills_text = sections.get("skills")
     if not skills_text:
-        match = re.search(r"\bskills?\b(.*)", text, flags=re.IGNORECASE | re.DOTALL)
+        match = re.search(
+            r"\b(?:skills?|technical skills?|core qualifications?|qualifications?|highlights?)\b[:\s\-]*(.*)",
+            text,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
         if match:
             skills_text = match.group(1)[:1500]
     if not skills_text:
@@ -243,6 +247,21 @@ def _extract_education_global(text: str) -> list[EducationRecord]:
             EducationRecord(
                 degree=chunk,
                 institution=None,
+                start_date=date_match.group(1) if date_match else None,
+            )
+        )
+    for match in re.finditer(
+        r"((?:[A-Z][A-Za-z&.\-'\s]{1,50}\s)?(?:University|College|Institute|School|Academy)[^.;]{0,140})",
+        cleaned,
+    ):
+        chunk = _clean_line(match.group(1))
+        if len(chunk) < 8:
+            continue
+        date_match = DATE_TOKEN_PATTERN.search(chunk)
+        records.append(
+            EducationRecord(
+                degree=None,
+                institution=chunk,
                 start_date=date_match.group(1) if date_match else None,
             )
         )
@@ -344,6 +363,46 @@ def _extract_experience_global(text: str) -> list[ExperienceRecord]:
                 start_date=match.group("start"),
                 end_date=match.group("end"),
                 description=right_ctx[:200] if right_ctx else None,
+            )
+        )
+    if records:
+        return _dedupe_experience(records)
+
+    # Fallback: support single-date experience entries commonly found in Sneha profiles
+    # (e.g. "01/2017 VR Designer Company Name ...").
+    for match in re.finditer(
+        rf"(?P<start>{DATE_TOKEN})\s+(?P<title>[A-Za-z][A-Za-z0-9/&().,'\- ]{{2,80}}?)(?=\s+(?:Company Name|City|State|Education|Skills|Highlights|$))",
+        cleaned,
+        flags=re.IGNORECASE,
+    ):
+        title = _clean_line(match.group("title"))
+        if not title:
+            continue
+        records.append(
+            ExperienceRecord(
+                title=title,
+                company=None,
+                start_date=match.group("start"),
+                end_date=None,
+                description=None,
+            )
+        )
+
+    for match in re.finditer(
+        rf"(?P<title>[A-Za-z][A-Za-z0-9/&().,'\- ]{{2,80}}?)\s*,?\s*(?P<start>{DATE_TOKEN})(?!\s*(?:to|-|–|—|－))",
+        cleaned,
+        flags=re.IGNORECASE,
+    ):
+        title = _clean_line(match.group("title"))
+        if not title or title.lower().endswith(("education", "skills", "summary", "highlights")):
+            continue
+        records.append(
+            ExperienceRecord(
+                title=title,
+                company=None,
+                start_date=match.group("start"),
+                end_date=None,
+                description=None,
             )
         )
     return _dedupe_experience(records)

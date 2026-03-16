@@ -19,8 +19,8 @@
 ### Retrieval fusion
 ```text
 fusion_score =
-  0.55 * vector_score
-+ 0.30 * keyword_score
+  0.48 * vector_score
++ 0.37 * keyword_score
 + 0.15 * metadata_score
 ```
 

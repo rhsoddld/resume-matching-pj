@@ -20,6 +20,37 @@
 - `RERANK_GATE_MAX_TOP_N`
 - `RERANK_TIMEOUT_SEC`
 
+## Current Cache Implementation (As-Is)
+
+### Scope
+
+- 캐시 대상 경로: `match_jobs`, `stream_match_jobs`
+- 공통 캐시 객체: `ResponseLRUCache` (backend 프로세스 메모리)
+- 기본 설정: `TOKEN_CACHE_ENABLED=true`, `TOKEN_CACHE_TTL_SEC=300`, `TOKEN_CACHE_MAX_SIZE=128`
+
+### Key / Value
+
+- Key 구성: `job_description`, `top_k`, `category`, `min_experience_years`, `education`, `region`, `industry`
+- Key 직렬화 후 SHA-256 해시(앞 16자리)를 캐시 키로 사용
+- Value 타입: `JobMatchResponse`
+
+### Hit/Miss Behavior
+
+- `match_jobs`
+- hit: 즉시 `JobMatchResponse` 반환 (retrieval/agent/rerank 생략)
+- miss: 기존 파이프라인 실행 후 응답 저장
+- `stream_match_jobs`
+- hit: `profile -> session -> candidate* -> fairness -> done` 이벤트를 즉시 스트리밍
+- miss: 기존 스트리밍 파이프라인 실행 후 최종 결과를 `JobMatchResponse`로 저장
+- 후보가 0명인 조기 종료 분기도 fairness 결과를 캐시에 저장
+
+### Operational Notes
+
+- 인메모리 캐시이므로 프로세스 재시작 시 초기화됨
+- 멀티 인스턴스 환경에서는 인스턴스 간 캐시 공유가 되지 않음
+- TTL 만료 정리는 접근 시점(lazy expiration)에 수행됨
+- 로그 지표: `token_cache_hit`, `token_cache_miss` (stream은 `source=stream` 태그 포함)
+
 ## Legacy Benchmark Snapshot (Restored)
 
 ### Retrieval benchmark archive (2026-03-15 UTC)

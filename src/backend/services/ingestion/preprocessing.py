@@ -120,6 +120,54 @@ def normalize_skill_list(values: Iterable[object]) -> tuple[list[str], list[str]
     return raw, normalized
 
 
+_SKILL_NOISE_PATTERNS = (
+    re.compile(r"\b(?:\d{1,2}/\d{2,4}|19\d{2}|20\d{2})\b"),
+    re.compile(r"\bcompany name\b"),
+    re.compile(r"\bcity\b"),
+    re.compile(r"\bstate\b"),
+    re.compile(r"\bsummary\b"),
+    re.compile(r"\bexperience\b"),
+    re.compile(r"\beducation\b"),
+    re.compile(r"\bresponsible for\b"),
+    re.compile(r"\bprofessional experience\b"),
+)
+_SKILL_ALLOWLIST = {
+    "project management",
+    "people management",
+    "time management",
+    "stakeholder management",
+    "quality assurance",
+    "machine learning",
+    "data analysis",
+    "cloud architecture",
+    "distributed systems",
+    "technical leadership",
+}
+
+
+def sanitize_skill_tokens(values: Iterable[object], *, max_words: int = 6, max_chars: int = 48) -> list[str]:
+    raw, _ = normalize_skill_list(values)
+    cleaned: list[str] = []
+    for token in raw:
+        norm = normalize_skill(token)
+        if not norm:
+            continue
+        if norm in _SKILL_ALLOWLIST:
+            cleaned.append(norm)
+            continue
+        words = [w for w in norm.split(" ") if w]
+        if len(norm) > max_chars:
+            continue
+        if len(words) > max_words:
+            continue
+        if any(pattern.search(norm) for pattern in _SKILL_NOISE_PATTERNS):
+            continue
+        if len(words) >= 4 and any(marker in norm for marker in ("managed", "managing", "responsible", "worked with")):
+            continue
+        cleaned.append(norm)
+    return dedupe_preserve(cleaned)
+
+
 def normalize_month(value: object) -> str | None:
     text = clean_text(value)
     if not text:
@@ -285,6 +333,23 @@ def estimate_experience_years(items: Sequence[ParsedExperienceItem]) -> float | 
     return round(total_months / 12.0, 1)
 
 
+def estimate_experience_years_from_text(text: str | None) -> float | None:
+    if not text:
+        return None
+    compact = re.sub(r"\s+", " ", text.lower())
+    patterns = (
+        r"(?:over|more than|around|about|approximately)\s*(\d{1,2}(?:\.\d+)?)\s*\+?\s*(?:years|yrs)",
+        r"(\d{1,2}(?:\.\d+)?)\s*\+\s*(?:years|yrs)",
+        r"(\d{1,2}(?:\.\d+)?)\s*(?:years|yrs)",
+    )
+    for pattern in patterns:
+        for match in re.finditer(pattern, compact):
+            years = float(match.group(1))
+            if 0.0 < years <= 60.0:
+                return round(years, 1)
+    return None
+
+
 def infer_seniority_level(experience_years: float | None) -> str | None:
     if experience_years is None:
         return None
@@ -311,6 +376,66 @@ def extract_sneha_skills(resume_text: str) -> tuple[list[str], list[str]]:
     tail = match.group(1)[:1200]
     tokens = re.split(r"[,\n;|]", tail)
     return normalize_skill_list(tokens[:60])
+
+
+ABILITY_RULES: list[tuple[str, tuple[str, ...]]] = [
+    ("team leadership", (r"\b(team lead|led (?:a |the )?team|managed (?:a |the )?team|supervis(?:e|ed|ion)|people management)\b",)),
+    ("stakeholder communication", (r"\bstakeholder\b", r"\b(client|customer|executive)\b.*\bcommunication\b", r"\bpresent(?:ation|ed)\b")),
+    ("cross-functional collaboration", (r"\bcross[- ]functional\b", r"\bcollaborat(?:e|ed|ion)\b", r"\bworked with\b.*\bteam\b")),
+    ("project coordination", (r"\bproject (?:coordination|management|planning|execution)\b", r"\bcoordinat(?:e|ed|ion)\b.*\b(project|schedule|workflow)\b")),
+    ("process improvement", (r"\bprocess (?:improvement|optimization|redesign)\b", r"\bimprov(?:e|ed|ement)\b.*\b(process|workflow|efficiency)\b", r"\bstreamlin(?:e|ed)\b")),
+    ("training and mentoring", (r"\btrain(?:ed|ing)\b", r"\bmentor(?:ed|ing)\b", r"\bonboard(?:ed|ing)\b")),
+    ("recruitment", (r"\brecruit(?:er|ing|ment|ed)\b", r"\bhiring\b", r"\binterview(?:ed|ing)?\b")),
+    ("customer service", (r"\bcustomer service\b", r"\bclient service\b", r"\bcandidate experience\b")),
+    ("problem solving", (r"\bproblem[- ]solv(?:e|ing)\b", r"\bresolved?\b.*\b(issue|problem|incident)\b")),
+    ("time management", (r"\btime management\b", r"\bprioriti[sz](?:e|ed|ation)\b", r"\bmulti[- ]task(?:ing)?\b")),
+    ("quality assurance", (r"\bquality (?:assurance|control|improvement)\b", r"\btesting\b", r"\bquality gates?\b")),
+    ("documentation", (r"\bdocument(?:ation|ed)\b", r"\bprepared?\b.*\b(report|records?)\b", r"\breporting\b")),
+    ("analytical thinking", (r"\banaly[sz](?:e|ed|ing|is)\b", r"\bdata[- ]driven\b", r"\broot cause\b")),
+    ("relationship management", (r"\brelationship management\b", r"\bbuild(?:ing)? relationships?\b", r"\bpartner(?:ing)? with\b")),
+    ("strategic planning", (r"\bstrategic planning\b", r"\broadmap\b", r"\bplanning and organizing\b")),
+]
+
+
+def extract_sneha_abilities(
+    *,
+    resume_text: str,
+    summary: str | None,
+    experience_items: Sequence[ParsedExperienceItem],
+    limit: int = 12,
+) -> list[str]:
+    corpus_parts: list[str] = []
+    if summary:
+        corpus_parts.append(summary)
+    corpus_parts.extend([item.description for item in experience_items if item.description])
+    if resume_text:
+        corpus_parts.append(resume_text[:4000])
+
+    corpus = re.sub(r"\s+", " ", " ".join(corpus_parts)).strip().lower()
+    if not corpus:
+        return []
+
+    abilities: list[str] = []
+    for label, patterns in ABILITY_RULES:
+        if any(re.search(pattern, corpus) for pattern in patterns):
+            abilities.append(label)
+            if len(abilities) >= limit:
+                return dedupe_preserve(abilities)[:limit]
+
+    if abilities:
+        return dedupe_preserve(abilities)[:limit]
+
+    for match in re.finditer(
+        r"\b(?:ability to|proven ability to|experienced in|experience in|responsible for)\s+([a-z][a-z0-9 /-]{8,90})",
+        corpus,
+    ):
+        phrase = re.split(r"[.;,]", match.group(1), maxsplit=1)[0]
+        phrase = re.sub(r"\b(?:the|a|an)\b\s+", "", phrase).strip(" -")
+        if 3 <= len(phrase.split()) <= 8:
+            abilities.append(phrase)
+        if len(abilities) >= limit:
+            break
+    return dedupe_preserve(abilities)[:limit]
 
 
 def build_embedding_text(
@@ -367,4 +492,3 @@ def impute_category_rule_based(experience_titles: list[str], core_skills: list[s
 
     best_category = max(score_board, key=score_board.get)
     return best_category if score_board[best_category] > 0 else "SOFTWARE-ENGINEERING"
-

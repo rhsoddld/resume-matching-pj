@@ -137,45 +137,10 @@ class MatchingService:
                 if job_profile.job_category:
                     run_tree.add_tags([f"category:{job_profile.job_category}"])
 
-        response = JobMatchResponse(
-            query_profile=QueryUnderstandingProfile(
-                job_category=job_profile.job_category,
-                roles=job_profile.roles,
-                required_skills=job_profile.required_skills,
-                related_skills=job_profile.related_skills,
-                skill_signals=[
-                    QueryUnderstandingProfile.Signal(
-                        name=signal.name,
-                        strength=signal.strength,
-                        signal_type=signal.signal_type,
-                    )
-                    for signal in job_profile.skill_signals
-                ],
-                capability_signals=[
-                    QueryUnderstandingProfile.Signal(
-                        name=signal.name,
-                        strength=signal.strength,
-                        signal_type=signal.signal_type,
-                    )
-                    for signal in job_profile.capability_signals
-                ],
-                seniority_hint=job_profile.preferred_seniority,
-                filters=job_profile.filters,
-                metadata_filters=job_profile.metadata_filters,
-                transferable_skill_score=job_profile.transferable_skill_score,
-                transferable_skill_evidence=job_profile.transferable_skill_evidence,
-                signal_quality=job_profile.signal_quality,
-                lexical_query=job_profile.lexical_query,
-                semantic_query_expansion=job_profile.semantic_query_expansion,
-                query_text_for_embedding=job_profile.query_text_for_embedding,
-                confidence=job_profile.confidence,
-                fallback_used=job_profile.fallback_used,
-                fallback_reason=job_profile.fallback_reason,
-                fallback_rationale=job_profile.fallback_rationale,
-                fallback_trigger=job_profile.fallback_trigger,
-            ),
+        response = self._build_match_response(
+            job_profile=job_profile,
             matches=results,
-            fairness=fairness_audit,
+            fairness_audit=fairness_audit,
         )
         # --- Token cache store (R2.5) ---
         if settings.token_cache_enabled and cache_key is not None:
@@ -200,6 +165,46 @@ class MatchingService:
         from backend.repositories.session_repo import create_jd_session
         
         event_queue = queue.Queue()
+
+        # --- Token cache lookup (R2.5) ---
+        cache_key: str | None = None
+        if settings.token_cache_enabled:
+            cache_key = self._cache.make_key(
+                job_description=job_description,
+                top_k=top_k,
+                category=category,
+                min_experience_years=min_experience_years,
+                education=education,
+                region=region,
+                industry=industry,
+            )
+            cached = self._cache.get(cache_key)
+            if isinstance(cached, JobMatchResponse):
+                logger.info("token_cache_hit key=%s source=stream", cache_key)
+                profile_payload = {
+                    "job_category": cached.query_profile.job_category,
+                    "roles": cached.query_profile.roles,
+                    "required_skills": cached.query_profile.required_skills,
+                    "confidence": cached.query_profile.confidence,
+                }
+                yield f"event: profile\ndata: {json.dumps(profile_payload, ensure_ascii=False)}\n\n"
+                try:
+                    session_id = create_jd_session(
+                        job_description=job_description,
+                        query_profile=profile_payload,
+                    )
+                    yield f"event: session\ndata: {json.dumps({'session_id': session_id})}\n\n"
+                except Exception as _session_exc:
+                    logger.warning("stream: Failed to create JD session (non-fatal): %s", _session_exc)
+
+                for candidate in cached.matches:
+                    yield f"event: candidate\ndata: {candidate.model_dump_json()}\n\n"
+                yield f"event: fairness\ndata: {cached.fairness.model_dump_json()}\n\n"
+                yield "event: done\ndata: {}\n\n"
+                return
+            if cached is not None:
+                logger.warning("token_cache_unexpected_type key=%s source=stream", cache_key)
+            logger.info("token_cache_miss key=%s source=stream", cache_key)
         
         job_profile = self._build_query_profile(
             job_description=job_description,
@@ -264,6 +269,13 @@ class MatchingService:
                 matches=[],
                 top_k=top_k,
             )
+            if settings.token_cache_enabled and cache_key is not None:
+                response = self._build_match_response(
+                    job_profile=job_profile,
+                    matches=[],
+                    fairness_audit=fairness_audit,
+                )
+                self._cache.set(cache_key, response)
             yield f"event: fairness\ndata: {fairness_audit.model_dump_json()}\n\n"
             yield "event: done\ndata: {}\n\n"
             return
@@ -380,9 +392,67 @@ class MatchingService:
             top_k=top_k,
         )
         yield f"event: fairness\ndata: {fairness_audit.model_dump_json()}\n\n"
+
+        # --- Token cache store (R2.5) ---
+        if settings.token_cache_enabled and cache_key is not None:
+            response = self._build_match_response(
+                job_profile=job_profile,
+                matches=finished_candidates,
+                fairness_audit=fairness_audit,
+            )
+            self._cache.set(cache_key, response)
         
         # End stream
         yield "event: done\ndata: {}\n\n"
+
+
+    def _build_match_response(
+        self,
+        *,
+        job_profile: JobProfile,
+        matches: list[JobMatchCandidate],
+        fairness_audit: FairnessAudit,
+    ) -> JobMatchResponse:
+        return JobMatchResponse(
+            query_profile=QueryUnderstandingProfile(
+                job_category=job_profile.job_category,
+                roles=job_profile.roles,
+                required_skills=job_profile.required_skills,
+                related_skills=job_profile.related_skills,
+                skill_signals=[
+                    QueryUnderstandingProfile.Signal(
+                        name=signal.name,
+                        strength=signal.strength,
+                        signal_type=signal.signal_type,
+                    )
+                    for signal in job_profile.skill_signals
+                ],
+                capability_signals=[
+                    QueryUnderstandingProfile.Signal(
+                        name=signal.name,
+                        strength=signal.strength,
+                        signal_type=signal.signal_type,
+                    )
+                    for signal in job_profile.capability_signals
+                ],
+                seniority_hint=job_profile.preferred_seniority,
+                filters=job_profile.filters,
+                metadata_filters=job_profile.metadata_filters,
+                transferable_skill_score=job_profile.transferable_skill_score,
+                transferable_skill_evidence=job_profile.transferable_skill_evidence,
+                signal_quality=job_profile.signal_quality,
+                lexical_query=job_profile.lexical_query,
+                semantic_query_expansion=job_profile.semantic_query_expansion,
+                query_text_for_embedding=job_profile.query_text_for_embedding,
+                confidence=job_profile.confidence,
+                fallback_used=job_profile.fallback_used,
+                fallback_reason=job_profile.fallback_reason,
+                fallback_rationale=job_profile.fallback_rationale,
+                fallback_trigger=job_profile.fallback_trigger,
+            ),
+            matches=matches,
+            fairness=fairness_audit,
+        )
 
 
     def _build_query_profile(

@@ -21,7 +21,7 @@
 
 ## Deployment Principles
 
-1. Backend is stateless; persistence is delegated to MongoDB and Milvus.
+1. Backend는 기본적으로 stateless이며, 영속 데이터는 MongoDB/Milvus에 저장한다. 단, token cache는 프로세스 로컬 인메모리(ephemeral)로 동작한다.
 2. Ingestion and matching APIs share the same backend service with config-based guards.
 3. Retrieval can degrade gracefully to Mongo lexical fallback if vector retrieval fails.
 4. Observability is centralized through structured logs and request-id propagation.
