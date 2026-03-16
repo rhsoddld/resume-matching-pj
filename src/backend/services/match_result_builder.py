@@ -229,6 +229,7 @@ def _compute_must_have_penalty(
     *,
     job_profile: JobProfile,
     parsed: dict[str, Any],
+    adjacent_skill_score: float = 0.0,
 ) -> tuple[float, float]:
     must_have_terms = [
         signal.name.strip().lower()
@@ -249,7 +250,9 @@ def _compute_must_have_penalty(
 
     matched = sum(1 for term in must_have_terms if term in candidate_terms)
     match_rate = matched / float(len(must_have_terms))
-    penalty = min(0.25, (1.0 - match_rate) * 0.25)
+    adjacent_credit = max(0.0, min(1.0, float(adjacent_skill_score))) * 0.5
+    effective_match_rate = min(1.0, match_rate + ((1.0 - match_rate) * adjacent_credit))
+    penalty = min(0.12, (1.0 - effective_match_rate) * 0.12)
     return round(match_rate, 4), round(penalty, 4)
 
 
@@ -288,8 +291,12 @@ def build_match_candidate(
         else []
     )
     weighting_summary = _build_weighting_summary(agent_result)
-    must_have_match_rate, must_have_penalty = _compute_must_have_penalty(job_profile=job_profile, parsed=parsed)
     adjacent_skill_score, adjacent_skill_matches = _compute_adjacent_skill_score(job_profile=job_profile, parsed=parsed)
+    must_have_match_rate, must_have_penalty = _compute_must_have_penalty(
+        job_profile=job_profile,
+        parsed=parsed,
+        adjacent_skill_score=adjacent_skill_score,
+    )
     career_trajectory = _build_career_trajectory(
         parsed,
         seniority_level=hit.get("seniority_level"),
@@ -395,9 +402,9 @@ def build_match_candidate(
             "adjacent_skill_score": adjacent_skill_score,
             "agent_weighted": round(float(agent_weighted_score), 4) if agent_weighted_score is not None else None,
             "rank_policy": (
-                "hybrid(deterministic:0.55,agent:0.45,must-have-penalty:max0.25)"
+                "hybrid(deterministic:0.30,agent:0.70,must-have-penalty:max0.12,adjacent-credit:0.50)"
                 if agent_weighted_score is not None
-                else "deterministic-only(must-have-penalty:max0.25)"
+                else "deterministic-only(must-have-penalty:max0.12,adjacent-credit:0.50)"
             ),
         },
         skill_overlap_detail={

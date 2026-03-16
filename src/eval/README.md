@@ -4,39 +4,39 @@
 
 ## Start Here
 
-- 실행 진입점: [eval_runner.py](/Users/lee/Desktop/resume-matching-pj/src/eval/eval_runner.py)
-- 현재 결론 요약: [RESULTS.md](/Users/lee/Desktop/resume-matching-pj/src/eval/RESULTS.md)
-- subset 생성: [create_mode_subsets.py](/Users/lee/Desktop/resume-matching-pj/src/eval/create_mode_subsets.py)
-- LLM judge annotation 생성: [generate_llm_judge_annotations.py](/Users/lee/Desktop/resume-matching-pj/src/eval/generate_llm_judge_annotations.py)
+- 실행 진입점: [eval_runner.py](eval_runner.py)
+- 현재 결론 요약: [RESULTS.md](RESULTS.md)
+- subset 생성: [create_mode_subsets.py](create_mode_subsets.py)
+- LLM judge annotation 생성: [generate_llm_judge_annotations.py](generate_llm_judge_annotations.py)
 
 ## Core Files
 
-- [config.py](/Users/lee/Desktop/resume-matching-pj/src/eval/config.py)
+- [config.py](config.py)
   - eval 모드별 설정
-- [metrics.py](/Users/lee/Desktop/resume-matching-pj/src/eval/metrics.py)
+- [metrics.py](metrics.py)
   - retrieval/rerank/agent 평가 함수
-- [reporting.py](/Users/lee/Desktop/resume-matching-pj/src/eval/reporting.py)
+- [reporting.py](reporting.py)
   - markdown/json 리포트 생성
-- [golden_set.jsonl](/Users/lee/Desktop/resume-matching-pj/src/eval/golden_set.jsonl)
+- [golden_set.jsonl](golden_set.jsonl)
   - 원본 골든셋
-- [golden_set.normalized.jsonl](/Users/lee/Desktop/resume-matching-pj/src/eval/golden_set.normalized.jsonl)
+- [golden_set.normalized.jsonl](golden_set.normalized.jsonl)
   - 정규화 버전
-- [llm_judge_annotations.jsonl](/Users/lee/Desktop/resume-matching-pj/src/eval/llm_judge_annotations.jsonl)
+- [llm_judge_annotations.jsonl](llm_judge_annotations.jsonl)
   - 현재 judge annotation 결과
 
 ## Subsets
 
-- subset 설명: [subsets/README.md](/Users/lee/Desktop/resume-matching-pj/src/eval/subsets/README.md)
-- active agent subset: [golden.agent.jsonl](/Users/lee/Desktop/resume-matching-pj/src/eval/subsets/golden.agent.jsonl)
-- active hybrid subset: [golden.hybrid.jsonl](/Users/lee/Desktop/resume-matching-pj/src/eval/subsets/golden.hybrid.jsonl)
-- active rerank subset: [golden.rerank.jsonl](/Users/lee/Desktop/resume-matching-pj/src/eval/subsets/golden.rerank.jsonl)
+- subset 설명: [subsets/README.md](subsets/README.md)
+- active agent subset: [golden.agent.jsonl](subsets/golden.agent.jsonl)
+- active hybrid subset: [golden.hybrid.jsonl](subsets/golden.hybrid.jsonl)
+- active rerank subset: [golden.rerank.jsonl](subsets/golden.rerank.jsonl)
 
 ## Outputs
 
 - kept reviewer summary root: `src/eval/outputs/short_eval/manual/`
 - current judged agent run:
-  - [final_eval_report.md](/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent6_livejson_top4_v4_judged/final_eval_report.md)
-  - [agent_eval.json](/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent6_livejson_top4_v4_judged/agent_eval.json)
+  - [final_eval_report.md](outputs/short_eval/manual/agent6_livejson_top4_v4_judged/final_eval_report.md)
+  - [agent_eval.json](outputs/short_eval/manual/agent6_livejson_top4_v4_judged/agent_eval.json)
 
 ## Current Rule Of Thumb
 

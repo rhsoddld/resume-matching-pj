@@ -10,6 +10,13 @@ export interface JobMatchRequest {
   industry?: string;
 }
 
+export interface JobFilterOptions {
+  job_families: string[];
+  educations: string[];
+  regions: string[];
+  industries: string[];
+}
+
 export interface QueryUnderstandingProfile {
   job_category?: string;
   roles: string[];

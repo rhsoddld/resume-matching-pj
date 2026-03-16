@@ -21,7 +21,7 @@
 ## Current Best Reference Run
 
 - judged agent run:
-  - [final_eval_report.md](/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent6_livejson_top4_v4_judged/final_eval_report.md)
+  - [final_eval_report.md](outputs/short_eval/manual/agent6_livejson_top4_v4_judged/final_eval_report.md)
 
 핵심 수치:
 

@@ -138,7 +138,7 @@ def compute_experience_fit(*, required_experience_years: float | None, candidate
     if ratio <= 1.0:
         return round(max(0.0, min(1.0, ratio)), 4)
 
-    over_penalty = min(0.35, (ratio - 1.0) * 0.20)
+    over_penalty = min(0.15, (ratio - 1.0) * 0.08)
     return round(max(0.0, min(1.0, 1.0 - over_penalty)), 4)
 
 

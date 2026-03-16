@@ -84,7 +84,7 @@ Each JSONL row should contain:
 
 The generator is:
 
-- [generate_llm_judge_annotations.py](/Users/lee/Desktop/resume-matching-pj/src/eval/generate_llm_judge_annotations.py)
+- [generate_llm_judge_annotations.py](../../src/eval/generate_llm_judge_annotations.py)
 
 Loop:
 

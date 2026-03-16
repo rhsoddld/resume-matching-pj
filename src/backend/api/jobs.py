@@ -5,18 +5,30 @@ import shutil
 import os
 from pathlib import Path
 
-from backend.schemas.job import JobMatchRequest, JobMatchResponse
+from backend.schemas.job import JobFilterOptions, JobMatchRequest, JobMatchResponse
 from backend.schemas.feedback import InterviewEmailRequest, InterviewEmailResponse
 from backend.services.matching_service import matching_service
 from backend.services.resume_parsing import extract_text_from_pdf
 from backend.services.email_draft_service import generate_interview_email
 from backend.repositories.session_repo import create_jd_session, get_jd_session
+from backend.repositories.mongo_repo import get_filter_options
 from backend.core.jd_guardrails import optimize_jd_tokens, scan_for_prompt_injection
 from ops.logging import get_logger
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+
+@router.get("/filters", response_model=JobFilterOptions)
+def filter_options():
+    data = get_filter_options()
+    return JobFilterOptions(
+        job_families=data.get("job_families", []),
+        educations=data.get("educations", []),
+        regions=data.get("regions", []),
+        industries=data.get("industries", []),
+    )
 
 
 @router.post("/match", response_model=JobMatchResponse)

@@ -5,6 +5,8 @@ import re
 
 
 _WHITESPACE = re.compile(r"\s+")
+_SKILL_TOKEN_RE = re.compile(r"[a-z0-9+#.-]+")
+_TOKEN_STOPWORDS = {"and", "or", "with", "for", "the", "a", "an", "to", "of", "in"}
 _SENIORITY_LEVELS = {
     "intern": 0,
     "junior": 1,
@@ -44,6 +46,52 @@ def _overlap_ratio(candidate_set: set[str], target_set: set[str]) -> float:
     return len(candidate_set.intersection(target_set)) / float(len(target_set))
 
 
+def _skill_tokens(term: str) -> set[str]:
+    tokens = {token for token in _SKILL_TOKEN_RE.findall(term.lower()) if token and token not in _TOKEN_STOPWORDS}
+    return tokens
+
+
+def _term_match_score(candidate_set: set[str], target_term: str) -> float:
+    if not target_term:
+        return 0.0
+    if target_term in candidate_set:
+        return 1.0
+
+    target_tokens = _skill_tokens(target_term)
+    if not target_tokens:
+        return 0.0
+
+    best = 0.0
+    for candidate_term in candidate_set:
+        if not candidate_term:
+            continue
+        candidate_tokens = _skill_tokens(candidate_term)
+        if not candidate_tokens:
+            continue
+
+        overlap = len(target_tokens.intersection(candidate_tokens)) / float(len(target_tokens))
+        if overlap <= 0.0:
+            continue
+
+        # Reward cases like "b2b sales support" vs "sales support".
+        if target_term in candidate_term or candidate_term in target_term:
+            overlap = max(overlap, min(1.0, overlap + 0.2))
+
+        best = max(best, overlap)
+        if best >= 1.0:
+            return 1.0
+    return best
+
+
+def _soft_overlap_ratio(candidate_set: set[str], target_set: set[str]) -> float:
+    if not target_set:
+        return 0.0
+    total = 0.0
+    for target_term in target_set:
+        total += _term_match_score(candidate_set, target_term)
+    return total / float(len(target_set))
+
+
 def _clip_01(value: float) -> float:
     return max(0.0, min(1.0, value))
 
@@ -63,8 +111,9 @@ def _experience_fit(candidate_years: float | None, required_years: float | None)
     if ratio <= 1.0:
         return _clip_01(ratio)
 
-    # Prevent over-saturating at 1.0 for highly overqualified profiles.
-    over_penalty = min(0.35, (ratio - 1.0) * 0.20)
+    # Keep slight separation between exact-fit and clearly overqualified profiles,
+    # but avoid harshly punishing senior candidates who still cover the JD well.
+    over_penalty = min(0.15, (ratio - 1.0) * 0.08)
     return _clip_01(1.0 - over_penalty)
 
 
@@ -155,9 +204,9 @@ def compute_skill_overlap(candidate: Mapping[str, object], job: Mapping[str, obj
     if not expanded_target:
         expanded_target = set(job_required)
 
-    core_overlap = _overlap_ratio(candidate_core, job_required)
-    expanded_overlap = _overlap_ratio(candidate_expanded, expanded_target)
-    normalized_overlap = _overlap_ratio(candidate_normalized, job_required)
+    core_overlap = _soft_overlap_ratio(candidate_core, job_required)
+    expanded_overlap = _soft_overlap_ratio(candidate_expanded, expanded_target)
+    normalized_overlap = _soft_overlap_ratio(candidate_normalized, job_required)
 
     if candidate_core:
         score = (0.6 * core_overlap) + (0.3 * expanded_overlap) + (0.1 * normalized_overlap)

@@ -80,6 +80,13 @@ class JobMatchRequest(BaseModel):
     industry: Optional[str] = Field(default=None, max_length=64)
 
 
+class JobFilterOptions(BaseModel):
+    job_families: List[str] = Field(default_factory=list)
+    educations: List[str] = Field(default_factory=list)
+    regions: List[str] = Field(default_factory=list)
+    industries: List[str] = Field(default_factory=list)
+
+
 class QueryUnderstandingProfile(BaseModel):
     class Signal(BaseModel):
         name: str

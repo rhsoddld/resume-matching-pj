@@ -96,6 +96,14 @@ _GENERIC_NON_SKILL_TERMS = {
     "responsibility",
     "requirements",
     "requirement",
+    "role",
+    "roles",
+    "main",
+    "focus",
+    "focused",
+    "field",
+    "domain",
+    "related",
     "internal",
     "external",
     "across",
@@ -110,6 +118,22 @@ _GENERIC_NON_SKILL_TERMS = {
     "team",
     "teams",
     "engineering",
+    "support",
+    "supports",
+    "supporting",
+    "process",
+    "processes",
+    "hiring",
+    "hire",
+    "client",
+    "clients",
+    "guide",
+    "guides",
+    "guiding",
+    "program",
+    "programs",
+    "solution",
+    "solutions",
     "mentor",
     "mentoring",
     "decision",
@@ -142,6 +166,32 @@ _GENERIC_NON_SKILL_TERMS = {
     "review",
     "layers",
     "matching",
+    "analyst",
+    "consultant",
+    "consulting",
+    "business",
+    "operational",
+    "improvement",
+    "stakeholder",
+    "management",
+    "programming",
+    "software",
+    "engineer",
+    "foundational",
+    "understanding",
+    "basics",
+    "change",
+    "changes",
+    "culture",
+    "mission",
+    "operate",
+    "operating",
+    "measure",
+    "measuring",
+    "beyond",
+    "become",
+    "mere",
+    "literacy",
 }
 _SENIORITY_KEYWORDS = ("intern", "junior", "mid", "senior", "lead", "staff", "principal")
 _SINGLE_TERM_WHITELIST = {
@@ -160,6 +210,7 @@ _SINGLE_TERM_WHITELIST = {
     "linux",
     "react",
     "node",
+    "git",
     "go",
     "rust",
     "ruby",
@@ -209,6 +260,7 @@ _ROLE_PATTERNS = (
     "database administrator",
     "senior architect",
     "solutions architect",
+    "consultant",
 )
 _MUST_CUES = ("must", "required", "essential", "need to", "needs to")
 _NICE_CUES = ("nice to have", "preferred", "plus", "good to have")
@@ -425,12 +477,46 @@ def _filter_noisy_terms(terms: list[str]) -> list[str]:
             word = words[0]
             if len(word) <= 2:
                 continue
-            if len(word) < 4 and word not in {"api", "sql"}:
+            if len(word) < 4 and word not in _SINGLE_TERM_WHITELIST:
                 continue
             if word in _GENERIC_NON_SKILL_TERMS:
                 continue
         filtered.append(token)
     return dedupe_preserve(filtered)
+
+
+def _select_required_candidates(
+    terms: list[str],
+    *,
+    literal_candidates: list[str],
+    ontology_candidates: list[str],
+    sentences: list[str],
+) -> list[str]:
+    selected: list[str] = []
+    literal_set = {token.strip().lower() for token in literal_candidates if isinstance(token, str) and token.strip()}
+    ontology_set = {token.strip().lower() for token in ontology_candidates if isinstance(token, str) and token.strip()}
+    preferred_strengths = {"must have", "main focus"}
+
+    for term in dedupe_preserve(terms):
+        words = [word for word in term.split(" ") if word]
+        strength = _match_strength_for_term(term, sentences, default_strength="unknown")
+
+        if term in ontology_set:
+            selected.append(term)
+            continue
+        if term in literal_set and len(words) >= 2:
+            selected.append(term)
+            continue
+        if term in literal_set and term in _SINGLE_TERM_WHITELIST:
+            selected.append(term)
+            continue
+        if strength in preferred_strengths:
+            selected.append(term)
+            continue
+        if strength in {"nice to have", "familiarity"} and term in literal_set and (len(words) >= 2 or term in _SINGLE_TERM_WHITELIST):
+            selected.append(term)
+
+    return dedupe_preserve(selected)
 
 
 def _skill_priority(term: str, *, ontology: RuntimeSkillOntology | None) -> int:
@@ -497,8 +583,8 @@ def _compress_skill_terms(
         unique_terms,
         key=lambda term: (
             _skill_priority(term, ontology=ontology),
-            -len(term.split(" ")),
-            -len(term),
+            min(len(term.split(" ")), _MAX_PHRASE_WORDS),
+            len(term),
         ),
         reverse=True,
     )
@@ -796,24 +882,31 @@ def build_job_profile(
     industry_override: str | None = None,
 ) -> JobProfile:
     parsed_sentences = _sentences(job_description)
-    raw_candidates = _extract_job_skill_candidates(job_description)
-    raw_candidates = _inject_phrase_skill_hints(job_description, raw_candidates)
+    literal_raw_candidates = _extract_job_skill_candidates(job_description)
+    raw_candidates = _inject_phrase_skill_hints(job_description, literal_raw_candidates)
+    literal_filtered_candidates = _filter_noisy_terms(literal_raw_candidates)
     filtered_candidates = _filter_noisy_terms(raw_candidates)
     ontology_candidates = _extract_ontology_candidates(job_description, ontology)
+    required_candidates = _select_required_candidates(
+        filtered_candidates,
+        literal_candidates=literal_filtered_candidates,
+        ontology_candidates=ontology_candidates,
+        sentences=parsed_sentences,
+    )
     if ontology is None:
         required_skills = _compress_skill_terms(
-            filtered_candidates,
+            required_candidates or filtered_candidates,
             ontology=None,
             max_terms=_MAX_REQUIRED_SKILLS,
         )
         expanded_skills = dedupe_preserve(
             [
                 *required_skills,
-                *_compress_skill_terms(raw_candidates, ontology=None, max_terms=_MAX_REQUIRED_SKILLS + _MAX_RELATED_SKILLS),
+                *_compress_skill_terms(filtered_candidates, ontology=None, max_terms=_MAX_REQUIRED_SKILLS + _MAX_RELATED_SKILLS),
             ]
         )
     else:
-        seed_candidates = dedupe_preserve([*ontology_candidates, *filtered_candidates])
+        seed_candidates = dedupe_preserve([*ontology_candidates, *required_candidates])
         normalized = ontology.normalize(raw_skills=seed_candidates, abilities=[])
         known_terms = set(ontology.core_taxonomy.keys()).union(set(ontology.alias_to_canonical.values()))
         known_canonical = [skill for skill in normalized.canonical_skills if skill in known_terms]
@@ -823,9 +916,9 @@ def build_job_profile(
         # yet be fully represented in the ontology taxonomy.
         base_required = normalized.core_skills or known_canonical
         if base_required:
-            required_skills = dedupe_preserve([*base_required, *filtered_candidates])
+            required_skills = dedupe_preserve([*base_required, *required_candidates])
         else:
-            required_skills = filtered_candidates
+            required_skills = required_candidates or filtered_candidates
         required_skills = _compress_skill_terms(
             required_skills,
             ontology=ontology,
@@ -884,7 +977,18 @@ def build_job_profile(
         capability_signals=capability_signals,
         ontology=ontology,
     )
-    related_skills = dedupe_preserve([*related_skills, *adjacent_skills])
+    related_skills = _compress_skill_terms(
+        dedupe_preserve(
+            [
+                *related_skills,
+                *(signal.name for signal in capability_signals if signal.name not in set(required_skills)),
+                *adjacent_skills,
+            ]
+        ),
+        ontology=ontology,
+        max_terms=_MAX_RELATED_SKILLS,
+    )
+    expanded_skills = dedupe_preserve([*required_skills, *related_skills])
     lexical_query = _build_lexical_query(
         roles=roles,
         skill_signals=skill_signals,

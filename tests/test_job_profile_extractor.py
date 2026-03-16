@@ -43,8 +43,10 @@ def test_junior_software_role_and_skill_hints_are_extracted() -> None:
     )
     profile = build_job_profile(jd, ontology=None)
     required = set(profile.required_skills)
+    related = set(profile.related_skills)
     assert "junior software engineer" in profile.roles
-    assert {"python", "java", "git", "data structures", "unit testing"} & required
+    assert {"python", "java", "git"} <= required
+    assert {"data structures", "unit testing"} <= related
 
 
 def test_senior_architect_role_and_skill_hints_are_extracted() -> None:
@@ -66,3 +68,22 @@ def test_role_specific_embed_cap_expands_for_senior_architect() -> None:
     included_query_skills = [token for token in skills if re.search(rf"\b{token}\b", profile.query_text_for_embedding)]
     assert len(included_query_skills) > 20
     assert len(included_query_skills) <= 28
+
+
+def test_job_profile_avoids_generic_core_noise_and_keeps_related_requirements() -> None:
+    jd = (
+        "We are hiring a business analyst consulting role. "
+        "The main focus is guiding client change programs and process support. "
+        "Requirements: requirements management, stakeholder management, SQL, reporting. "
+        "Nice to have operational improvement and process mapping."
+    )
+
+    profile = build_job_profile(jd, ontology=None)
+    required = set(profile.required_skills)
+    related = set(profile.related_skills)
+
+    assert "business analyst" in profile.roles
+    assert "stakeholder management" in required
+    assert "sql" in required
+    assert {"requirements gathering", "process mapping", "reporting"} <= related
+    assert {"role", "main", "focus", "client", "change", "support", "consulting"} & required == set()

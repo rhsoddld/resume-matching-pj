@@ -62,17 +62,17 @@ resume-matching-system/
 
 ## Documentation Entry Points
 
-- Architecture: [docs/architecture/system_architecture.md](/Users/lee/Desktop/resume-matching-pj/docs/architecture/system_architecture.md)
-- Deployment: [docs/architecture/deployment_architecture.md](/Users/lee/Desktop/resume-matching-pj/docs/architecture/deployment_architecture.md)
-- Ingestion flow: [docs/data-flow/resume_ingestion_flow.md](/Users/lee/Desktop/resume-matching-pj/docs/data-flow/resume_ingestion_flow.md)
-- Retrieval flow: [docs/data-flow/candidate_retrieval_flow.md](/Users/lee/Desktop/resume-matching-pj/docs/data-flow/candidate_retrieval_flow.md)
-- Agent pipeline: [docs/agents/multi_agent_pipeline.md](/Users/lee/Desktop/resume-matching-pj/docs/agents/multi_agent_pipeline.md)
-- Evaluation: [docs/evaluation/evaluation_plan.md](/Users/lee/Desktop/resume-matching-pj/docs/evaluation/evaluation_plan.md), [docs/evaluation/evaluation_results.md](/Users/lee/Desktop/resume-matching-pj/docs/evaluation/evaluation_results.md)
-- Golden alignment: [docs/evaluation/golden_set_alignment.md](/Users/lee/Desktop/resume-matching-pj/docs/evaluation/golden_set_alignment.md)
+- Architecture: [docs/architecture/system_architecture.md](./docs/architecture/system_architecture.md)
+- Deployment: [docs/architecture/deployment_architecture.md](./docs/architecture/deployment_architecture.md)
+- Ingestion flow: [docs/data-flow/resume_ingestion_flow.md](./docs/data-flow/resume_ingestion_flow.md)
+- Retrieval flow: [docs/data-flow/candidate_retrieval_flow.md](./docs/data-flow/candidate_retrieval_flow.md)
+- Agent pipeline: [docs/agents/multi_agent_pipeline.md](./docs/agents/multi_agent_pipeline.md)
+- Evaluation: [docs/evaluation/evaluation_plan.md](./docs/evaluation/evaluation_plan.md), [docs/evaluation/evaluation_results.md](./docs/evaluation/evaluation_results.md)
+- Golden alignment: [docs/evaluation/golden_set_alignment.md](./docs/evaluation/golden_set_alignment.md)
 
 ## Current Eval Snapshot
 
-- Current short-path status: [docs/evaluation/short_eval_status_2026-03-17.md](/Users/lee/Desktop/resume-matching-pj/docs/evaluation/short_eval_status_2026-03-17.md)
-- Team one-pager: [docs/evaluation/team_eval_snapshot_2026-03-17.md](/Users/lee/Desktop/resume-matching-pj/docs/evaluation/team_eval_snapshot_2026-03-17.md)
-- Next sprint checklist: [docs/evaluation/next_sprint_checklist_2026-03-17.md](/Users/lee/Desktop/resume-matching-pj/docs/evaluation/next_sprint_checklist_2026-03-17.md)
-- LLM-as-Judge design: [docs/evaluation/llm_judge_design.md](/Users/lee/Desktop/resume-matching-pj/docs/evaluation/llm_judge_design.md)
+- Current short-path status: [docs/evaluation/short_eval_status_2026-03-17.md](./docs/evaluation/short_eval_status_2026-03-17.md)
+- Team one-pager: [docs/evaluation/team_eval_snapshot_2026-03-17.md](./docs/evaluation/team_eval_snapshot_2026-03-17.md)
+- Next sprint checklist: [docs/evaluation/next_sprint_checklist_2026-03-17.md](./docs/evaluation/next_sprint_checklist_2026-03-17.md)
+- LLM-as-Judge design: [docs/evaluation/llm_judge_design.md](./docs/evaluation/llm_judge_design.md)

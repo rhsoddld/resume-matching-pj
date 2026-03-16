@@ -1,4 +1,5 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { fetchFilterOptions } from "../api/match";
 import type { JobMatchRequest } from "../types";
 
 interface JobRequirementFormProps {
@@ -6,10 +7,10 @@ interface JobRequirementFormProps {
   isLoading: boolean;
 }
 
-const JOB_FAMILY = ["", "Data Science", "Python Developer", "Java Developer", "Business Analyst", "DevOps Engineer", "HR"];
-const EDUCATION = ["", "Any", "Bachelor", "Master", "PhD"];
-const REGION = ["", "Remote", "India", "United States", "APAC", "EMEA"];
-const INDUSTRY = ["", "Technology", "Finance", "Healthcare", "E-commerce", "Manufacturing"];
+const DEFAULT_JOB_FAMILY = ["", "Data Science", "Python Developer", "Java Developer", "Business Analyst", "DevOps Engineer", "HR"];
+const DEFAULT_EDUCATION = ["", "Any", "Bachelor", "Master", "PhD"];
+const DEFAULT_REGION = ["", "Remote", "India", "United States", "APAC", "EMEA"];
+const DEFAULT_INDUSTRY = ["", "Technology", "Finance", "Healthcare", "E-commerce", "Manufacturing"];
 const SENIORITY = ["", "Junior", "Mid", "Senior"];
 
 function seniorityToExperience(seniority: string): number | undefined {
@@ -17,10 +18,10 @@ function seniorityToExperience(seniority: string): number | undefined {
     return 1;
   }
   if (seniority === "Mid") {
-    return 3;
+    return 5;
   }
   if (seniority === "Senior") {
-    return 6;
+    return 10;
   }
   return undefined;
 }
@@ -35,8 +36,47 @@ export default function JobRequirementForm({ onSubmit, isLoading }: JobRequireme
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [jobFamilyOptions, setJobFamilyOptions] = useState<string[]>(DEFAULT_JOB_FAMILY);
+  const [educationOptions, setEducationOptions] = useState<string[]>(DEFAULT_EDUCATION);
+  const [regionOptions, setRegionOptions] = useState<string[]>(DEFAULT_REGION);
+  const [industryOptions, setIndustryOptions] = useState<string[]>(DEFAULT_INDUSTRY);
 
   const characterCount = useMemo(() => jobDescription.length, [jobDescription]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadOptions() {
+      try {
+        const data = await fetchFilterOptions();
+        if (!mounted) {
+          return;
+        }
+
+        const families = ["", ...data.job_families];
+        const educations = ["", "Any", ...data.educations.filter((item) => item !== "Any")];
+        const regions = ["", ...data.regions];
+        const industries = ["", ...data.industries];
+
+        setJobFamilyOptions(families.length > 1 ? families : DEFAULT_JOB_FAMILY);
+        setEducationOptions(educations.length > 2 ? educations : DEFAULT_EDUCATION);
+        setRegionOptions(regions.length > 1 ? regions : DEFAULT_REGION);
+        setIndustryOptions(industries.length > 1 ? industries : DEFAULT_INDUSTRY);
+      } catch (_) {
+        if (!mounted) {
+          return;
+        }
+        setJobFamilyOptions(DEFAULT_JOB_FAMILY);
+        setEducationOptions(DEFAULT_EDUCATION);
+        setRegionOptions(DEFAULT_REGION);
+        setIndustryOptions(DEFAULT_INDUSTRY);
+      }
+    }
+
+    loadOptions();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function handlePdfUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -165,7 +205,7 @@ export default function JobRequirementForm({ onSubmit, isLoading }: JobRequireme
           <div className="field-group">
             <label htmlFor="job-family">Job family</label>
             <select id="job-family" value={jobFamily} onChange={(event) => setJobFamily(event.target.value)}>
-              {JOB_FAMILY.map((option) => (
+              {jobFamilyOptions.map((option) => (
                 <option key={option || "all"} value={option}>{option || "All"}</option>
               ))}
             </select>
@@ -174,7 +214,7 @@ export default function JobRequirementForm({ onSubmit, isLoading }: JobRequireme
           <div className="field-group">
             <label htmlFor="education">Education</label>
             <select id="education" value={education} onChange={(event) => setEducation(event.target.value)}>
-              {EDUCATION.map((option) => (
+              {educationOptions.map((option) => (
                 <option key={option || "all"} value={option}>{option || "All"}</option>
               ))}
             </select>
@@ -183,7 +223,7 @@ export default function JobRequirementForm({ onSubmit, isLoading }: JobRequireme
           <div className="field-group">
             <label htmlFor="region">Region</label>
             <select id="region" value={region} onChange={(event) => setRegion(event.target.value)}>
-              {REGION.map((option) => (
+              {regionOptions.map((option) => (
                 <option key={option || "all"} value={option}>{option || "All"}</option>
               ))}
             </select>
@@ -192,7 +232,7 @@ export default function JobRequirementForm({ onSubmit, isLoading }: JobRequireme
           <div className="field-group">
             <label htmlFor="industry">Industry</label>
             <select id="industry" value={industry} onChange={(event) => setIndustry(event.target.value)}>
-              {INDUSTRY.map((option) => (
+              {industryOptions.map((option) => (
                 <option key={option || "all"} value={option}>{option || "All"}</option>
               ))}
             </select>

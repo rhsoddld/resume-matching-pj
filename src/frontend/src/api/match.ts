@@ -1,6 +1,17 @@
-import type { JobMatchRequest, JobMatchResponse } from "../types";
+import type { JobFilterOptions, JobMatchRequest, JobMatchResponse } from "../types";
 
 const BASE_URL = "/api";
+
+export async function fetchFilterOptions(): Promise<JobFilterOptions> {
+  const response = await fetch(`${BASE_URL}/jobs/filters`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to load filter options (HTTP ${response.status})`);
+  }
+  return response.json() as Promise<JobFilterOptions>;
+}
 
 export async function matchCandidates(request: JobMatchRequest): Promise<JobMatchResponse> {
   const response = await fetch(`${BASE_URL}/jobs/match`, {

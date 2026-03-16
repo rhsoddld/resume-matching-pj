@@ -5,7 +5,7 @@
 - Scope: expected skill vocabulary alignment + role-family specific query extraction hardening (`junior_software`, `senior_architect`).
 
 ## Ontology Gap Patch List
-Added to [`config/skill_taxonomy.yml`](/Users/lee/Desktop/resume-matching-pj/config/skill_taxonomy.yml):
+Added to [`config/skill_taxonomy.yml`](../../config/skill_taxonomy.yml):
 
 - `api testing`
 - `ci/cd`
@@ -34,7 +34,7 @@ Added to [`config/skill_taxonomy.yml`](/Users/lee/Desktop/resume-matching-pj/con
 - `cost optimization` (optional skill alignment)
 - `solution governance` (optional skill alignment)
 
-Added alias mappings to [`config/skill_aliases.yml`](/Users/lee/Desktop/resume-matching-pj/config/skill_aliases.yml) for common variants:
+Added alias mappings to [`config/skill_aliases.yml`](../../config/skill_aliases.yml) for common variants:
 
 - `rest api integration -> rest api`
 - `cicd/ci cd/continuous integration -> ci/cd`
@@ -49,7 +49,7 @@ Added alias mappings to [`config/skill_aliases.yml`](/Users/lee/Desktop/resume-m
 - `technical lead -> technical leadership`
 
 ## Query Extraction Hardening
-Updated [`src/backend/services/job_profile_extractor.py`](/Users/lee/Desktop/resume-matching-pj/src/backend/services/job_profile_extractor.py):
+Updated [`src/backend/services/job_profile_extractor.py`](../../src/backend/services/job_profile_extractor.py):
 
 - role pattern 강화:
   - `junior software engineer`

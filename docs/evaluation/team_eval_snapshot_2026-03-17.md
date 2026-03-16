@@ -35,9 +35,9 @@
 
 ## Primary References
 
-- [short_eval_status_2026-03-17.md](/Users/lee/Desktop/resume-matching-pj/docs/evaluation/short_eval_status_2026-03-17.md)
-- [llm_judge_design.md](/Users/lee/Desktop/resume-matching-pj/docs/evaluation/llm_judge_design.md)
-- [agent_baseline_comparison.md](/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent_baseline_comparison.md)
+- [short_eval_status_2026-03-17.md](short_eval_status_2026-03-17.md)
+- [llm_judge_design.md](llm_judge_design.md)
+- [agent_baseline_comparison.md](../../src/eval/outputs/short_eval/manual/agent_baseline_comparison.md)
 
 ## Artifact Commit Policy
 

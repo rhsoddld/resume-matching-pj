@@ -26,7 +26,7 @@ export default function CandidateResults({ candidates, onOpenDetail }: Candidate
 
       <div className="candidate-table" role="table" aria-label="Candidate summary table">
         <div className="candidate-table__head" role="row">
-          <span>Name</span>
+          <span>ID</span>
           <span>Role</span>
           <span>Experience</span>
           <span>Score</span>
