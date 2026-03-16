@@ -159,3 +159,68 @@ def compute_weighted_score(ranking_input: RankingAgentInput) -> float:
         + ranking_input.culture_score * weights.culture
     )
     return round(min(1.0, max(0.0, weighted)), 4)
+
+
+def _normalized_token_list(values: list[Any], *, limit: int) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if not isinstance(value, str):
+            continue
+        token = value.strip().lower()
+        if not token or token in seen:
+            continue
+        seen.add(token)
+        out.append(token)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def build_grounded_ranking_explanation(
+    *,
+    payload: dict[str, Any],
+    skill_output: Any,
+    experience_output: Any,
+    technical_output: Any,
+    culture_output: Any,
+    final_weights: Any,
+) -> str:
+    required_skills = _normalized_token_list(
+        list((payload.get("job_profile") or {}).get("required_skills") or []),
+        limit=6,
+    )
+
+    skill_input = ((payload.get("candidate") or {}).get("skill_input") or {})
+    technical_input = ((payload.get("candidate") or {}).get("technical_input") or {})
+    candidate_skill_tokens = _normalized_token_list(
+        list(skill_input.get("candidate_normalized_skills") or []) + list(technical_input.get("candidate_skills") or []),
+        limit=10,
+    )
+
+    matched = _normalized_token_list(list(getattr(skill_output, "matched_skills", []) or []), limit=6)
+    if not matched:
+        matched = [token for token in candidate_skill_tokens if token in set(required_skills)][:6]
+
+    missing = _normalized_token_list(list(getattr(skill_output, "missing_skills", []) or []), limit=4)
+    supporting = [token for token in candidate_skill_tokens if token not in matched and token not in missing][:4]
+
+    final_skill = float(getattr(final_weights, "skill", 0.0))
+    final_experience = float(getattr(final_weights, "experience", 0.0))
+    final_technical = float(getattr(final_weights, "technical", 0.0))
+    final_culture = float(getattr(final_weights, "culture", 0.0))
+
+    matched_text = ", ".join(matched or required_skills[:4] or ["none explicit"])
+    supporting_text = ", ".join(supporting or candidate_skill_tokens[:4] or ["none explicit"])
+    missing_text = ", ".join(missing or ["none explicit"])
+
+    return (
+        f"Matched required skills: {matched_text}. "
+        f"Candidate evidence tokens: {supporting_text}; missing or weaker skills: {missing_text}. "
+        f"Scores/weights: skill={float(getattr(skill_output, 'score', 0.0)):.2f}, "
+        f"experience={float(getattr(experience_output, 'score', 0.0)):.2f}, "
+        f"technical={float(getattr(technical_output, 'score', 0.0)):.2f}, "
+        f"culture={float(getattr(culture_output, 'score', 0.0)):.2f}; "
+        f"final weights skill={final_skill:.2f}, experience={final_experience:.2f}, "
+        f"technical={final_technical:.2f}, culture={final_culture:.2f}."
+    )

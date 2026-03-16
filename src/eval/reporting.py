@@ -52,6 +52,8 @@ def build_final_report_markdown(
         ["Rerank MRR delta", _format_float(rerank_eval.get("mrr_delta"))],
         ["Human agreement", _format_float(agent_eval.get("human_agreement"))],
         ["LLM-as-Judge agreement", _format_float(agent_eval.get("llm_as_judge_agreement"))],
+        ["LLM explanation quality", _format_float(agent_eval.get("llm_explanation_quality_score"))],
+        ["LLM explanation groundedness", _format_float(agent_eval.get("llm_explanation_groundedness_score"))],
         ["Agent explanation presence", _format_float(agent_eval.get("explanation_presence_rate"))],
         ["Agent groundedness", _format_float(agent_eval.get("groundedness_score"))],
         ["End-to-end latency p95 (ms)", _format_float(performance_eval.get("end_to_end_latency", {}).get("p95_ms"))],
@@ -109,6 +111,9 @@ def build_final_report_markdown(
 
     lines.append("## Agent Quality Summary")
     lines.append("")
+    lines.append(f"- LLM-as-Judge agreement: `{_format_float(agent_eval.get('llm_as_judge_agreement'))}`")
+    lines.append(f"- LLM explanation quality: `{_format_float(agent_eval.get('llm_explanation_quality_score'))}`")
+    lines.append(f"- LLM explanation groundedness: `{_format_float(agent_eval.get('llm_explanation_groundedness_score'))}`")
     lines.append(f"- Explanation presence rate: `{_format_float(agent_eval.get('explanation_presence_rate'))}`")
     lines.append(f"- Explanation groundedness (heuristic): `{_format_float(agent_eval.get('groundedness_score'))}`")
     lines.append(f"- Dimension consistency (heuristic): `{_format_float(agent_eval.get('dimension_consistency_score'))}`")

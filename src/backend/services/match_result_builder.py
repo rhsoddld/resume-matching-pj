@@ -14,6 +14,55 @@ from backend.services.scoring_service import (
 )
 
 
+def _normalized_token_list(values: list[Any], *, limit: int) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if not isinstance(value, str):
+            continue
+        token = value.strip().lower()
+        if not token or token in seen:
+            continue
+        seen.add(token)
+        out.append(token)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _build_deterministic_explanation(
+    *,
+    job_profile: JobProfile,
+    parsed: dict[str, Any],
+    skill_overlap_score: float,
+    final_score_detail: dict[str, float],
+    must_have_match_rate: float,
+) -> str:
+    required_skills = _normalized_token_list(list(job_profile.required_skills or []), limit=6)
+    candidate_skill_tokens = _normalized_token_list(
+        list(parsed.get("normalized_skills") or []) + list(parsed.get("skills") or []),
+        limit=10,
+    )
+    required_set = set(required_skills)
+    candidate_set = set(candidate_skill_tokens)
+    matched = [token for token in required_skills if token in candidate_set][:6]
+    missing = [token for token in required_skills if token not in candidate_set][:4]
+    supporting = [token for token in candidate_skill_tokens if token not in matched and token not in missing][:4]
+
+    matched_text = ", ".join(matched or required_skills[:4] or ["none explicit"])
+    supporting_text = ", ".join(supporting or candidate_skill_tokens[:4] or ["none explicit"])
+    missing_text = ", ".join(missing or ["none explicit"])
+
+    return (
+        f"Matched required skills: {matched_text}. "
+        f"Candidate evidence tokens: {supporting_text}; missing or weaker skills: {missing_text}. "
+        f"Deterministic signals: semantic={float(final_score_detail['semantic_similarity']):.2f}, "
+        f"skill={float(skill_overlap_score):.2f}, experience={float(final_score_detail['experience_fit']):.2f}, "
+        f"seniority={float(final_score_detail['seniority_fit']):.2f}; "
+        f"must-have match={float(must_have_match_rate):.2f}."
+    )
+
+
 def _extract_relevant_experience(parsed: dict[str, Any], *, experience_years: float | None) -> list[str]:
     items = parsed.get("experience_items") or []
     highlights: list[str] = []
@@ -287,14 +336,38 @@ def build_match_candidate(
             "evidence": evidence_map,
         }
     else:
+        deterministic_explanation = _build_deterministic_explanation(
+            job_profile=job_profile,
+            parsed=parsed,
+            skill_overlap_score=float(skill_overlap_score),
+            final_score_detail=final_score_detail,
+            must_have_match_rate=must_have_match_rate,
+        )
         agent_scores = {
             "parsing": parsing_score,
+            "skill": round(float(skill_overlap_score), 4),
+            "experience": round(float(final_score_detail["experience_fit"]), 4),
+            "technical": round(float(final_score_detail["semantic_similarity"]), 4),
+            "weighted": round(float(rank_score), 4),
             "runtime_mode": "deterministic_only",
             "runtime_reason": agent_evaluation_reason or "outside_agent_eval_scope",
             "agent_evaluation_applied": evaluation_applied,
-            "confidence": {"parsing": parsing_score},
-            "evidence": {"parsing": ["No agent outputs available; deterministic-only match."]},
+            "confidence": {
+                "parsing": parsing_score,
+                "skill": round(float(skill_overlap_score), 4),
+                "experience": round(float(final_score_detail["experience_fit"]), 4),
+                "technical": round(float(final_score_detail["semantic_similarity"]), 4),
+            },
+            "evidence": {
+                "parsing": ["No agent outputs available; deterministic-only match."],
+                "skill": [f"required_skills={', '.join(job_profile.required_skills[:4]) or 'none'}"],
+                "experience": [f"experience_fit={float(final_score_detail['experience_fit']):.2f}"],
+                "technical": [f"semantic_similarity={float(final_score_detail['semantic_similarity']):.2f}"],
+            },
         }
+        agent_explanation = deterministic_explanation
+    if agent_result is not None:
+        agent_explanation = agent_result.ranking_output.explanation
 
     return JobMatchCandidate(
         candidate_id=hit["candidate_id"],
@@ -333,7 +406,7 @@ def build_match_candidate(
             "normalized_overlap": round(float(skill_overlap_detail["normalized_overlap"]), 4),
         },
         agent_scores=agent_scores,
-        agent_explanation=agent_result.ranking_output.explanation if agent_result is not None else None,
+        agent_explanation=agent_explanation,
         relevant_experience=relevant_experience,
         career_trajectory=(
             agent_result.experience_output.career_trajectory

@@ -10,6 +10,7 @@ from backend.agents.contracts.technical_agent import TechnicalAgentOutput
 
 from .candidate_mapper import build_career_trajectory
 from .helpers import (
+    build_grounded_ranking_explanation,
     build_fallback_weight_negotiation,
     compute_experience_fit,
     compute_seniority_fit,
@@ -107,17 +108,36 @@ def run_heuristic_agents(
         rationale="Fallback: category alignment baseline with capability phrases.",
     )
 
+    weight_negotiation = build_fallback_weight_negotiation(
+        job_profile.required_experience_years,
+        job_profile.required_skills,
+    )
+
     return AgentExecutionResult(
         skill_output=skill_output,
         experience_output=experience_output,
         technical_output=technical_output,
         culture_output=culture_output,
-        weight_negotiation=build_fallback_weight_negotiation(
-            job_profile.required_experience_years,
-            job_profile.required_skills,
-        ),
-        ranking_explanation=(
-            "Fallback weighted ranking from deterministic domain-agent heuristics and A2A weight policy."
+        weight_negotiation=weight_negotiation,
+        ranking_explanation=build_grounded_ranking_explanation(
+            payload={
+                "job_profile": {
+                    "required_skills": job_profile.required_skills,
+                },
+                "candidate": {
+                    "skill_input": {
+                        "candidate_normalized_skills": skill_input.candidate_normalized_skills,
+                    },
+                    "technical_input": {
+                        "candidate_skills": technical_input.candidate_skills,
+                    },
+                },
+            },
+            skill_output=skill_output,
+            experience_output=experience_output,
+            technical_output=technical_output,
+            culture_output=culture_output,
+            final_weights=weight_negotiation.final,
         ),
         runtime_mode="heuristic",
         runtime_reason=runtime_reason or "heuristic_fallback",

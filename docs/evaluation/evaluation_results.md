@@ -1,5 +1,13 @@
 # Eval Results Archive
 
+## Current Status
+
+- Latest short-eval status and recommendation:
+  - `/Users/lee/Desktop/resume-matching-pj/docs/evaluation/short_eval_status_2026-03-17.md`
+- LLM-as-Judge design and current schema:
+  - `/Users/lee/Desktop/resume-matching-pj/docs/evaluation/llm_judge_design.md`
+- This file is now treated as an archive of earlier snapshots.
+
 - Generated at (UTC): `2026-03-15 11:37:28`
 - Commit: `8b7567c7c48e`
 - Golden set: `src/eval/golden_set.jsonl`

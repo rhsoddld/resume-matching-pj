@@ -12,7 +12,7 @@ from backend.agents.contracts.skill_agent import SkillAgentOutput
 from backend.agents.contracts.technical_agent import TechnicalAgentOutput
 from backend.agents.contracts.weight_negotiation_agent import WeightNegotiationOutput, WeightProposal
 
-from .helpers import normalize_weight_payload, safe_json_load
+from .helpers import build_grounded_ranking_explanation, normalize_weight_payload, safe_json_load
 from .prompts import PROMPTS
 from .types import AgentExecutionResult
 from backend.core.observability import traceable_op
@@ -135,7 +135,11 @@ def run_live_agents(
                     "role": "user",
                     "content": json.dumps(
                         {
-                            "instruction": "Produce outputs matching this JSON schema exactly.",
+                            "instruction": (
+                                "Produce outputs matching this JSON schema exactly. "
+                                "ranking_explanation must follow the evidence-token template and cite literal tokens "
+                                "from required_skills, matched_skills, candidate_normalized_skills, or missing_skills."
+                            ),
                             "json_schema": LIVE_OUTPUT_SCHEMA,
                             "payload": payload,
                         },
@@ -160,8 +164,14 @@ def run_live_agents(
             normalize_weight_payload(raw_negotiation.get("hiring_manager", {}))
         )
         final = WeightProposal.model_validate(normalize_weight_payload(raw_negotiation.get("final", {})))
-        ranking_explanation = str(data.get("ranking_explanation", ""))
-        ranking_explanation = ranking_explanation or "Agent weighted ranking from negotiated A2A policy."
+        ranking_explanation = build_grounded_ranking_explanation(
+            payload=payload,
+            skill_output=skill_output,
+            experience_output=experience_output,
+            technical_output=technical_output,
+            culture_output=culture_output,
+            final_weights=final,
+        )
         weight_negotiation = WeightNegotiationOutput(
             recruiter=recruiter,
             hiring_manager=hiring_manager,

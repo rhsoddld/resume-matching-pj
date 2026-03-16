@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import importlib
+import os
 from typing import Any
 
 from backend.core.settings import settings
 
 
 def should_try_agents_sdk() -> bool:
+    if os.getenv("RESUME_MATCHING_EVAL_MODE"):
+        return False
     return settings.openai_agents_sdk_enabled
 
 

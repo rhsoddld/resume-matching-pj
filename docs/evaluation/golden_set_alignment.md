@@ -77,8 +77,14 @@ Run these after ontology changes or golden set edits:
 GOLDEN_SET=src/eval/golden_set.normalized.jsonl ./scripts/run_retrieval_eval.sh
 ```
 
-3. Check outputs
+3. Rerank eval with normalized golden
+```bash
+GOLDEN_SET=src/eval/golden_set.normalized.jsonl ./scripts/run_rerank_eval.sh
+```
+
+4. Check outputs
 - `src/eval/outputs/retrieval_eval.json`
+- `src/eval/outputs/rerank_eval.json`
 - `src/eval/outputs/golden_skill_gap_report.md`
 
 ## Gating Rule (Fast)

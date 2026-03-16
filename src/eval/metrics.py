@@ -221,3 +221,14 @@ def binary_agreement_rate(predicted: dict[str, bool], reference: dict[str, bool]
         return None
     agree = sum(1 for qid in common_ids if bool(predicted[qid]) == bool(reference[qid]))
     return round(agree / float(len(common_ids)), 4)
+
+
+def candidate_binary_agreement_rate(
+    predicted: dict[tuple[str, str], bool],
+    reference: dict[tuple[str, str], bool],
+) -> float | None:
+    common_keys = sorted(set(predicted.keys()).intersection(reference.keys()))
+    if not common_keys:
+        return None
+    agree = sum(1 for key in common_keys if bool(predicted[key]) == bool(reference[key]))
+    return round(agree / float(len(common_keys)), 4)

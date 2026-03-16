@@ -1,0 +1,112 @@
+{
+  "run_id": "eval-20260316T210104Z-d1928143",
+  "end_to_end_latency": {
+    "p50_ms": 25165.4474,
+    "p95_ms": 45258.3658,
+    "p99_ms": 50453.2082,
+    "mean_ms": 29316.2983
+  },
+  "stage_latency": {
+    "query_understanding_ms": {
+      "p50_ms": 1.2474,
+      "p95_ms": 1.4945,
+      "p99_ms": 1.5066,
+      "mean_ms": 1.2179
+    },
+    "retrieval_ms": {
+      "p50_ms": 567.5939,
+      "p95_ms": 913.7271,
+      "p99_ms": 918.9982,
+      "mean_ms": 625.498
+    },
+    "rerank_ms": {
+      "p50_ms": 0.0,
+      "p95_ms": 0.0,
+      "p99_ms": 0.0,
+      "mean_ms": 0.0
+    },
+    "agent_eval_ms": {
+      "p50_ms": 24255.6218,
+      "p95_ms": 44676.8955,
+      "p99_ms": 49816.037,
+      "mean_ms": 28688.2625
+    }
+  },
+  "total_tokens_per_request": 790.5833,
+  "rerank_extra_tokens": 0.0,
+  "agent_eval_extra_tokens": 1199.5,
+  "estimated_cost_per_request_usd": 0.0022,
+  "candidates_per_sec": 36.0361,
+  "per_query": [
+    {
+      "query_id": "gs-q-016",
+      "end_to_end_latency_ms": 25225.3183,
+      "retrieval_latency_ms": 893.9603,
+      "rerank_latency_ms": 0.0,
+      "agent_latency_ms": 24328.8578,
+      "candidates_per_sec": 22.3724
+    },
+    {
+      "query_id": "gs-q-018",
+      "end_to_end_latency_ms": 25105.5765,
+      "retrieval_latency_ms": 920.316,
+      "rerank_latency_ms": 0.0,
+      "agent_latency_ms": 24182.3858,
+      "candidates_per_sec": 21.7317
+    },
+    {
+      "query_id": "gs-q-009",
+      "end_to_end_latency_ms": 24614.7594,
+      "retrieval_latency_ms": 433.4081,
+      "rerank_latency_ms": 0.0,
+      "agent_latency_ms": 24179.1544,
+      "candidates_per_sec": 46.1459
+    },
+    {
+      "query_id": "gs-q-010",
+      "end_to_end_latency_ms": 51751.9187,
+      "retrieval_latency_ms": 648.3558,
+      "rerank_latency_ms": 0.0,
+      "agent_latency_ms": 51100.8224,
+      "candidates_per_sec": 30.8473
+    },
+    {
+      "query_id": "gs-q-013",
+      "end_to_end_latency_ms": 23422.51,
+      "retrieval_latency_ms": 486.832,
+      "rerank_latency_ms": 0.0,
+      "agent_latency_ms": 22933.24,
+      "candidates_per_sec": 41.0819
+    },
+    {
+      "query_id": "gs-q-005",
+      "end_to_end_latency_ms": 25777.707,
+      "retrieval_latency_ms": 370.1157,
+      "rerank_latency_ms": 0.0,
+      "agent_latency_ms": 25405.115,
+      "candidates_per_sec": 54.0372
+    }
+  ],
+  "reliability": {
+    "run_id": "eval-20260316T210104Z-d1928143",
+    "fallback_trigger_rate": 0.0,
+    "timeout_rate": 0.0,
+    "error_rate": 0.0,
+    "degraded_mode_success_rate": 0.0,
+    "counts": {
+      "fallback_trigger_count": 0,
+      "timeout_count": 0,
+      "error_count": 0,
+      "degraded_mode_success": 0,
+      "query_understanding_fallback_count": 0,
+      "retrieval_fallback_count": 0,
+      "agent_fallback_count": 0,
+      "agent_runtime_fallback_candidate_count": 0,
+      "query_understanding_error_count": 0,
+      "retrieval_error_count": 0,
+      "rerank_error_count": 0,
+      "agent_error_count": 0,
+      "agent_runtime_error_candidate_count": 0
+    }
+  }
+}

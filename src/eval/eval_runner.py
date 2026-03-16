@@ -20,9 +20,11 @@ import argparse
 import datetime as dt
 import json
 import logging
+import os
 import statistics
 import time
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -30,6 +32,7 @@ from typing import Any
 from eval.config import EvalConfig, build_default_config
 from eval.metrics import (
     binary_agreement_rate,
+    candidate_binary_agreement_rate,
     candidates_per_sec,
     dimension_consistency_heuristic,
     estimate_cost_usd,
@@ -52,6 +55,19 @@ logger = logging.getLogger(__name__)
 
 class EvalRunnerError(RuntimeError):
     """Raised when canonical evaluation cannot proceed."""
+
+
+@contextmanager
+def _eval_runtime_context(*, eval_mode: str):
+    previous = os.environ.get("RESUME_MATCHING_EVAL_MODE")
+    os.environ["RESUME_MATCHING_EVAL_MODE"] = (eval_mode or "full").strip().lower()
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop("RESUME_MATCHING_EVAL_MODE", None)
+        else:
+            os.environ["RESUME_MATCHING_EVAL_MODE"] = previous
 
 
 @dataclass
@@ -168,6 +184,67 @@ def _load_binary_reference(path: Path | None, *, field_name: str) -> dict[str, b
     return refs
 
 
+def _load_candidate_binary_reference(path: Path | None, *, field_name: str) -> dict[tuple[str, str], bool]:
+    if path is None or not path.exists():
+        return {}
+    refs: dict[tuple[str, str], bool] = {}
+    for line_no, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not raw.strip():
+            continue
+        try:
+            row = json.loads(raw)
+        except json.JSONDecodeError:
+            logger.warning("candidate_reference_file_malformed path=%s line=%s", path, line_no)
+            continue
+        query_id = str(row.get("query_id") or "").strip()
+        candidate_id = str(row.get("candidate_id") or "").strip()
+        if not query_id or not candidate_id:
+            continue
+        value = row.get(field_name)
+        if isinstance(value, bool):
+            refs[(query_id, candidate_id)] = value
+            continue
+        if isinstance(value, (int, float)):
+            refs[(query_id, candidate_id)] = bool(int(value))
+            continue
+        if isinstance(value, str):
+            refs[(query_id, candidate_id)] = value.strip().lower() in {"1", "true", "yes", "relevant"}
+    return refs
+
+
+def _lookup_nested_float(payload: dict[str, Any], *path: str) -> float | None:
+    current: Any = payload
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    if isinstance(current, (int, float)):
+        return round(float(current), 4)
+    return None
+
+
+def _load_candidate_float_reference(path: Path | None, *, field_path: tuple[str, ...]) -> dict[tuple[str, str], float]:
+    if path is None or not path.exists():
+        return {}
+    refs: dict[tuple[str, str], float] = {}
+    for line_no, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not raw.strip():
+            continue
+        try:
+            row = json.loads(raw)
+        except json.JSONDecodeError:
+            logger.warning("candidate_reference_file_malformed path=%s line=%s", path, line_no)
+            continue
+        query_id = str(row.get("query_id") or "").strip()
+        candidate_id = str(row.get("candidate_id") or "").strip()
+        if not query_id or not candidate_id:
+            continue
+        value = _lookup_nested_float(row, *field_path)
+        if value is not None:
+            refs[(query_id, candidate_id)] = value
+    return refs
+
+
 def _load_rerank_gate_state(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
@@ -216,11 +293,21 @@ def run_evaluation(config: EvalConfig, adapter: MatchPipelineAdapter | None = No
     config.outputs_dir.mkdir(parents=True, exist_ok=True)
     human_reference = _load_binary_reference(config.human_annotations_path, field_name="top1_is_relevant")
     llm_reference = _load_binary_reference(config.llm_judge_path, field_name="top1_is_relevant")
+    llm_candidate_reference = _load_candidate_binary_reference(config.llm_judge_path, field_name="top1_is_relevant")
+    llm_explanation_quality_reference = _load_candidate_float_reference(
+        config.llm_judge_path,
+        field_path=("explanation_quality", "overall_score"),
+    )
+    llm_explanation_groundedness_reference = _load_candidate_float_reference(
+        config.llm_judge_path,
+        field_path=("explanation_quality", "groundedness_score"),
+    )
     rerank_enabled_this_run, rerank_gate_decision = _resolve_rerank_execution(
         config=config,
         output_paths=config.output_paths,
     )
     predicted_top1_relevance: dict[str, bool] = {}
+    predicted_agent_top1_relevance: dict[tuple[str, str], bool] = {}
 
     query_role_acc: list[float] = []
     query_skill_acc: list[float] = []
@@ -240,6 +327,8 @@ def run_evaluation(config: EvalConfig, adapter: MatchPipelineAdapter | None = No
     agent_expl_presence: list[float] = []
     agent_groundedness: list[float] = []
     agent_consistency: list[float] = []
+    llm_explanation_quality_scores: list[float] = []
+    llm_explanation_groundedness_scores: list[float] = []
 
     e2e_latency_ms: list[float] = []
     qu_latency_ms: list[float] = []
@@ -457,6 +546,16 @@ def run_evaluation(config: EvalConfig, adapter: MatchPipelineAdapter | None = No
                         present_count = 0
                         grounded_scores: list[float] = []
                         consistency_scores: list[float] = []
+                        top_match = matches[0] if matches else {}
+                        top_candidate_id = str(top_match.get("candidate_id") or "").strip()
+                        if top_candidate_id:
+                            predicted_agent_top1_relevance[(query_id, top_candidate_id)] = top_candidate_id in expected_ids
+                            llm_quality = llm_explanation_quality_reference.get((query_id, top_candidate_id))
+                            if llm_quality is not None:
+                                llm_explanation_quality_scores.append(llm_quality)
+                            llm_groundedness = llm_explanation_groundedness_reference.get((query_id, top_candidate_id))
+                            if llm_groundedness is not None:
+                                llm_explanation_groundedness_scores.append(llm_groundedness)
 
                         for match in matches:
                             explanation = match.get("agent_explanation")
@@ -573,7 +672,12 @@ def run_evaluation(config: EvalConfig, adapter: MatchPipelineAdapter | None = No
     total_queries = len(rows)
     successful_queries = len([row for row in per_query_summary if row.status != "error"])
     human_agreement = binary_agreement_rate(predicted_top1_relevance, human_reference) if config.enable_human_agreement else None
-    llm_judge_agreement = binary_agreement_rate(predicted_top1_relevance, llm_reference) if config.enable_llm_judge_agreement else None
+    llm_judge_agreement: float | None = None
+    if config.enable_llm_judge_agreement:
+        if llm_candidate_reference and predicted_agent_top1_relevance:
+            llm_judge_agreement = candidate_binary_agreement_rate(predicted_agent_top1_relevance, llm_candidate_reference)
+        else:
+            llm_judge_agreement = binary_agreement_rate(predicted_top1_relevance, llm_reference)
     est_cost = estimate_cost_usd(
         input_tokens=int(_avg([float(v) for v in total_tokens])) if total_tokens else None,
         output_tokens=int(_avg([float(v) for v in agent_extra_tokens])) if agent_extra_tokens else None,
@@ -628,6 +732,8 @@ def run_evaluation(config: EvalConfig, adapter: MatchPipelineAdapter | None = No
         "run_id": run_id,
         "human_agreement": human_agreement,
         "llm_as_judge_agreement": llm_judge_agreement,
+        "llm_explanation_quality_score": _avg(llm_explanation_quality_scores) if llm_explanation_quality_scores else None,
+        "llm_explanation_groundedness_score": _avg(llm_explanation_groundedness_scores) if llm_explanation_groundedness_scores else None,
         "explanation_presence_rate": _avg(agent_expl_presence),
         "groundedness_score": _avg(agent_groundedness),
         "dimension_consistency_score": _avg(agent_consistency),
@@ -781,14 +887,15 @@ def main() -> int:
     )
 
     try:
-        result = run_evaluation(config)
-        logger.info(
-            "eval_runner_completed run_id=%s total_queries=%s successful_queries=%s",
-            result["run_metadata"]["run_id"],
-            result["run_metadata"]["total_queries"],
-            result["run_metadata"]["successful_queries"],
-        )
-        return 0
+        with _eval_runtime_context(eval_mode=args.mode):
+            result = run_evaluation(config)
+            logger.info(
+                "eval_runner_completed run_id=%s total_queries=%s successful_queries=%s",
+                result["run_metadata"]["run_id"],
+                result["run_metadata"]["total_queries"],
+                result["run_metadata"]["successful_queries"],
+            )
+            return 0
     except EvalRunnerError as exc:
         logger.error("eval_runner_failed reason=%s", exc)
         return 2

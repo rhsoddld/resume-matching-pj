@@ -25,12 +25,17 @@ flowchart TD
   cacheHit --> response["JobMatchResponse.matches[]"]
   cacheLookup -- "miss" --> match["MatchingService.match_jobs"]
   match --> profile["build_job_profile"]
-  match --> retriever["HybridRetriever.search_candidates"]
+  profile --> retriever["HybridRetriever.search_candidates\n(job_profile-dependent)"]
 
+  retriever --> keyword["Mongo lexical search\n(always computed)"]
   retriever --> vector["RetrievalService\nOpenAI embedding -> Milvus"]
-  retriever --> fallback["Mongo lexical fallback\n(on vector failure)"]
-
-  vector --> hits["Candidate hits"]
+  vector --> vectorOk{"Vector retrieval\navailable?"}
+  keyword --> keywordHits["Keyword hits"]
+  vectorOk -- "yes" --> fusion["Merge + hybrid fusion\n(vector + keyword + metadata)"]
+  vectorOk -- "no" --> fallback["Keyword-only fallback\n(keyword hits reused)"]
+  keywordHits --> fusion
+  keywordHits --> fallback
+  fusion --> hits["Candidate hits"]
   fallback --> hits
 
   hits --> enrich["enrich_hits\nMongo batch enrichment + filters"]
@@ -40,7 +45,7 @@ flowchart TD
   bundle --> weight["Recruiter/HiringManager negotiation"]
   weight --> rank["Hybrid final ranking"]
   rank --> build["build_match_candidate"]
-  build --> sort["Final sort by score"]
+  build --> sort["Current impl: agent-evaluated first,\nthen score"]
   sort --> cacheStore["Token cache store"]
   cacheStore --> response
 ```
@@ -63,8 +68,9 @@ flowchart TD
 - 구현: `src/backend/services/job_profile_extractor.py`
 
 ### 2. Retrieval
-- 정상 경로: embedding 생성 -> Milvus 검색
-- 장애 경로: Mongo lexical fallback
+- 항상 수행: Mongo lexical search로 `keyword_hits`를 먼저 계산한다.
+- 정상 경로: embedding 생성 -> Milvus 검색 -> `vector_hits + keyword_hits`를 hybrid fusion 한다.
+- 장애 경로: vector retrieval 실패 시, 이미 계산한 `keyword_hits`를 keyword-only fallback 결과로 사용한다.
 - 구현:
   - `src/backend/services/retrieval_service.py`
   - `src/backend/services/hybrid_retriever.py`
@@ -92,6 +98,7 @@ flowchart TD
 ### 6. Negotiation + final ranking
 - recruiter/hiring-manager 제안 weight를 negotiation agent가 합의
 - deterministic score + agent weighted score를 합성
+- 현재 구현의 최종 정렬은 순수 score sort가 아니라 `agent_evaluated 여부 -> score` 우선순위를 사용한다.
 - 구현:
   - `src/backend/agents/contracts/weight_negotiation_agent.py`
   - `src/backend/services/scoring_service.py`

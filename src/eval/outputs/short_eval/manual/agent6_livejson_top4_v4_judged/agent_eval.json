@@ -1,0 +1,48 @@
+{
+  "run_id": "eval-20260316T210104Z-d1928143",
+  "human_agreement": null,
+  "llm_as_judge_agreement": 0.4,
+  "llm_explanation_quality_score": 0.72,
+  "llm_explanation_groundedness_score": 0.72,
+  "explanation_presence_rate": 1.0,
+  "groundedness_score": 0.2177,
+  "dimension_consistency_score": 0.8857,
+  "per_query": [
+    {
+      "query_id": "gs-q-016",
+      "explanation_presence_rate": 1.0,
+      "groundedness_score": 0.2154,
+      "dimension_consistency_score": 0.8904
+    },
+    {
+      "query_id": "gs-q-018",
+      "explanation_presence_rate": 1.0,
+      "groundedness_score": 0.2204,
+      "dimension_consistency_score": 0.8875
+    },
+    {
+      "query_id": "gs-q-009",
+      "explanation_presence_rate": 1.0,
+      "groundedness_score": 0.2544,
+      "dimension_consistency_score": 0.8884
+    },
+    {
+      "query_id": "gs-q-010",
+      "explanation_presence_rate": 1.0,
+      "groundedness_score": 0.2488,
+      "dimension_consistency_score": 0.894
+    },
+    {
+      "query_id": "gs-q-013",
+      "explanation_presence_rate": 1.0,
+      "groundedness_score": 0.1888,
+      "dimension_consistency_score": 0.8626
+    },
+    {
+      "query_id": "gs-q-005",
+      "explanation_presence_rate": 1.0,
+      "groundedness_score": 0.1786,
+      "dimension_consistency_score": 0.891
+    }
+  ]
+}

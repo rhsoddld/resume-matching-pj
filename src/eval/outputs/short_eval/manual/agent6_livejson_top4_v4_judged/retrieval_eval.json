@@ -1,0 +1,96 @@
+{
+  "run_id": "eval-20260316T210104Z-d1928143",
+  "query_understanding": {
+    "run_id": "eval-20260316T210104Z-d1928143",
+    "role_extraction_accuracy": 0.5,
+    "skill_extraction_accuracy": 0.1333,
+    "unknown_ratio": 0.0,
+    "fallback_rate": 0.0,
+    "per_query": [
+      {
+        "query_id": "gs-q-016",
+        "status": "ok"
+      },
+      {
+        "query_id": "gs-q-018",
+        "status": "ok"
+      },
+      {
+        "query_id": "gs-q-009",
+        "status": "ok"
+      },
+      {
+        "query_id": "gs-q-010",
+        "status": "ok"
+      },
+      {
+        "query_id": "gs-q-013",
+        "status": "ok"
+      },
+      {
+        "query_id": "gs-q-005",
+        "status": "ok"
+      }
+    ]
+  },
+  "recall_at_10": 0.8,
+  "recall_at_20": 0.8667,
+  "mrr": 0.9167,
+  "must_have_coverage": 0.7667,
+  "per_query": [
+    {
+      "query_id": "gs-q-016",
+      "recall_at_10": 1.0,
+      "recall_at_20": 1.0,
+      "mrr": 1.0,
+      "must_have_coverage": 1.0,
+      "retrieved_count": 20,
+      "retrieval_stage_signal": "hybrid"
+    },
+    {
+      "query_id": "gs-q-018",
+      "recall_at_10": 0.8,
+      "recall_at_20": 1.0,
+      "mrr": 1.0,
+      "must_have_coverage": 1.0,
+      "retrieved_count": 20,
+      "retrieval_stage_signal": "hybrid"
+    },
+    {
+      "query_id": "gs-q-009",
+      "recall_at_10": 0.8,
+      "recall_at_20": 0.8,
+      "mrr": 1.0,
+      "must_have_coverage": 0.6,
+      "retrieved_count": 20,
+      "retrieval_stage_signal": "hybrid"
+    },
+    {
+      "query_id": "gs-q-010",
+      "recall_at_10": 0.8,
+      "recall_at_20": 0.8,
+      "mrr": 1.0,
+      "must_have_coverage": 0.6,
+      "retrieved_count": 20,
+      "retrieval_stage_signal": "hybrid"
+    },
+    {
+      "query_id": "gs-q-013",
+      "recall_at_10": 0.8,
+      "recall_at_20": 0.8,
+      "mrr": 1.0,
+      "must_have_coverage": 0.6,
+      "retrieved_count": 20,
+      "retrieval_stage_signal": "hybrid"
+    },
+    {
+      "query_id": "gs-q-005",
+      "recall_at_10": 0.6,
+      "recall_at_20": 0.8,
+      "mrr": 0.5,
+      "must_have_coverage": 0.8,
+      "retrieved_count": 20,
+      "retrieval_stage_signal": "hybrid"
+    }
+  ]
+}

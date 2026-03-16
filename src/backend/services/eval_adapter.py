@@ -128,6 +128,9 @@ class MatchPipelineAdapter:
                 {
                     "candidate_id": match.candidate_id,
                     "score": float(match.score),
+                    "summary": str(match.summary or ""),
+                    "experience_years": float(match.experience_years or 0.0),
+                    "seniority_level": str(match.seniority_level or ""),
                     "skills": list(match.normalized_skills or match.skills or []),
                     "agent_scores": agent_scores,
                     "agent_explanation": match.agent_explanation,
@@ -152,4 +155,3 @@ class MatchPipelineAdapter:
 
 
 __all__ = ["MatchPipelineAdapter"]
-

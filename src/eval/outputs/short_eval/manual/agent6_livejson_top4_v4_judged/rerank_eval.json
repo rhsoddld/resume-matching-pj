@@ -1,0 +1,15 @@
+{
+  "run_id": "eval-20260316T210104Z-d1928143",
+  "gate": {
+    "enabled_this_run": false,
+    "reason": "disabled_by_config",
+    "last_mrr_delta": null,
+    "last_run_id": null
+  },
+  "ndcg_at_5": 0.0,
+  "mrr_delta": 0.0,
+  "top1_improvement": 0.0,
+  "top1_improvement_rate": 0.0,
+  "added_latency_ms": 0.0,
+  "per_query": []
+}
