@@ -122,8 +122,9 @@ rank_score_before_penalty =
 final_score = rank_score_before_penalty * (1 - must_have_penalty)
 ```
 
-`must_have_penalty`는 JD must-have 미충족 비율에 따라 최대 `0.25`까지 반영한다.
-실제 계산 기준은 `src/backend/services/scoring_service.py`의 `compute_final_ranking_score` 기본값을 따른다.
+`must_have_penalty`는 JD must-have 미충족 비율에 따라 최대 `0.12`까지 반영한다.
+가중합 자체(0.30/0.70)는 `src/backend/services/scoring_service.py`의 `compute_final_ranking_score` 기본값을 따르고,
+must-have penalty 적용은 `src/backend/services/match_result_builder.py`에서 수행된다.
 
 ## Output Contract
 
@@ -133,7 +134,7 @@ final_score = rank_score_before_penalty * (1 - must_have_penalty)
 - matched skills / possible gaps
 - negotiated weighting summary
 - fairness warnings
-- runtime mode / fallback reason (`agent_scores.runtime_mode`, `agent_scores.runtime_reason`)
+- runtime mode / fallback reason (`agent_scores.runtime_mode`, `agent_scores.runtime_reason`) 및 fallback 여부(`agent_scores.runtime_fallback_used`)
 
 ## 상세 문서
 

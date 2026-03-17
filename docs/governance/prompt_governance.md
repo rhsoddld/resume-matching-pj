@@ -21,10 +21,9 @@
 
 - `prompt_version`
 - `runtime_mode`
-- `model_version_label`
-- `fallback_used`
-- `fallback_reason`
 - `request_id`
+- `runtime_fallback_used`
+- `runtime_reason`
 
 ## Judge Rubric Guardrails (Legacy Restored)
 
