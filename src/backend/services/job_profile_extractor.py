@@ -92,10 +92,11 @@ _SKILL_STOPWORDS = {
     "nice",
 }
 _GENERIC_NON_SKILL_TERMS = {
-    "responsibilities",
-    "responsibility",
+    "opportunities",  # JD 메타 표현 (career/growth opportunities); 스킬 매칭 제외
     "requirements",
     "requirement",
+    "responsibilities",
+    "responsibility",
     "role",
     "roles",
     "main",

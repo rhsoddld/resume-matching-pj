@@ -274,6 +274,11 @@ def build_match_candidate(
         "expanded_skills": job_profile.expanded_skills,
     }
     skill_overlap_score, skill_overlap_detail = compute_skill_overlap(candidate_doc, job_skill_profile)
+    # 에이전트가 있으면 매칭 시점 판단으로 보정 (초반 고정값만 쓰지 않음)
+    if agent_result is not None and getattr(agent_result, "skill_output", None) is not None:
+        agent_skill = getattr(agent_result.skill_output, "score", None)
+        if isinstance(agent_skill, (int, float)):
+            skill_overlap_score = max(0.0, min(1.0, 0.5 * float(skill_overlap_score) + 0.5 * float(agent_skill)))
     final_score, final_score_detail = compute_deterministic_match_score(
         raw_similarity=float(hit["score"]),
         skill_overlap=skill_overlap_score,

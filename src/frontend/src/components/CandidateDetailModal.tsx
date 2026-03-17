@@ -502,9 +502,9 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
                 title="Run full agent evaluation (Skill, Experience, Technical, Culture) for this candidate"
               >
                 {evaluateLoading ? (
-                  <><span className="spinner" /> Agent 평가 중…</>
+                  <><span className="spinner" /> Evaluating…</>
                 ) : (
-                  <>Agent 평가</>
+                  <>Agent Evaluation</>
                 )}
               </button>
               {evaluateError && (

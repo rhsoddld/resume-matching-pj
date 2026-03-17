@@ -7,6 +7,8 @@ import re
 _WHITESPACE = re.compile(r"\s+")
 _SKILL_TOKEN_RE = re.compile(r"[a-z0-9+#.-]+")
 _TOKEN_STOPWORDS = {"and", "or", "with", "for", "the", "a", "an", "to", "of", "in"}
+# JD 스킬이 많을 때 분모 캡 (스킬 개수 제한으로 과도한 페널티 완화)
+_MAX_SKILLS_DENOMINATOR = 10
 _SENIORITY_LEVELS = {
     "intern": 0,
     "junior": 1,
@@ -197,21 +199,31 @@ def compute_skill_overlap(candidate: Mapping[str, object], job: Mapping[str, obj
     candidate_expanded = _to_skill_set(parsed.get("expanded_skills"))
     candidate_normalized = _to_skill_set(parsed.get("normalized_skills"))
 
-    job_required = _to_skill_set(job.get("required_skills"))
-    job_expanded = _to_skill_set(job.get("expanded_skills"))
-    expanded_target = set(job_required)
-    expanded_target.update(job_expanded)
-    if not expanded_target:
-        expanded_target = set(job_required)
+    required_list = list(job.get("required_skills") or [])[:_MAX_SKILLS_DENOMINATOR]
+    expanded_list = list(job.get("expanded_skills") or [])
+    job_required = _to_skill_set(required_list)
+    # expanded_target도 상위 N개로 제한 (required 먼저, 그다음 expanded)
+    seen: set[str] = set()
+    expanded_target_list: list[str] = []
+    for val in required_list + expanded_list:
+        token = _normalize_skill_token(val)
+        if token and token not in seen:
+            seen.add(token)
+            expanded_target_list.append(token)
+            if len(expanded_target_list) >= _MAX_SKILLS_DENOMINATOR:
+                break
+    expanded_target = set(expanded_target_list) if expanded_target_list else set(job_required)
 
     core_overlap = _soft_overlap_ratio(candidate_core, job_required)
     expanded_overlap = _soft_overlap_ratio(candidate_expanded, expanded_target)
     normalized_overlap = _soft_overlap_ratio(candidate_normalized, job_required)
 
+    # Skill Coverage: core 비중 완화, normalized/expanded 균형 (과도한 페널티 방지)
+    # core 없을 때도 동일한 완화 적용 (core_skills 비어 있는 이력서 많음)
     if candidate_core:
-        score = (0.6 * core_overlap) + (0.3 * expanded_overlap) + (0.1 * normalized_overlap)
+        score = (0.45 * core_overlap) + (0.35 * expanded_overlap) + (0.2 * normalized_overlap)
     else:
-        score = (0.7 * normalized_overlap) + (0.3 * expanded_overlap)
+        score = (0.5 * normalized_overlap) + (0.5 * expanded_overlap)
 
     detail = {
         "core_overlap": core_overlap,
