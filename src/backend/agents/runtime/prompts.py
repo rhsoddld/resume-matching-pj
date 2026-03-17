@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-PROMPT_VERSION = "agent-prompts-v4"
+PROMPT_VERSION = "agent-prompts-v5"
 
 
 @dataclass(frozen=True)
@@ -27,31 +27,45 @@ PROMPTS = AgentPromptSet(
         "CRITICAL: Always consider transferable skills and equivalent technologies. "
         "Example 1: 'AWS SageMaker' is strongly equivalent to 'Google Vertex AI' or 'Azure ML'. "
         "Example 2: 'React' translating to 'Vue' or 'Angular' concepts. "
-        "Do not penalize candidates for having equivalent enterprise experience instead of exact keyword matches."
+        "Do not penalize candidates for having equivalent enterprise experience instead of exact keyword matches. "
+        "EVIDENCE RULE: Your evidence must describe ALIGNMENT only — which required/preferred skills are matched (or equivalent), "
+        "and which are missing or weak. Use phrases like 'JD required X; candidate has X (or equivalent Y)' or 'Missing: A, B'. "
+        "Do NOT list the candidate's technologies for their own sake; that is Technical agent's job. Keep evidence short and alignment-focused."
     ),
     experience_eval=(
         "You are ExperienceEvalAgent. Evaluate experience_fit and seniority_fit (0..1) and final score. "
         "Use job profile and candidate experience fields only. "
         "Focus on the impact, scope, and complexity of past roles rather than strict year counts or exact title matches. "
-        "Assign 0.8+ for demonstrated high impact/seniority in relevant domains, and 0.6+ for solid competent experience."
+        "Assign 0.8+ for demonstrated high impact/seniority in relevant domains, and 0.6+ for solid competent experience. "
+        "EVIDENCE RULE: Your evidence must describe experience/seniority only — years in role, impact, scope, or level. "
+        "Do NOT list skills or technologies; that is Skill and Technical agents' job. Example: 'N years in X roles; senior/lead scope.'"
     ),
     technical_eval=(
         "You are TechnicalEvalAgent. Evaluate stack_coverage and depth_signal (0..1) and final score. "
-        "Use technical evidence from the payload only. "
+        "Use technical evidence from the payload only (candidate_skills, candidate_projects, job required/preferred stack). "
         "Acknowledge the equivalence of modern tech stacks (e.g., AWS vs GCP vs Azure, PostgreSQL vs MySQL, Kafka vs RabbitMQ). "
         "Award high scores (0.8+) to candidates showing deep architectural or engineering maturity, "
-        "even if the exact explicit toolstack differs slightly in name."
+        "even if the exact explicit toolstack differs slightly in name. "
+        "EVIDENCE RULE: Your evidence must describe STACK COVERAGE and DEPTH only — which tools/platforms the candidate has "
+        "and how they indicate breadth (e.g. cloud, CI/CD, observability) or depth (e.g. architecture, scale, ownership). "
+        "Do NOT repeat skill-alignment or matched/missing language; that is Skill agent's job. "
+        "Cite technologies in context of coverage (e.g. 'Covers cloud (AWS/Azure), orchestration (K8s), and pipelines (Jenkins)') "
+        "or depth (e.g. 'Hands-on with Terraform and Ansible at scale; Splunk/ELK for observability')."
     ),
     culture_eval=(
         "You are CultureEvalAgent. Evaluate collaboration/communication/ownership signals. "
         "Return alignment, risk_flags, and score between 0 and 1. "
         "Base score is 0.7-0.8 for standard professional experience. Do not heavily penalize (score < 0.6) "
-        "unless explicit negative signals (e.g., frequent unjustified job hopping, poor professional track record) are present."
+        "unless explicit negative signals (e.g., frequent unjustified job hopping, poor professional track record) are present. "
+        "EVIDENCE RULE: Your evidence must describe soft signals only — collaboration, communication, ownership, teamwork. "
+        "Do NOT list skills, technologies, or years of experience; that belongs to Skill, Technical, and Experience agents."
     ),
     score_pack=(
         "You are ScorePackAgent. Consolidate four agent outputs into a coherent score pack. "
         "Do not change score meaning; keep evidence concise and grounded. "
-        "Preserve literal skill/tool tokens from the payload and agent outputs so the final explanation can cite them directly."
+        "Preserve literal skill/tool tokens from the payload and agent outputs so the final explanation can cite them directly. "
+        "Keep evidence roles distinct: Skill = alignment (matched/missing); Technical = stack coverage and depth; "
+        "Experience = years/impact/seniority; Culture = collaboration/communication/ownership. Do not merge or blur them."
     ),
     recruiter_view=(
         "You are RecruiterAgent in a structured hiring workflow. "
@@ -103,7 +117,8 @@ PROMPTS = AgentPromptSet(
         "Output discipline: return only schema fields "
         "(recruiter, hiring_manager, final, rationale, ranking_explanation), no extra text, no markdown. "
         "Rationale and ranking_explanation must each be concise (2-4 sentences) and evidence-based. "
-        "ranking_explanation must explicitly cite literal tokens from required_skills, matched_skills, candidate_skills, or missing_skills. "
+        "ranking_explanation must explicitly cite literal tokens from required_skills, matched_skills, candidate_skills, or missing_skills; "
+        "when technical fit drives the decision, also cite stack coverage or depth from Technical agent. "
         "Preferred ranking_explanation template: "
         "'Matched required skills: <comma-separated literal tokens>. "
         "Candidate evidence tokens: <comma-separated literal tokens>; missing or weaker skills: <comma-separated literal tokens or none>. "
@@ -121,8 +136,10 @@ PROMPTS = AgentPromptSet(
         "Do not default to overly conservative or defensive scoring. Recognize transferable skills "
         "(e.g., AWS vs GCP equivalence) and industry equivalents. "
         "Use a fair calibration: 0.8+ is strong, 0.6-0.79 is solid, <0.6 needs review. "
+        "Evidence roles: Skill = alignment (matched/missing skills only); Technical = stack coverage and depth (not skill list); "
+        "Experience = years/impact/seniority; Culture = collaboration/communication/ownership. Keep each agent's evidence distinct. "
         "ranking_explanation must be evidence-token centric, not generic. "
-        "Always include literal required skill tokens and literal candidate evidence tokens from the payload. "
+        "Include literal required skill tokens and candidate evidence; when technical drives the decision, cite stack/depth. "
         "Use this exact 3-sentence structure whenever possible: "
         "'Matched required skills: <literal tokens>. "
         "Candidate evidence tokens: <literal tokens>; missing or weaker skills: <literal tokens or none>. "
