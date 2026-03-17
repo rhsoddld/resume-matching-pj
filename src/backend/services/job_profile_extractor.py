@@ -92,7 +92,7 @@ _SKILL_STOPWORDS = {
     "nice",
 }
 _GENERIC_NON_SKILL_TERMS = {
-    "opportunities",  # JD 메타 표현 (career/growth opportunities); 스킬 매칭 제외
+    "opportunities",  # JD meta phrase (career/growth opportunities); exclude from skill matching
     "requirements",
     "requirement",
     "responsibilities",
@@ -193,7 +193,7 @@ _GENERIC_NON_SKILL_TERMS = {
     "become",
     "mere",
     "literacy",
-    # JD 메타/보일러플레이트 — 스킬이 아닌 표현 (Core requirements 노이즈 제거)
+    # JD meta/boilerplate terms — not skills (removes noise from core requirements extraction)
     "understandable",
     "qualifications",
     "user-centric",
@@ -633,7 +633,12 @@ def _sentences(job_description: str) -> list[str]:
 
 
 def _fallback_related_from_jd(job_description: str, required_skills: list[str]) -> list[str]:
-    """Related가 비었을 때만 사용: JD를 구간으로 나눠 required에 없는 2~4단어 구문을 related 후보로 씀."""
+    """Fallback used only when `related_skills` is empty.
+
+    Splits the JD into short chunks and promotes 2–4 word phrases that are not already present
+    in `required_skills` as "related" candidates. This keeps the retrieval query from being
+    overly narrow when the required set consumes most tokens (common in very short JDs).
+    """
     if not job_description or not job_description.strip():
         return []
     lowered = job_description.lower()
@@ -936,9 +941,12 @@ def build_job_profile(
             ontology=None,
             max_terms=_MAX_REQUIRED_SKILLS,
         )
-        # Related 후보는 required에 이미 포함된 항목을 제외한 풀에서 선정 (그렇지 않으면 우선순위 상위가 required와 겹쳐 related가 비게 됨)
+        # Select related candidates from a pool that excludes `required_skills`.
+        # If we score from the same pool without exclusion, top-ranked items overlap and
+        # `related_skills` tends to collapse to empty (especially on short JDs).
         expansion_pool = [t for t in filtered_candidates if t not in set(required_skills)]
-        # 짧은 JD는 filtered만 쓰면 전부 required로 가서 related가 비므로, 비었을 때는 raw → literal 순으로 추가
+        # Short JDs often push everything into `required_skills`, leaving no expansion pool.
+        # If so, fall back to progressively less-filtered candidate lists.
         if not expansion_pool:
             expansion_pool = [t for t in raw_candidates if t not in set(required_skills)]
         if not expansion_pool:
@@ -970,7 +978,8 @@ def build_job_profile(
         )
 
         expanded_base = normalized.expanded_skills or base_required or required_skills
-        # Related 후보는 required를 제외한 풀에서 선정 (동일 풀에서 우선순위만 쓰면 required와 겹쳐 related가 비게 됨)
+        # Select related candidates from a pool that excludes `required_skills`.
+        # Without the exclusion, scoring favors the same top skills and `related_skills` may become empty.
         expansion_pool = [
             t for t in dedupe_preserve([*expanded_base, *filtered_candidates])
             if t not in set(required_skills)
@@ -1037,7 +1046,7 @@ def build_job_profile(
         ontology=ontology,
         max_terms=_MAX_RELATED_SKILLS,
     )
-    # 캐시/짧은 JD 등으로 related가 비었을 때 JD 구문에서 직접 채움
+    # If `related_skills` is still empty (e.g., caching, very short JD), derive phrases directly from the JD.
     if not related_skills:
         related_skills = _fallback_related_from_jd(job_description, required_skills)
     expanded_skills = dedupe_preserve([*required_skills, *related_skills])

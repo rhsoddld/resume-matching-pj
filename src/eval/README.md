@@ -1,32 +1,32 @@
 # Eval README
 
-이 디렉토리는 골든셋 관리, 짧은 평가 루프, judge annotation, 리포트 생성을 위한 최소 파일만 남긴 영역입니다.
+This directory intentionally contains only the minimal files needed for golden-set management, short evaluation loops, judge annotations, and report generation.
 
 ## Start Here
 
-- 실행 진입점: [eval_runner.py](eval_runner.py)
-- 현재 결론 요약: [RESULTS.md](RESULTS.md)
-- subset 생성: [create_mode_subsets.py](create_mode_subsets.py)
-- LLM judge annotation 생성: [generate_llm_judge_annotations.py](generate_llm_judge_annotations.py)
+- Entry point: [eval_runner.py](eval_runner.py)
+- Current conclusion summary: [RESULTS.md](RESULTS.md)
+- Create subsets: [create_mode_subsets.py](create_mode_subsets.py)
+- Generate LLM judge annotations: [generate_llm_judge_annotations.py](generate_llm_judge_annotations.py)
 
 ## Core Files
 
 - [config.py](config.py)
-  - eval 모드별 설정
+  - Per-eval-mode configuration
 - [metrics.py](metrics.py)
-  - retrieval/rerank/agent 평가 함수
+  - Retrieval/rerank/agent evaluation functions
 - [reporting.py](reporting.py)
-  - markdown/json 리포트 생성
+  - Markdown/JSON report generation
 - [golden_set.jsonl](golden_set.jsonl)
-  - 원본 골든셋
+  - Original golden set
 - [golden_set.normalized.jsonl](golden_set.normalized.jsonl)
-  - 정규화 버전
+  - Normalized version
 - [llm_judge_annotations.jsonl](llm_judge_annotations.jsonl)
-  - 현재 judge annotation 결과
+  - Current judge annotation outputs
 
 ## Subsets
 
-- subset 설명: [subsets/README.md](subsets/README.md)
+- Subset details: [subsets/README.md](subsets/README.md)
 - active agent subset: [golden.agent.jsonl](subsets/golden.agent.jsonl)
 - active hybrid subset: [golden.hybrid.jsonl](subsets/golden.hybrid.jsonl)
 - active rerank subset: [golden.rerank.jsonl](subsets/golden.rerank.jsonl)
@@ -40,8 +40,8 @@
 
 ## Current Rule Of Thumb
 
-- retrieval: hybrid 유지
-- rerank: 기본 비활성
-- agent eval: eval에서는 `sdk_handoff` 사용 안 함
+- retrieval: keep hybrid enabled
+- rerank: disabled by default
+- agent eval: do not use `sdk_handoff` in eval runs
 - current tuning point: `agent_eval_top_n=4`
-- judge: golden truth 대체가 아니라 보조 축
+- judge: an auxiliary signal, not a replacement for golden truth

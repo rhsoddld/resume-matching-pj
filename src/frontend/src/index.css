@@ -933,7 +933,7 @@ button:focus-visible {
   cursor: not-allowed;
 }
 
-/* ── 선택 완료 badge ── */
+/* Selected-state badge */
 .feedback-decided {
   display: flex;
   align-items: center;

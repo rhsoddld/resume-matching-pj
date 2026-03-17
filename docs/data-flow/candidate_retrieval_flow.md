@@ -2,7 +2,7 @@
 
 ## Scope
 
-| 항목 | 내용 |
+| Item | Details |
 |------|------|
 | Entry point | `POST /api/jobs/match` |
 | Primary orchestrator | `src/backend/services/matching_service.py` |
@@ -11,7 +11,7 @@
 | Agent path | `AgentOrchestrationService` + `src/backend/agents/contracts/*.py` |
 | Response builder | `src/backend/services/match_result_builder.py` |
 
-이 문서는 기존 매칭/스코어링 설계 문서의 핵심 내용을 현재 경로에 병합한 버전이다.
+This document is the consolidated, code-aligned version of legacy matching/scoring design notes.
 
 ---
 
@@ -59,83 +59,83 @@ flowchart TD
 ## Runtime Stages
 
 ### 0. Request-level token cache (lookup)
-- 적용 경로: `match_jobs`, `stream_match_jobs`
-- key 요소: `job_description`, `top_k`, `category`, `min_experience_years`, `education`, `region`, `industry`
-- hit 시 고비용 단계(retrieval/agent/rerank)를 건너뛴다.
-- 구현:
+- Applies to: `match_jobs`, `stream_match_jobs`
+- Key fields: `job_description`, `top_k`, `category`, `min_experience_years`, `education`, `region`, `industry`
+- On hit, skip expensive stages (retrieval/agent/rerank).
+- Implementation:
   - `src/backend/services/matching/cache.py`
   - `src/backend/services/matching_service.py`
 
 ### 1. Job profile extraction
-- `job_description`에서 roles/required skills/related skills/seniority를 추출한다.
-- ontology 기반 canonical/core/expanded skill로 정규화한다.
-- 구현: `src/backend/services/job_profile_extractor.py`
+- Extract roles/required skills/related skills/seniority from `job_description`.
+- Normalize to ontology-backed canonical/core/expanded skills.
+- Implementation: `src/backend/services/job_profile_extractor.py`
 
 ### 2. Retrieval
-- 항상 수행: Mongo lexical search로 `keyword_hits`를 먼저 계산한다.
-- 정상 경로: embedding 생성 -> Milvus 검색 -> `vector_hits + keyword_hits`를 hybrid fusion 한다.
-- 장애 경로: vector retrieval 실패 시, 이미 계산한 `keyword_hits`를 keyword-only fallback 결과로 사용한다.
-- 구현:
+- Always compute: Mongo lexical search first to produce `keyword_hits`.
+- Happy path: create embedding → Milvus search → hybrid-fuse `vector_hits + keyword_hits`.
+- Failure path: if vector retrieval fails, reuse `keyword_hits` as the keyword-only fallback result.
+- Implementation:
   - `src/backend/services/retrieval_service.py`
   - `src/backend/services/hybrid_retriever.py`
   - `src/backend/services/retrieval/hybrid_scoring.py`
 
 ### 3. Candidate enrichment
-- retrieval hit를 Mongo 문서와 결합해 summary/skills/core_skills/experience_years를 채운다.
-- `min_experience_years` 등 metadata filter를 반영한다.
-- 구현: `src/backend/services/candidate_enricher.py`
+- Join retrieval hits with Mongo docs to populate summary/skills/core_skills/experience_years.
+- Apply metadata filters such as `min_experience_years`.
+- Implementation: `src/backend/services/candidate_enricher.py`
 
 ### 4. Optional rerank
-- gate 통과 케이스에서만 rerank 수행
-- 실패/timeout 시 baseline shortlist 유지
-- 구현: `src/backend/services/cross_encoder_rerank_service.py`
+- Run rerank only for gated cases.
+- On failure/timeout, keep the baseline shortlist.
+- Implementation: `src/backend/services/cross_encoder_rerank_service.py`
 
 ### 5. Agent orchestration
-- 후보 단위로 4개 에이전트를 실행
+- Run four agents per candidate.
 - runtime mode: `sdk_handoff -> live_json -> heuristic`
-- 구현:
+- Implementation:
   - `src/backend/agents/runtime/service.py`
   - `src/backend/agents/runtime/sdk_runner.py`
   - `src/backend/agents/contracts/orchestrator.py`
   - `src/backend/services/matching/evaluation.py`
 
 ### 6. Negotiation + final ranking
-- recruiter/hiring-manager 제안 weight를 negotiation agent가 합의
-- deterministic score + agent weighted score를 합성
-- 현재 구현의 최종 정렬은 순수 score sort가 아니라 `agent_evaluated 여부 -> score` 우선순위를 사용한다.
-- 구현:
+- The negotiation agent reconciles recruiter/hiring-manager weight proposals.
+- Compose deterministic score + agent weighted score.
+- Current implementation sorts by `agent_evaluated first -> score` (not pure score-only sorting).
+- Implementation:
   - `src/backend/agents/contracts/weight_negotiation_agent.py`
   - `src/backend/services/scoring_service.py`
   - `src/backend/services/match_result_builder.py`
 
 ### 7. Request-level token cache (store)
-- miss 경로에서 최종 `JobMatchResponse`를 캐시에 저장한다.
-- `stream_match_jobs`는 조기 종료(후보 0명) 분기도 fairness 포함 응답을 저장한다.
-- 캐시는 backend 프로세스 로컬 인메모리이며 TTL 만료는 접근 시 정리(lazy expiration)된다.
+- On miss, store the final `JobMatchResponse` into the cache.
+- `stream_match_jobs` also stores early-exit (0 candidates) responses including fairness output.
+- Cache is backend process-local in-memory; TTL eviction is lazy (performed on access).
 
 ### LangSmith runtime tracing
-- env 활성화 시 `match_jobs` 전체 span, rerank 및 agent orchestration child span이 LangSmith로 전송된다. 실패·timeout 시에도 태깅된다.
+- When enabled via env, the full `match_jobs` span plus rerank/agent orchestration child spans are sent to LangSmith. Failures/timeouts are tagged as well.
 
 ---
 
 ## API Surface (Code-Aligned)
 
-- `POST /api/jobs/match`: 동기 매칭
-- `POST /api/jobs/match/stream`: SSE 스트리밍 매칭
-- `POST /api/jobs/extract-pdf`: JD PDF 텍스트 추출
-- `POST /api/jobs/draft-interview-email`: 인터뷰 메일 초안 생성
+- `POST /api/jobs/match`: synchronous matching
+- `POST /api/jobs/match/stream`: SSE streaming matching
+- `POST /api/jobs/extract-pdf`: extract JD PDF text
+- `POST /api/jobs/draft-interview-email`: draft an interview email
 
-구현: `src/backend/api/jobs.py`
+Implementation: `src/backend/api/jobs.py`
 
 ### Candidate failure isolation (sync + stream)
 
-- 동기/스트리밍 모두 candidate 단위로 agent 평가 예외를 격리한다.
-- 특정 candidate 평가 실패 시 전체 요청을 실패시키지 않고 deterministic 결과로 대체한다.
-- 대체 시 runtime reason은 `agent_evaluation_failed(<ExceptionType>)` 형식으로 기록된다.
+- For both sync/streaming, agent evaluation exceptions are isolated per candidate.
+- If a candidate evaluation fails, do not fail the entire request; fall back to deterministic results for that candidate.
+- The runtime reason is recorded as `agent_evaluation_failed(<ExceptionType>)`.
 
 ### Stream cache hit event sequence
 
-- `POST /api/jobs/match/stream`에서 cache hit 시 이벤트를 아래 순서로 즉시 전송한다.
+- On cache hit in `POST /api/jobs/match/stream`, events are immediately emitted in this order:
 - `profile -> session -> candidate* -> fairness -> done`
 
 ---
@@ -151,7 +151,7 @@ fallback if:
   unknown_ratio > QUERY_FALLBACK_UNKNOWN_RATIO_THRESHOLD
 ```
 
-기본 임계치(문서 기준):
+Default thresholds (documentation baseline):
 - `QUERY_FALLBACK_CONFIDENCE_THRESHOLD=0.62`
 - `QUERY_FALLBACK_UNKNOWN_RATIO_THRESHOLD=0.55`
 
@@ -165,8 +165,8 @@ fusion_score =
 ```
 
 ### Skill overlap (skill_overlap)
-- JD required/expanded 스킬 **상위 10개**만 분모 사용 (캡).
-- 가중치: core 있음 `0.45×core + 0.35×expanded + 0.2×normalized`, core 없음 `0.5×normalized + 0.5×expanded`. 에이전트 있을 때는 위 값과 agent 스킬 점수 50:50 블렌딩.
+- Denominator is capped to the **top 10** JD required/expanded skills.
+- Weights: with core skills `0.45×core + 0.35×expanded + 0.2×normalized`; without core `0.5×normalized + 0.5×expanded`. When agents run, blend 50:50 with the agent skill score.
 
 ### Deterministic score
 
@@ -190,29 +190,29 @@ must_have_penalty = min(0.25, (1 - must_have_match_rate) * 0.25)
 final_score = rank_score_before_penalty * (1 - must_have_penalty)
 ```
 
-참고:
-- 실제 계산은 `compute_final_ranking_score` 기본값(`0.30/0.70`)을 사용한다.
-- 응답의 `score_detail.rank_policy` 문자열은 하위호환용 레거시 라벨일 수 있다.
+Notes:
+- Actual computation uses `compute_final_ranking_score` defaults (`0.30/0.70`).
+- The response field `score_detail.rank_policy` may be a legacy label kept for backward compatibility.
 
 ---
 
 ## Response Contract
 
-`JobMatchResponse.matches[]` candidate 항목에는 아래 필드가 포함된다.
+Each `JobMatchResponse.matches[]` candidate includes:
 
-- 기본: `candidate_id`, `category`, `summary`, `experience_years`, `seniority_level`
-- 스킬: `skills`, `normalized_skills`, `core_skills`, `expanded_skills`
-- 점수: `score`, `vector_score`, `skill_overlap`, `score_detail`, `skill_overlap_detail`
+- Base: `candidate_id`, `category`, `summary`, `experience_years`, `seniority_level`
+- Skills: `skills`, `normalized_skills`, `core_skills`, `expanded_skills`
+- Scores: `score`, `vector_score`, `skill_overlap`, `score_detail`, `skill_overlap_detail`
 - agent: `agent_scores`, `agent_explanation`
 - runtime: `query_profile.fallback_*` + `matches[].agent_scores.runtime_*`
 
-스키마: `src/backend/schemas/job.py`
+Schema: `src/backend/schemas/job.py`
 
 ---
 
 ## Evidence
 
-| 항목 | 증거 |
+| Item | Evidence |
 |------|------|
 | API contract | `src/backend/api/jobs.py`, `src/backend/schemas/job.py` |
 | Retrieval path | `tests/test_retrieval.py` |

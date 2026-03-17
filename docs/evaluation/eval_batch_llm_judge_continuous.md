@@ -1,40 +1,40 @@
-# Eval 배치 처리, LLM-as-Judge, Continuous Eval 요약
+# Eval batching, LLM-as-Judge, and continuous eval
 
-## 1. Eval 배치 처리 (Batch Evaluation)
+## 1. Eval batching (batch evaluation)
 
-### 진입점
+### Entry points
 
-| 용도 | 명령 / 스크립트 | 비고 |
+| Purpose | Command / script | Notes |
 |------|-----------------|------|
-| 전체 파이프라인 평가 | `scripts/run_eval.sh` 또는 `python3 -m eval.eval_runner --golden-set ...` | 로컬/수동 배치 |
-| LLM Judge 어노테이션 생성 | `python3 -m eval.generate_llm_judge_annotations ...` | Judge 입력 생성 선행 |
+| Full pipeline eval | `scripts/run_eval.sh` or `python3 -m eval.eval_runner --golden-set ...` | local/manual batch |
+| Generate LLM judge annotations | `python3 -m eval.generate_llm_judge_annotations ...` | prepare judge inputs first |
 
-### 환경 변수 (run_eval.sh)
+### Environment variables (`run_eval.sh`)
 
-- `GOLDEN_SET`: 골든셋 경로 (기본 `src/eval/golden_set.jsonl`)
+- `GOLDEN_SET`: golden set path (default `src/eval/golden_set.jsonl`)
 - `EVAL_MODE`: `full` | `hybrid` | `rerank` | `agent`
-- `RUN_LABEL`: 런 라벨 (기본 `manual`)
-- `OUTPUTS_DIR`: 결과 디렉터리 (기본 `src/eval/outputs`)
+- `RUN_LABEL`: run label (default `manual`)
+- `OUTPUTS_DIR`: outputs directory (default `src/eval/outputs`)
 
-### Eval 모드 (config.py)
+### Eval modes (`config.py`)
 
-- **full**: Query understanding + Retrieval + Rerank + Agent + Performance, Human/LLM Judge agreement
-- **hybrid**: Retrieval + Query understanding만 (rerank/agent 끔)
-- **rerank**: Retrieval + Rerank 메트릭, agent 끔
-- **agent**: Agent 평가 + Performance 중심
+- **full**: query understanding + retrieval + rerank + agents + performance, plus human/LLM judge agreement
+- **hybrid**: retrieval + query understanding only (rerank/agents off)
+- **rerank**: retrieval + rerank metrics (agents off)
+- **agent**: agent evaluation + performance focused
 
-### 배치 처리 흐름 (eval_runner)
+### Batch flow (`eval_runner`)
 
-1. 골든셋 JSONL 로드
-2. Human / LLM Judge reference 로드 (optional)
-3. Rerank 실행 여부 결정 (gate)
-4. **쿼리 단위 순차**: 각 row에 대해
-   - Query understanding → Retrieval → (Rerank) → Agent → 메트릭 수집
-5. 메트릭 집계 후 JSON/MD 리포트 출력
+1. Load golden set JSONL
+2. Load human/LLM judge references (optional)
+3. Decide whether rerank runs (gate)
+4. **Sequential per query**: for each row
+   - query understanding → retrieval → (rerank) → agents → collect metrics
+5. Aggregate metrics and write JSON/MD reports
 
-- Agent 평가 시 **동시 실행**: `run_candidate_tasks_with_isolation`(ThreadPool, `max_workers=10`)으로 후보별 평가 병렬화 (`matching/evaluation.py`, `matching_service.py`).
+- During agent eval, candidates run concurrently via `run_candidate_tasks_with_isolation` (ThreadPool, `max_workers=10`) (`matching/evaluation.py`, `matching_service.py`).
 
-### 출력 아티팩트
+### Output artifacts
 
 - `retrieval_eval.json`, `rerank_eval.json`, `agent_eval.json`, `performance_eval.json`
 - `final_eval_report.md`, `rerank_gate_state.json`
@@ -43,72 +43,72 @@
 
 ## 2. LLM-as-Judge
 
-### 역할
+### What it measures
 
-- **Top-1 관련성**: `top1_is_relevant` (boolean)
-- **설명 품질**: `explanation_quality` (overall_score, groundedness_score, coverage_score, specificity_score, pass, rationale)
+- **Top-1 relevance**: `top1_is_relevant` (boolean)
+- **Explanation quality**: `explanation_quality` (overall_score, groundedness_score, coverage_score, specificity_score, pass, rationale)
 
-Golden truth 대체가 아니라 **보조 지표**로 사용 (RESULTS.md 정책).
+Use as **auxiliary signals**, not a replacement for golden truth (per `RESULTS.md` policy).
 
-### 설계 문서
+### Design doc
 
 - [docs/evaluation/llm_judge_design.md](llm_judge_design.md)
 
-### 생성 루프 (generate_llm_judge_annotations.py)
+### Generation loop (`generate_llm_judge_annotations.py`)
 
-1. `golden.agent.jsonl` (또는 지정 subset) 로드
-2. 쿼리별로 현재 agent 경로 실행 → Top-1 후보 스냅샷 수집
-3. **Live Judge**: Judge 모델에 job/candidate/explanation 넘겨 JSON 응답 수집
-4. Live 실패 시 **Bootstrap heuristic** fallback (token overlap, groundedness/consistency 휴리스틱)
-5. `query_id` + `candidate_id` + `stage`(agent_top1) 단위로 JSONL 한 줄씩 기록
+1. Load `golden.agent.jsonl` (or a specified subset)
+2. For each query, run the current agent path → collect Top-1 candidate snapshot
+3. **Live judge**: send job/candidate/explanation to the judge model and collect JSON output
+4. If live fails, fall back to **bootstrap heuristics** (token overlap, groundedness/consistency heuristics)
+5. Write one JSONL line per `query_id` + `candidate_id` + `stage` (agent_top1)
 
-### Judge 모드
+### Judge modes
 
-- `--judge-mode llm`: Live LLM 호출 (기본)
-- Bootstrap 시 `judge_source = bootstrap_heuristic`, 설명 품질은 휴리스틱으로 계산
+- `--judge-mode llm`: live LLM calls (default)
+- In bootstrap mode, set `judge_source = bootstrap_heuristic`; explanation quality is computed heuristically
 
-### Eval 연동
+### Eval integration
 
-- `llm_judge_path`로 JSONL 로드 후:
-  - `llm_as_judge_agreement`: 예측 top1 vs judge의 `top1_is_relevant` 일치율
-  - `llm_explanation_quality_score` / `llm_explanation_groundedness_score`: 후보별 스코어 집계
+- Load JSONL via `llm_judge_path`, then:
+  - `llm_as_judge_agreement`: agreement rate between predicted top1 vs judge `top1_is_relevant`
+  - `llm_explanation_quality_score` / `llm_explanation_groundedness_score`: per-candidate score aggregates
 
 ---
 
-## 3. Continuous Eval (지속 평가)
+## 3. Continuous eval
 
-### 현재 구현
+### Current implementation
 
-| 구분 | 트리거 | 워크플로 | 비고 |
+| Type | Trigger | Workflow | Notes |
 |------|--------|----------|------|
-| **Retrieval 벤치마크** | 매주 월요일 01:00 UTC, 또는 main push (경로 필터) | `.github/workflows/retrieval-benchmark-archive.yml` | `scripts/generate_retrieval_benchmark_archive.py` 실행, 결과를 `docs/eval/`에 커밋 |
-| **Eval 아카이브** | main push (eval 등 경로 변경 시) 또는 수동 | `.github/workflows/eval-archive.yml` | `scripts/generate_eval_results.py` → `docs/eval/eval-results.md` 갱신 |
+| **Retrieval benchmark** | weekly Monday 01:00 UTC, or main push (path-filtered) | `.github/workflows/retrieval-benchmark-archive.yml` | runs `scripts/generate_retrieval_benchmark_archive.py`, commits results to `docs/eval/` |
+| **Eval archive** | main push (when eval paths change) or manual | `.github/workflows/eval-archive.yml` | runs `scripts/generate_eval_results.py` → updates `docs/eval/eval-results.md` |
 
-- **전체 eval_runner**를 주기적으로 돌리는 스케줄/워크플로는 없음. 권고만 있음.
+- There is no scheduled workflow that runs the full `eval_runner` periodically (only recommendations exist).
 
-### 권고 (final_eval_report.md / eval_runner)
+### Recommendation (`final_eval_report.md` / `eval_runner`)
 
 - “Run eval_runner on a schedule and enforce calibrated thresholds for **Recall@20**, **NDCG@5**, and **degraded-mode success rate**.”
-- 즉, 스케줄 배치 + 임계값으로 회귀 방지하는 형태의 continuous eval을 권장.
+- In other words: use scheduled batches + calibrated thresholds to prevent regressions.
 
-### Continuous Eval 확장 시 참고
+### Notes for extending continuous eval
 
-1. **스케줄**: GitHub Actions `schedule`(cron) 또는 외부 스케줄러로 `scripts/run_eval.sh` (또는 `eval.eval_runner`) 주기 실행
-2. **임계값**: Recall@20, NDCG@5, degraded-mode 성공률 등 메트릭을 JSON에서 읽어 fail 빌드/알림
-3. **Judge**: LLM Judge는 비용/지연 때문에 매 스케줄마다 돌리기보다, 주기적 재생성(`generate_llm_judge_annotations`) 후 eval_runner에서 참조하는 방식 유지
-4. **아티팩트**: 실행 시점/커밋 기준 버전·설정 스냅샷 저장해 재현성 확보 (현재 `run_id`, 출력 경로 구조 활용 가능)
+1. **Schedule**: run `scripts/run_eval.sh` (or `eval.eval_runner`) on a schedule via GitHub Actions cron or an external scheduler
+2. **Thresholds**: read metrics such as Recall@20, NDCG@5, degraded-mode success rate from JSON and fail builds/alert
+3. **Judge**: due to cost/latency, regenerate judge annotations periodically (`generate_llm_judge_annotations`) and have eval_runner reference them, rather than running judge every schedule
+4. **Artifacts**: store run-time snapshots (commit/version/config) for reproducibility (current `run_id` and output path structure can be reused)
 
 ---
 
-## 4. 빠른 참조
+## 4. Quick reference
 
-| 항목 | 위치 |
+| Item | Location |
 |------|------|
-| Eval 실행 | `scripts/run_eval.sh`, `src/eval/eval_runner.py` |
-| Eval 설정/모드 | `src/eval/config.py` |
-| 메트릭 정의 | `src/eval/metrics.py` |
-| LLM Judge 생성 | `src/eval/generate_llm_judge_annotations.py` |
-| Judge 설계 | `docs/evaluation/llm_judge_design.md` |
-| 평가 계획 | `docs/evaluation/evaluation_plan.md` |
-| 현재 결론/룰 | `src/eval/RESULTS.md`, `src/eval/README.md` |
-| CI 스케줄/아카이브 | `.github/workflows/retrieval-benchmark-archive.yml`, `.github/workflows/eval-archive.yml` |
+| Run eval | `scripts/run_eval.sh`, `src/eval/eval_runner.py` |
+| Eval config/modes | `src/eval/config.py` |
+| Metrics definitions | `src/eval/metrics.py` |
+| Generate LLM judge | `src/eval/generate_llm_judge_annotations.py` |
+| Judge design | `docs/evaluation/llm_judge_design.md` |
+| Evaluation plan | `docs/evaluation/evaluation_plan.md` |
+| Current conclusions/rules | `src/eval/RESULTS.md`, `src/eval/README.md` |
+| CI schedules/archives | `.github/workflows/retrieval-benchmark-archive.yml`, `.github/workflows/eval-archive.yml` |

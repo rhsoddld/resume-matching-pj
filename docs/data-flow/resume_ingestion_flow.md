@@ -2,7 +2,7 @@
 
 ## Scope
 
-| 항목 | 내용 |
+| Item | Details |
 |------|------|
 | **Source datasets** | `snehaanbhawal/resume-dataset` (`Resume.csv`), `suriyaganesh/resume-dataset-structured` (`01~05_*.csv`) |
 | **Target stores** | MongoDB `candidates`, Milvus `candidate_embeddings` |
@@ -28,9 +28,9 @@ Raw CSV
 
 ## Ingestion API Surface (Code-Aligned)
 
-`POST /api/ingestion/resumes`로 ingestion을 트리거할 수 있다. **이 API는 배치 적재용이며, 리얼타임 이력서 등록 API가 아니다.**
+You can trigger ingestion via `POST /api/ingestion/resumes`. **This API is for batch loading; it is not a realtime “register one resume” upload API.**
 
-요청 스키마 핵심 필드:
+Key request schema fields:
 - `source`: `sneha | suri | all`
 - `target`: `mongo | milvus | all`
 - `milvus_from_mongo`, `force_mongo_upsert`, `force_reembed`, `dry_run`
@@ -38,12 +38,12 @@ Raw CSV
 - `csv_chunk_size`, `batch_size`, `sneha_limit`, `suri_limit`
 - `async_mode`
 
-운영 가드:
-- `X-API-Key` 검증(`INGESTION_API_KEY` 설정 시 필수)
-- 분당 요청 수 제한(`ingestion_rate_limit_per_minute`)
-- async 실행 정책(`ingestion_allow_async`)
+Operational guards:
+- `X-API-Key` validation (required when `INGESTION_API_KEY` is set)
+- Per-minute request rate limit (`ingestion_rate_limit_per_minute`)
+- Async execution policy (`ingestion_allow_async`)
 
-구현:
+Implementation:
 - `src/backend/api/ingestion.py`
 - `src/backend/schemas/ingestion.py`
 
@@ -51,136 +51,136 @@ Raw CSV
 
 ## Normalization Rules
 
-### 0) Programmatic Parsing Stack (LLM 없이)
+### 0) Programmatic parsing stack (without an LLM)
 
-| 도구 | 적용 범위 | 비용 |
+| Tool | Coverage | Cost |
 |------|---------|------|
-| `regex + section split` | Skills / Education / Experience 섹션 분리 | 무료 |
-| `spaCy + NER` | 회사명/날짜/이름 엔티티 보강 (`en_core_web_sm` 계열) | 무료 |
-| `dateparser` | 다양한 날짜 표기 정규화 | 무료 |
-| `pdfplumber` + `pdfminer.six` | PDF 텍스트 추출 유틸 | 무료 |
+| `regex + section split` | Split Skills / Education / Experience sections | Free |
+| `spaCy + NER` | Enrich entities (company/date/name) (`en_core_web_sm` family) | Free |
+| `dateparser` | Normalize diverse date formats | Free |
+| `pdfplumber` + `pdfminer.six` | PDF text extraction utilities | Free |
 
-> `src/backend/services/resume_parsing.py`에 통합되어 있고, ingestion에서는 `--parser-mode`로 제어.  
-> `hybrid` 모드는 rule-based 결과가 충분하면 spaCy 호출을 생략하는 **조건부 보강** 전략을 사용.
+> Integrated in `src/backend/services/resume_parsing.py`, and controlled in ingestion via `--parser-mode`.  
+> `hybrid` uses a **conditional enrichment** strategy: skip spaCy when rule-based output is sufficient.
 
-ingestion 전처리/변환은 아래처럼 역할 분리되어 있다.
+Ingestion preprocessing/transforms are split by responsibility as follows.
 
-| 파일 | 책임 |
+| File | Responsibility |
 |------|------|
-| `preprocessing.py` | 텍스트/스킬/날짜 정규화, 경력 연수 계산, category imputation, embedding text 조립 |
-| `transformers.py` | row/object -> `ParsedEducation`, `ParsedExperienceItem` 변환, Sneha category skill inject, synthetic resume text 생성 |
-| `constants.py` | parsing/normalization/embedding 버전 상수 및 Sneha category 매핑 |
-| `state.py` | normalization/embedding hash 계산, ingestion version 보정, candidate state key 관리 |
+| `preprocessing.py` | normalize text/skills/dates, compute experience years, category imputation, build embedding text |
+| `transformers.py` | map row/object → `ParsedEducation`, `ParsedExperienceItem`; inject Sneha category skills; generate synthetic resume text |
+| `constants.py` | parsing/normalization/embedding version constants + Sneha category mapping |
+| `state.py` | compute normalization/embedding hashes, adjust ingestion version, manage candidate state keys |
 
-**파서 준비(권장):**
+**Parser setup (recommended):**
 
 ```bash
-# spaCy NER 모델
+# spaCy NER model
 python -m spacy download en_core_web_sm
 
 ```
 
-> 모델이 없으면 해당 파서는 자동 fallback되어 ingestion 자체는 계속 진행된다.
+> If the model is missing, that parser automatically falls back and ingestion continues.
 
-### 1) 공통 텍스트 클리닝 (`clean_text`)
+### 1) Common text cleaning (`clean_text`)
 
-| 입력 | 변환 결과 |
+| Input | Output |
 |------|---------|
 | `None`, `NaN`, `""` | `None` |
-| `"nan"` / `"none"` / `"null"` / `"na"` / `"n/a"` (대소문자 무관) | `None` |
-| 연속 공백 | 단일 공백으로 압축 |
+| `"nan"` / `"none"` / `"null"` / `"na"` / `"n/a"` (case-insensitive) | `None` |
+| Repeated whitespace | Collapse to a single space |
 
-### 2) Candidate ID 정규화 (`normalize_identifier`)
+### 2) Candidate ID normalization (`normalize_identifier`)
 
-| 데이터셋 | 원본 필드 | 변환 규칙 | 예시 |
+| Dataset | Source field | Rule | Example |
 |---------|---------|---------|------|
 | Sneha | `ID` | `"sneha-{ID}"` | `16852973` → `sneha-16852973` |
 | Suri | `person_id` | `"suri-{person_id}"` | `408` → `suri-408` |
 
-> 목적: 데이터셋 간 ID 충돌 방지, source prefix로 식별성 강화
+> Purpose: prevent ID collisions across datasets and strengthen identifiability via source prefixes.
 
-### 3) 스킬 정규화 (`normalize_skill_list` + ontology normalize)
+### 3) Skill normalization (`normalize_skill_list` + ontology normalize)
 
-| 처리 단계 | 내용 |
+| Step | Details |
 |---------|------|
-| 공백 정리 | 앞뒤 공백 및 연속 공백 제거 |
-| 소문자 변환 | 동의어 매핑 시 대소문자 무시 |
-| 중복 제거 | 순서 보존 deduplication |
-| `parsed.skills` | 원문 기반 정리 목록 |
-| `parsed.normalized_skills` | lexical normalize 결과 |
-| `parsed.canonical_skills/core_skills/expanded_skills` | ontology 기반 canonical + taxonomy 확장 결과 |
+| Whitespace cleanup | trim and remove repeated whitespace |
+| Lowercasing | ignore casing for synonym mapping |
+| Deduplication | stable dedupe (preserve order) |
+| `parsed.skills` | cleaned list based on raw text |
+| `parsed.normalized_skills` | lexical-normalized output |
+| `parsed.canonical_skills/core_skills/expanded_skills` | ontology canonicalization + taxonomy expansion output |
 
-### 4) 날짜 정규화 (`normalize_month`)
+### 4) Date normalization (`normalize_month`)
 
-| 지원 입력 형식 | 저장 형식 |
+| Accepted input format | Stored format |
 |-------------|---------|
 | `MM/YYYY` | `YYYY-MM` |
-| `YYYY/MM` | `YYYY-MM` (`/00`이면 `YYYY-01` 보정) |
+| `YYYY/MM` | `YYYY-MM` (if `/00`, coerce to `YYYY-01`) |
 | `YYYY-MM` | `YYYY-MM` |
-| `Mon YYYY` (예: `Jan 2020`) | `YYYY-MM` |
-| `Month YYYY` (예: `January 2020`) | `YYYY-MM` |
-| `Season YYYY` (예: `Fall 2014`) | `YYYY-MM` (`Fall/Autumn=09`, `Spring=03`, `Summer=06`, `Winter=12`) |
-| `YYYY` (연도만) | `YYYY-01` |
+| `Mon YYYY` (e.g., `Jan 2020`) | `YYYY-MM` |
+| `Month YYYY` (e.g., `January 2020`) | `YYYY-MM` |
+| `Season YYYY` (e.g., `Fall 2014`) | `YYYY-MM` (`Fall/Autumn=09`, `Spring=03`, `Summer=06`, `Winter=12`) |
+| `YYYY` (year only) | `YYYY-01` |
 | `"Present"` / `"Current"` / `"Now"` | `"present"` |
 
-추가 규칙:
-- 전처리로 접두어 제거: `from/since/starting/start/beginning/as of/effective ...`
-- `08/YY`, `00/00`, `unknown`, `n/a` 등 불완전 값은 `None` 처리
-- `dateparser` + 규칙 파서 조합 후에도 실패하면 원문 유지 대신 `None`으로 수렴
-- 포맷이 제각각인 이력서 날짜(`from 2003`, `Fall 2014`, `2014/00`)를 `YYYY-MM`으로 통일
+Additional rules:
+- Preprocess by removing prefixes: `from/since/starting/start/beginning/as of/effective ...`
+- Treat incomplete values like `08/YY`, `00/00`, `unknown`, `n/a` as `None`
+- If both `dateparser` and rule parsing fail, converge to `None` rather than keeping raw strings
+- Normalize inconsistent resume date formats (`from 2003`, `Fall 2014`, `2014/00`) to `YYYY-MM`
 
-### 5) 경력 연수 / Seniority 파생
+### 5) Experience years / seniority derivation
 
-| 필드 | 계산 방법 |
+| Field | Computation |
 |------|---------|
-| `parsed.experience_years` | `experience_items[].start_date ~ end_date` 월수 합산 → `/ 12` (소수 1자리) |
-| `parsed.seniority_level` | `< 2년` → `junior` / `< 5년` → `mid` / `< 8년` → `senior` / `≥ 8년` → `lead` |
+| `parsed.experience_years` | sum months across `experience_items[].start_date ~ end_date` → `/ 12` (1 decimal place) |
+| `parsed.seniority_level` | `< 2y` → `junior` / `< 5y` → `mid` / `< 8y` → `senior` / `≥ 8y` → `lead` |
 
-### 6) Embedding Text 구성 (`build_embedding_text`)
+### 6) Embedding text composition (`build_embedding_text`)
 
-| 구성 요소 | 순서 | 제한 |
+| Component | Order | Limit |
 |---------|------|------|
-| `Name: {name}` | 1 | 있으면 포함 |
-| `Category: {category}` | 2 | Sneha 원본 또는 Suri rule-based imputation |
+| `Name: {name}` | 1 | include if present |
+| `Category: {category}` | 2 | Sneha original or Suri rule-based imputation |
 | `Summary: {summary}` | 3 | |
-| `Core/Specialized/Expanded skills` | 4 | 각 섹션 상한 적용 |
-| `Capabilities` | 5 | 상위 capability phrase |
-| `Experience titles: {titles[:20]}` | 6 | 중복 제거 |
-| 최종 | — | 최대 4,000자 truncate |
+| `Core/Specialized/Expanded skills` | 4 | apply per-section caps |
+| `Capabilities` | 5 | top capability phrases |
+| `Experience titles: {titles[:20]}` | 6 | dedupe |
+| Final | — | truncate to max 4,000 chars |
 
-### 7) 증분 처리 해시 (`normalization_hash`, `embedding_hash`)
+### 7) Incremental processing hashes (`normalization_hash`, `embedding_hash`)
 
-| 필드 | 의미 |
+| Field | Meaning |
 |------|------|
-| `ingestion.normalization_hash` | 정규화 결과 스냅샷 해시 (동일 문서 여부 판단) |
-| `ingestion.embedding_hash` | 마지막 임베딩 동기화 해시 |
-| `ingestion.embedding_upserted_at` | 마지막 Milvus 반영 시각 |
+| `ingestion.normalization_hash` | hash snapshot of normalized output (used to detect unchanged docs) |
+| `ingestion.embedding_hash` | hash of the last embedding sync |
+| `ingestion.embedding_upserted_at` | last upsert time into Milvus |
 
-기본 동작:
-- `normalization_hash`가 기존과 같으면 Mongo upsert 생략
-- `embedding_hash == normalization_hash`면 재임베딩 생략
-- 강제 재처리는 `--force-mongo-upsert`, `--force-reembed`로 수행
+Default behavior:
+- If `normalization_hash` is unchanged, skip Mongo upsert
+- If `embedding_hash == normalization_hash`, skip re-embedding
+- Force reprocessing via `--force-mongo-upsert`, `--force-reembed`
 
 ---
 
-## Source-to-Target 필드 매핑
+## Source-to-target field mapping
 
 ### Sneha (`Resume.csv`)
 
-| 원본 필드 | Candidate 타깃 필드 | 비고 |
+| Source field | Candidate target field | Notes |
 |---------|-----------------|------|
 | `ID` | `candidate_id`, `source_keys.ID` | prefix `sneha-` |
-| `Resume_str` | `raw.resume_text`, `parsed.summary` (앞 280자) | embedding fallback |
+| `Resume_str` | `raw.resume_text`, `parsed.summary` (first 280 chars) | embedding fallback |
 | `Resume_html` | `raw.resume_html` | |
 | `Category` | `category` | |
 | `Resume_str` | `metadata.name/email/phone` | regex + spaCy |
-| `Resume_str` | `parsed.skills`, `parsed.normalized_skills` | regex + spaCy 보강 |
-| `Resume_str` | `parsed.education[]`, `parsed.experience_items[]` | 섹션 기반 파싱 + spaCy 보강 |
-| (파생) | `parsed.experience_years`, `parsed.seniority_level` | `experience_items` 기반 계산 |
+| `Resume_str` | `parsed.skills`, `parsed.normalized_skills` | regex + spaCy enrichment |
+| `Resume_str` | `parsed.education[]`, `parsed.experience_items[]` | section-based parsing + spaCy enrichment |
+| (derived) | `parsed.experience_years`, `parsed.seniority_level` | computed from `experience_items` |
 
 ### Suri (Structured CSV)
 
-| 원본 파일·필드 | Candidate 타깃 필드 | 비고 |
+| Source file/field | Candidate target field | Notes |
 |-------------|-----------------|------|
 | `01_people.name` | `metadata.name` | |
 | `01_people.email/phone/linkedin` | `metadata.email/phone/linkedin` | |
@@ -188,59 +188,59 @@ python -m spacy download en_core_web_sm
 | `05_person_skills.skill` | `parsed.skills`, `parsed.normalized_skills` | |
 | `03_education.program` | `parsed.education[].degree` | |
 | `03_education.institution` | `parsed.education[].institution` | |
-| `03_education.start_date` | `parsed.education[].start_date` | `normalize_month` 적용 |
+| `03_education.start_date` | `parsed.education[].start_date` | apply `normalize_month` |
 | `03_education.location` | `parsed.education[].location` | |
 | `04_experience.title` | `parsed.experience_items[].title` | |
 | `04_experience.firm` | `parsed.experience_items[].company` | |
-| `04_experience.start_date/end_date` | `parsed.experience_items[].start_date/end_date` | `normalize_month` 적용 |
+| `04_experience.start_date/end_date` | `parsed.experience_items[].start_date/end_date` | apply `normalize_month` |
 | `04_experience.location` | `parsed.experience_items[].location` | |
-| (파생) | `parsed.experience_years`, `parsed.seniority_level` | `estimate_experience_years` |
-| (파생, 첫 유효 location) | `metadata.location` | |
-| (파생) | `category` | `impute_category_rule_based`로 경험 title + core_skills 기반 추론 |
+| (derived) | `parsed.experience_years`, `parsed.seniority_level` | `estimate_experience_years` |
+| (derived, first valid location) | `metadata.location` | |
+| (derived) | `category` | inferred by `impute_category_rule_based` using experience titles + core_skills |
 
 ---
 
-## 인프라 분리 적재 (Mongo / Milvus Split)
+## Split ingestion by infrastructure (Mongo / Milvus split)
 
-| 옵션 | 명령 | 설명 |
+| Option | Command | Description |
 |------|------|------|
-| Mongo만 | `--target mongo` | CSV → parse → MongoDB |
-| Milvus만 (Mongo 기반) | `--target milvus --milvus-from-mongo` | MongoDB → embed → Milvus |
-| 동시 적재 | `--target all` | CSV → parse → MongoDB + Milvus |
-| 파서 모드 | `--parser-mode rule|spacy|hybrid` | Sneha 파싱 방식 선택 (`hybrid`: 규칙 파싱 후 부족할 때만 보강) |
-| CSV 스트리밍 크기 | `--csv-chunk-size` | 대용량 CSV를 chunk 단위로 읽어 메모리 사용 절감 |
-| 강제 Mongo 재적재 | `--force-mongo-upsert` | hash가 같아도 Mongo upsert 수행 |
-| 강제 재임베딩 | `--force-reembed` | hash가 같아도 임베딩 재생성 |
-| 점검 모드 | `--dry-run` | 실제 DB/벡터 반영 없이 배치 계획만 확인 |
+| Mongo only | `--target mongo` | CSV → parse → MongoDB |
+| Milvus only (from Mongo) | `--target milvus --milvus-from-mongo` | MongoDB → embed → Milvus |
+| Ingest both | `--target all` | CSV → parse → MongoDB + Milvus |
+| Parser mode | `--parser-mode rule|spacy|hybrid` | choose Sneha parsing mode (`hybrid`: enrich only when rule output is insufficient) |
+| CSV streaming chunk size | `--csv-chunk-size` | read large CSVs in chunks to reduce memory use |
+| Force Mongo re-upsert | `--force-mongo-upsert` | upsert even when hashes are unchanged |
+| Force re-embedding | `--force-reembed` | re-embed even when hashes are unchanged |
+| Dry-run | `--dry-run` | show batch plan without writing to DB/vector store |
 
 ---
 
-## 성능 설계
+## Performance design
 
-| 항목 | 전략 |
+| Item | Strategy |
 |------|------|
-| CSV 로딩 | `read_csv(chunksize=...)` 기반 streaming 처리 |
-| Suri 보조 CSV 조인 | `person_id` 정렬 특성을 이용해 목표 ID 범위 초과 시 스캔 조기 종료 |
-| Parser 성능 | spaCy 로더는 1회 초기화 후 재사용 (row당 재로딩 방지) |
-| Hybrid 최적화 | rule-based 결과가 충분하면 spaCy 호출 생략 (조건부 보강) |
-| 파서 실패 내성 | spaCy 런타임 실패 시 해당 프로세스에서 자동 비활성화 후 진행 |
-| OpenAI 임베딩 | 배치 호출 (`embed_texts`, `batch_size=32`) |
+| CSV loading | streaming processing via `read_csv(chunksize=...)` |
+| Suri auxiliary CSV joins | early-stop scans when ID ranges exceed targets (leverages `person_id` ordering) |
+| Parser performance | initialize spaCy once and reuse (avoid per-row reloads) |
+| Hybrid optimization | skip spaCy when rule-based output is sufficient (conditional enrichment) |
+| Parser fault tolerance | disable spaCy in-process on runtime failures and continue |
+| OpenAI embeddings | batched calls (`embed_texts`, `batch_size=32`) |
 | MongoDB upsert | `bulk_write` (ordered=False) |
-| Milvus upsert | 동일 `(source_dataset, candidate_id)` 삭제 후 insert |
-| Milvus 안정성 | delete 전 `collection.load()` 보장 (일부 배포 환경에서 `collection not loaded` 방지) |
-| 재실행 비용 절감 | hash 기반 증분 처리로 unchanged 문서 skip |
+| Milvus upsert | delete then insert for the same `(source_dataset, candidate_id)` |
+| Milvus safety | ensure `collection.load()` before delete (prevents `collection not loaded` in some environments) |
+| Reduced rerun cost | hash-based incremental processing skips unchanged docs |
 
 ---
 
-## 권장 실행 순서
+## Recommended run order
 
 ```bash
-# Step 1: MongoDB 적재
+# Step 1: Ingest into MongoDB
 python3 scripts/ingest_resumes.py \
   --source all --target mongo --parser-mode hybrid \
   --sneha-limit 200 --suri-limit 500
 
-# Step 2: Milvus 적재
+# Step 2: Ingest into Milvus
 python3 scripts/ingest_resumes.py \
   --source all --target milvus --milvus-from-mongo \
   --sneha-limit 200 --suri-limit 500
@@ -248,90 +248,90 @@ python3 scripts/ingest_resumes.py \
 
 ---
 
-## 운영 스냅샷 (2026-03-13)
+## Operational snapshot (2026-03-13)
 
-| 항목 | 결과 |
+| Item | Result |
 |------|------|
-| Mongo 재적재 | `Sneha 2484 + Suri 3000 = 5484` upsert 완료 |
-| 날짜 정규화 품질 | `invalid_dates_edu = 0`, `invalid_dates_exp = 0` (두 데이터셋 모두) |
-| Milvus 증분 임베딩 | `seen=5484`, `embedded=5484`, `embed_skipped=0` |
-| Mongo 임베딩 동기화 | `embedding_hash null = 0`, `embedding_upserted_at null = 0`, `normalization_hash == embedding_hash` 불일치 `0` |
+| Mongo reload | upsert completed: `Sneha 2484 + Suri 3000 = 5484` |
+| Date normalization quality | `invalid_dates_edu = 0`, `invalid_dates_exp = 0` (both datasets) |
+| Milvus incremental embedding | `seen=5484`, `embedded=5484`, `embed_skipped=0` |
+| Mongo↔embedding sync | `embedding_hash null = 0`, `embedding_upserted_at null = 0`, mismatched `normalization_hash == embedding_hash` = `0` |
 
-> 참고: Milvus `num_entities`가 Mongo 문서 수보다 클 수 있다(과거 잔여 벡터).  
-> 현재 증분 업서트는 입력 대상 `(source_dataset, candidate_id)`만 갱신하며, 전체 orphan purge는 별도 작업으로 수행한다.
+> Note: Milvus `num_entities` can be larger than the Mongo doc count (stale vectors from prior runs).  
+> Current incremental upsert updates only the input `(source_dataset, candidate_id)` set; a full orphan purge is a separate task.
 
 ---
 
-## ⚠️ Normalization Gap 분석 — Agentic AI 연계 관점
+## ⚠️ Normalization gap analysis — agentic AI integration view
 
-> **핵심 결정 (ADR-003)**: Ingestion 파싱은 생성형 LLM 사용 ❌. Null 필드는 RAG pipeline에서 raw_text 컨텍스트로 처리.
+> **Key decision (ADR-003)**: do not use a generative LLM for ingestion parsing ❌. Null fields are handled by including raw_text context in the RAG pipeline.
 
-### GAP 요약표
+### Gap summary table
 
-| Gap ID | 대상 | 부족한 필드 | 영향 Agent | 심각도 | 대응 전략 |
+| Gap ID | Target | Missing fields | Impacted agent(s) | Severity | Mitigation |
 |--------|------|-----------|-----------|-------|---------|
-| **G-01** | Sneha 일부 | `experience_years = None`, `seniority_level = None` | ExperienceEvalAgent | 🟡 중간 | parser-mode=`hybrid` 유지 + null 시 `raw.resume_text` fallback |
-| **G-02** | Sneha 일부 | `parsed.experience_items = []` | ExperienceEvalAgent, TechnicalEvalAgent | 🟡 중간 | regex/global date range + spaCy 보강 후 fallback |
-| **G-03** | Sneha 일부 | `parsed.education = []` | ExperienceEvalAgent | 🟡 중간 | degree 패턴 확장 + null 시 scoring weight 조정 |
-| **G-04** | Suri 일부 | `category_confidence` 필드 부재 + rule-based category 오분류 가능성 | SkillMatchingAgent 필터, CultureFitAgent | 🟡 중간 | `impute_category_rule_based` 유지 + abilities/skills/experience 다중근거로 category sanity-check |
-| **G-05** | Sneha 일부 | `parsed.skills` 빈 리스트 (regex 실패) | SkillMatchingAgent | 🟡 중간 | spaCy 보강 + `raw.resume_text` fallback |
-| **G-06** | 양쪽 | `SKILL_NORMALIZATION_MAP` 규칙 수 제한 | SkillMatchingAgent | 🟡 중간 | 동의어 맵 점진적 확장 (LLM 없이) |
-| **G-07** | Suri | `experience_items[].description = None` | TechnicalEvalAgent, CultureFitAgent | 🟡 중간 | Abilities 텍스트를 컨텍스트에 포함 |
-| **G-08** | Suri | `summary`가 `"{role} resume profile"` 수준 | 전반 | 🟢 낮음 | Abilities + Skills로 embedding_text 보강 (이미 구현) |
-| **G-09** | 양쪽 | embedding_text 구성 방식 상이 | Retriever/Ranking | 🟡 중간 | 공통 템플릿 유지 + 필드 가중치 튜닝으로 편향 완화 |
+| **G-01** | Some Sneha | `experience_years = None`, `seniority_level = None` | ExperienceEvalAgent | 🟡 Medium | keep parser-mode=`hybrid` + fall back to `raw.resume_text` when null |
+| **G-02** | Some Sneha | `parsed.experience_items = []` | ExperienceEvalAgent, TechnicalEvalAgent | 🟡 Medium | regex/global date range + spaCy enrichment, then fallback |
+| **G-03** | Some Sneha | `parsed.education = []` | ExperienceEvalAgent | 🟡 Medium | expand degree patterns + adjust scoring weights on null |
+| **G-04** | Some Suri | missing `category_confidence` + possible rule-based misclassification | SkillMatchingAgent filters, CultureFitAgent | 🟡 Medium | keep `impute_category_rule_based` + multi-evidence category sanity check (abilities/skills/experience) |
+| **G-05** | Some Sneha | empty `parsed.skills` (regex failure) | SkillMatchingAgent | 🟡 Medium | spaCy enrichment + `raw.resume_text` fallback |
+| **G-06** | Both | limited `SKILL_NORMALIZATION_MAP` rule count | SkillMatchingAgent | 🟡 Medium | gradually expand synonym map (without LLM) |
+| **G-07** | Suri | `experience_items[].description = None` | TechnicalEvalAgent, CultureFitAgent | 🟡 Medium | include Abilities text as context |
+| **G-08** | Suri | `summary` is generic (`"{role} resume profile"`) | Overall | 🟢 Low | enrich embedding_text using Abilities + Skills (already implemented) |
+| **G-09** | Both | inconsistent embedding_text composition | Retriever/Ranking | 🟡 Medium | keep a shared template + tune field weights to reduce bias |
 
-> 2026-03-16 기준 Mongo live count(재적재 전): `G-01=62`, `G-02=62`, `G-03=412`, `G-05=26`  
-> 2026-03-16 parser patch 반영 후 Mongo 재적재 결과: `G-01=5`, `G-02=6`, `G-03=59`, `G-05=8`
-> 2026-03-16 Sneha abilities rule-extraction 반영 후: `Sneha abilities=2464/2484 (99.2%)`, `전체 abilities=5463/5484 (99.6%)`
+> Mongo live count as of 2026-03-16 (before reload): `G-01=62`, `G-02=62`, `G-03=412`, `G-05=26`  
+> After 2026-03-16 parser patch + reload: `G-01=5`, `G-02=6`, `G-03=59`, `G-05=8`
+> After 2026-03-16 Sneha abilities rule-extraction: `Sneha abilities=2464/2484 (99.2%)`, `overall abilities=5463/5484 (99.6%)`
 
-### 보완 전략 (모두 LLM 없이)
+### Mitigation strategy (all without LLMs)
 
 ```
-Ingestion (오프라인, 1회, LLM ❌)
-  현재 (v3): regex + spaCy + dateparser (hybrid, 조건부 보강)
-  fallback: parser-mode=rule 로 강등 가능
-  재실행 시: hash 비교로 변경분만 Mongo/Milvus 반영
+Ingestion (offline, one-time, LLM ❌)
+  current (v3): regex + spaCy + dateparser (hybrid, conditional enrichment)
+  fallback: can downgrade to parser-mode=rule
+  reruns: use hash comparison to write only changed docs to Mongo/Milvus
 
-RAG Pipeline (매칭 요청 시)
-  정상 경로: MongoDB 구조화 필드(skills/experience_items 등) 사용
-  Fallback: null 필드 있을 경우 raw.resume_text를 CandidateContext에 포함
-            → Agent가 JD와 함께 필요한 범위만 직접 판단
+RAG Pipeline (at match time)
+  happy path: use MongoDB structured fields (skills/experience_items, etc.)
+  fallback: if fields are null, include raw.resume_text in CandidateContext
+            → agent decides only what it needs with the JD
 ```
 
-### Agent별 Null 필드 처리 방식
+### Per-agent handling of null fields
 
-| Agent | null 상황 | RAG Pipeline 처리 |
+| Agent | Null scenario | RAG pipeline handling |
 |-------|---------|-----------------|
-| `SkillMatchingAgent` | Sneha skills 빈 리스트 | `raw.resume_text` 컨텍스트 포함 → Agent가 JD 기반 스킬 판단 |
-| `ExperienceEvalAgent` | Sneha `experience_years=None`, 경력 없음 | `raw.resume_text` 포함 → Agent가 텍스트에서 경력 추정 |
-| `TechnicalEvalAgent` | Sneha 경력 description 없음 | `raw.resume_text` 포함 → 기술 스택 텍스트 참조 |
-| `CultureFitAgent` | Suri category confidence 필드 부재/오분류 가능성 | Abilities + Skills + Experience titles 컨텍스트 포함 → domain fit 판단 |
-| `RankingAgent` | score 일부 불완전 | 가용 점수만으로 가중 합산, 불완전 필드 explanation에 명시 |
+| `SkillMatchingAgent` | Sneha skills empty | include `raw.resume_text` context → agent infers skills vs JD |
+| `ExperienceEvalAgent` | Sneha `experience_years=None`, no experience items | include `raw.resume_text` → agent estimates experience from text |
+| `TechnicalEvalAgent` | Sneha missing experience descriptions | include `raw.resume_text` → cite stack text |
+| `CultureFitAgent` | Suri missing category confidence / possible misclassification | include Abilities + Skills + Experience titles → judge domain fit |
+| `RankingAgent` | partial score availability | combine available scores; call out missing fields in explanations |
 
-> `ResumeParsingAgent`는 **운용하지 않음** (ADR-003). 파싱은 ingestion rule-based로 완결, 부족한 부분은 RAG context로 보완.
+> `ResumeParsingAgent` is **not operated** (ADR-003). Parsing is completed by ingestion rule-based pipelines; gaps are handled via RAG context.
 
 ---
 
 ## Legacy Version History (Restored)
 
-기존 ingestion normalization 설계 문서의 핵심 버전 이력을 현재 문서로 병합했다.
+This document merges the key version history from the legacy ingestion/normalization design notes.
 
-| 버전 | normalization_version | taxonomy_version | 주요 변경 | core_skills empty |
+| Version | normalization_version | taxonomy_version | Key changes | core_skills empty |
 |---|---|---|---|---|
-| V2 | `norm-v3-ontology` | `taxonomy-v2-refined` | ParsedSection 스킬 필드 확장, hash 기반 증분 처리 도입 | 55.0% |
-| V3 | `norm-v4-ontology` | `taxonomy-v3-expanded` | alias merge 확장, taxonomy 범위 확대 | 44.8% |
+| V2 | `norm-v3-ontology` | `taxonomy-v2-refined` | expand ParsedSection skill fields; introduce hash-based incremental processing | 55.0% |
+| V3 | `norm-v4-ontology` | `taxonomy-v3-expanded` | expand alias merging; broaden taxonomy coverage | 44.8% |
 | V4 | `norm-v5-category` | `taxonomy-v4-domain` | Sneha category -> core skill inject | 12.7% |
-| V5 | `norm-v6-substring` | `taxonomy-v5-suri` | substring matching 도입, Suri DBA 계열 taxonomy 강화 | 0.5% |
+| V5 | `norm-v6-substring` | `taxonomy-v5-suri` | introduce substring matching; strengthen taxonomy for Suri DBA-like profiles | 0.5% |
 
 ---
 
 ## Ontology Analysis Snapshot (Restored)
 
-기존 ontology 분석/정제 문서의 핵심 수치를 현재 문서로 통합했다.
+This document merges key metrics from legacy ontology analysis/refinement notes.
 
 ### Dataset coverage (2026-03-16 snapshot)
 
-| 항목 | 값 |
+| Item | Value |
 |---|---:|
 | total candidates | 5484 |
 | docs with `parsed.skills` | 5471 (99.8%) |
@@ -341,7 +341,7 @@ RAG Pipeline (매칭 요청 시)
 
 ### Refinement summary
 
-| 구분 | 개수 |
+| Category | Count |
 |---|---:|
 | slim core taxonomy entries | 66 |
 | role-like candidates | 15 |
@@ -350,22 +350,22 @@ RAG Pipeline (매칭 요청 시)
 | review-required refined | 69 |
 | canonical merge candidates | 11 |
 
-Refinement 원칙:
-- role/tool/capability를 core skill과 분리
-- versioned skill은 `{raw, canonical, version}` 구조로 관리
-- 애매한 토큰은 review-required로 보수적 처리
+Refinement principles:
+- separate role/tool/capability from core skills
+- manage versioned skills as `{raw, canonical, version}`
+- treat ambiguous tokens conservatively as review-required
 
 ---
 
 ## Clean Rebuild Runbook (Restored)
 
-1. Mongo `candidates` 콜렉션 정리(운영 정책에 맞는 방식 사용)
-2. Mongo 적재:
+1. Clean Mongo `candidates` collection (use an approach aligned with your ops policy)
+2. Ingest into Mongo:
    - `python3 scripts/ingest_resumes.py --source all --target mongo --parser-mode hybrid`
-3. 검증:
-   - `normalization_version/taxonomy_version` 일관성 확인
-   - `core_skills empty` 비율 확인
-4. Milvus 적재:
+3. Validate:
+   - verify `normalization_version/taxonomy_version` consistency
+   - check `core_skills empty` ratio
+4. Ingest into Milvus:
    - `python3 scripts/ingest_resumes.py --source all --target milvus --milvus-from-mongo --force-reembed`
-5. API smoke:
-   - `POST /api/jobs/match` 결과 및 fallback/fairness metadata 확인
+5. API smoke test:
+   - verify `POST /api/jobs/match` output and fallback/fairness metadata

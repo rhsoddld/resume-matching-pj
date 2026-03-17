@@ -1,72 +1,72 @@
 # Code Structure & Extensibility Guide
 
-이 문서는 프로젝트의 폴더 구조를 설명하고, 새 기능을 추가하거나 컴포넌트를 교체할 때 참고할 수 있는 확장 가이드를 제공합니다.
+This document explains the project’s folder structure and provides an extensibility guide for adding new functionality or swapping components.
 
 ## Folder Structure
 
 ### Root Directory
 
-- **`README.md`**: 프로젝트 소개, Quick Start, Core Commands, 문서 진입점
-- **`requirements.txt`**: Python 의존성 (FastAPI, PyMongo, PyMilvus, OpenAI, spaCy, DeepEval 등)
-- **`docker-compose.yml`**: 로컬 실행용 서비스 (backend, frontend, MongoDB, Milvus 등)
-- **`pytest.ini`**: pytest 설정
-- **`config/`**: 스킬 택소노미, 별칭, 직무 필터 등 YAML 설정
-- **`docs/`**: 아키텍처, ADR, 데이터 플로우, 평가, 관측성 문서
-- **`src/`**: 백엔드, 프론트엔드, 평가 모듈 소스
-- **`scripts/`**: ingestion, eval, golden set 유지보수 스크립트
-- **`tests/`**: 단위/통합 테스트
-- **`ops/`**: 로깅, 미들웨어 등 공통 운영 코드 (backend와 분리된 패키지)
+- **`README.md`**: project overview, quick start, core commands, documentation entry points
+- **`requirements.txt`**: Python dependencies (FastAPI, PyMongo, PyMilvus, OpenAI, spaCy, DeepEval, etc.)
+- **`docker-compose.yml`**: local dev services (backend, frontend, MongoDB, Milvus, etc.)
+- **`pytest.ini`**: pytest configuration
+- **`config/`**: YAML configuration (skill taxonomy, aliases, job filters, etc.)
+- **`docs/`**: architecture, ADRs, data flows, evaluation, observability docs
+- **`src/`**: backend, frontend, and evaluation module source
+- **`scripts/`**: ingestion/eval/golden set maintenance scripts
+- **`tests/`**: unit/integration tests
+- **`ops/`**: shared operational code (logging, middleware, etc.) packaged separately from backend
 
 ### `config/` Directory
 
-- **`skill_taxonomy.yml`**: 스킬 계층 및 직군 매핑
-- **`skill_aliases.yml`**: 스킬 별칭 정규화
-- **`skill_capability_phrases.yml`**: 역량 문구 매핑
-- **`skill_review_required.yml`**, **`versioned_skills.yml`**, **`skill_role_candidates.yml`**: 스킬/역할 보조 데이터
-- **`job_filters.yml`**: 직군/학력/지역/산업 등 필터 옵션 소스
+- **`skill_taxonomy.yml`**: skill hierarchy and job-family mapping
+- **`skill_aliases.yml`**: skill alias normalization
+- **`skill_capability_phrases.yml`**: capability phrase mapping
+- **`skill_review_required.yml`**, **`versioned_skills.yml`**, **`skill_role_candidates.yml`**: auxiliary skill/role data
+- **`job_filters.yml`**: filter options source (job family, education, region, industry, etc.)
 
 ### `src/` Directory
 
-- **`backend/`**: FastAPI 앱, API 라우터, 서비스, 에이전트, 저장소, 스키마
-- **`frontend/`**: React(Vite) + TypeScript 웹 UI
-- **`eval/`**: 평가 러너, golden set, LLM-as-Judge, 서브셋 생성 등
+- **`backend/`**: FastAPI app, API routers, services, agents, repositories, schemas
+- **`frontend/`**: React (Vite) + TypeScript web UI
+- **`eval/`**: evaluation runner, golden set, LLM-as-Judge, subset creation, etc.
 
 ### `src/backend/` Directory
 
-| 경로 | 설명 |
+| Path | Description |
 |------|------|
-| **`main.py`** | FastAPI 앱 진입점, lifespan, 미들웨어, `/api/health`, `/api/ready`, 라우터 등록 |
-| **`api/`** | REST 라우터: `candidates`, `jobs`, `ingestion`, `feedback` |
-| **`core/`** | 설정(`settings`), DB(`database`), 벡터 스토어(`vector_store`), 예외, startup, observability, filter_options, model_routing, jd_guardrails, providers |
-| **`schemas/`** | Pydantic 모델: `job.py` (JobMatchRequest, JobMatchResponse, QueryUnderstandingProfile 등), `candidate.py`, `ingestion.py`, `feedback.py` |
-| **`repositories/`** | `mongo_repo.py` (후보 조회, 필터 옵션 API 진입점), `hybrid_retriever.py` (재export; 실제 구현은 `services/hybrid_retriever.py`), `session_repo.py` (JD 세션) |
-| **`services/`** | 핵심 서비스: `matching_service.py` (매칭 오케스트레이션), `hybrid_retriever.py`, `retrieval_service.py`, `job_profile_extractor.py`, `match_result_builder.py`, `scoring_service.py`, `cross_encoder_rerank_service.py`, `query_fallback_service.py`, `candidate_enricher.py`, `ingest_resumes.py`, `resume_parsing.py`, `email_draft_service.py` 등 |
-| **`services/job_profile/`** | 시그널 품질, 시그널 중복 제거 등 JD 프로필 보조 로직 |
-| **`services/skill_ontology/`** | 스킬 온톨로지 로더, 정규화, 런타임 타입/상수 |
-| **`services/ingestion/`** | 이력서 수집 파이프라인: 전처리, 변환, 상태, 상수 |
-| **`services/matching/`** | 캐시, fairness, evaluation, profile 병합, rerank_policy |
-| **`services/retrieval/`** | `hybrid_scoring.py` (fusion, keyword, metadata 점수) |
-| **`agents/`** | Multi-agent 파이프라인 |
-| **`agents/contracts/`** | 에이전트 계약: skill_agent, experience_agent, technical_agent, culture_agent, orchestrator, ranking_agent, weight_negotiation_agent |
-| **`agents/runtime/`** | `service.py` (오케스트레이션 진입), `sdk_runner.py`, `live_runner.py`, `heuristics.py`, candidate_mapper, helpers, prompts, models, types |
+| **`main.py`** | FastAPI entrypoint: lifespan, middleware, `/api/health`, `/api/ready`, router registration |
+| **`api/`** | REST routers: `candidates`, `jobs`, `ingestion`, `feedback` |
+| **`core/`** | settings, DB, vector store, exceptions, startup, observability, filter_options, model_routing, JD guardrails, providers |
+| **`schemas/`** | Pydantic models: `job.py` (JobMatchRequest/Response, QueryUnderstandingProfile, etc.), `candidate.py`, `ingestion.py`, `feedback.py` |
+| **`repositories/`** | `mongo_repo.py` (candidate queries + filter-options API entry), `hybrid_retriever.py` (re-export; real impl in `services/hybrid_retriever.py`), `session_repo.py` (JD sessions) |
+| **`services/`** | core services: `matching_service.py` (orchestration), `hybrid_retriever.py`, `retrieval_service.py`, `job_profile_extractor.py`, `match_result_builder.py`, `scoring_service.py`, `cross_encoder_rerank_service.py`, `query_fallback_service.py`, `candidate_enricher.py`, `ingest_resumes.py`, `resume_parsing.py`, `email_draft_service.py`, etc. |
+| **`services/job_profile/`** | JD profile helpers: signal quality, signal dedupe, etc. |
+| **`services/skill_ontology/`** | skill ontology loader, normalization, runtime types/constants |
+| **`services/ingestion/`** | resume ingestion pipeline: preprocessing, transforms, state, constants |
+| **`services/matching/`** | cache, fairness, evaluation, profile merging, rerank_policy |
+| **`services/retrieval/`** | `hybrid_scoring.py` (fusion/keyword/metadata scoring) |
+| **`agents/`** | multi-agent pipeline |
+| **`agents/contracts/`** | agent contracts: skill/experience/technical/culture/orchestrator/ranking/weight_negotiation |
+| **`agents/runtime/`** | `service.py` (orchestration entry), `sdk_runner.py`, `live_runner.py`, `heuristics.py`, candidate_mapper, helpers, prompts, models, types |
 
 ### `src/frontend/` Directory
 
-- **`src/App.tsx`**, **`main.tsx`**, **`index.html`**: 앱 진입점
-- **`src/api/`**: `match.ts`, `feedback.ts` — 백엔드 API 호출
+- **`src/App.tsx`**, **`main.tsx`**, **`index.html`**: app entry points
+- **`src/api/`**: `match.ts`, `feedback.ts` — backend API calls
 - **`src/components/`**: `JobRequirementForm.tsx`, `MatchForm.tsx`, `CandidateResults.tsx`, `CandidateRow.tsx`, `CandidateCard.tsx`, `CandidateDetailModal.tsx`, `MatchScorePill.tsx`, `ExplainabilityPanel.tsx`, `RecruiterHero.tsx`, `BiasGuardrailBanner.tsx`, `ResultCard.tsx`
-- **`src/types.ts`**: 공통 타입
-- **`src/utils/agentEvaluation.ts`**: 에이전트 평가 유틸
-- **`theme.css`**, **`index.css`**: 스타일
-- **`vite.config.ts`**, **`package.json`**, **`Dockerfile`**, **`nginx.conf`**: 빌드/배포
+- **`src/types.ts`**: shared types
+- **`src/utils/agentEvaluation.ts`**: agent evaluation utilities
+- **`theme.css`**, **`index.css`**: styling
+- **`vite.config.ts`**, **`package.json`**, **`Dockerfile`**, **`nginx.conf`**: build/deployment
 
 ### `src/eval/` Directory
 
-- **`eval_runner.py`**, **`config.py`**: 평가 실행 및 설정
-- **`golden_set_maintenance.py`**, **`create_mode_subsets.py`**: golden set 유지보수
-- **`generate_llm_judge_annotations.py`**: LLM-as-Judge 어노테이션 생성
-- **`subsets/`**: golden set 서브셋 (예: `golden.agent.jsonl`)
-- **`outputs/`**: 평가 결과 아카이브
+- **`eval_runner.py`**, **`config.py`**: eval execution and configuration
+- **`golden_set_maintenance.py`**, **`create_mode_subsets.py`**: golden set maintenance
+- **`generate_llm_judge_annotations.py`**: generate LLM-as-Judge annotations
+- **`subsets/`**: golden set subsets (e.g. `golden.agent.jsonl`)
+- **`outputs/`**: evaluation output archives
 
 ### `docs/` Directory
 
@@ -74,114 +74,114 @@
 - **`adr/`**: ADR-001 ~ ADR-009 (vector-db, embedding, hybrid-retrieval, agent-orchestration, deterministic-query-understanding, rerank-policy, ingestion-parsing-rule-based, bias-fairness-guardrails, observability-strategy)
 - **`data-flow/`**: resume_ingestion_flow.md, candidate_retrieval_flow.md, test_datasets_and_commands.md
 - **`agents/`**: multi_agent_pipeline.md
-- **`evaluation/`**: evaluation_plan.md, evaluation_results.md, llm_judge_design.md, golden_set_alignment.md 등
+- **`evaluation/`**: evaluation_plan.md, evaluation_results.md, llm_judge_design.md, golden_set_alignment.md, etc.
 - **`observability/`**: logging_metrics.md, monitoring.md
 - **`governance/`**: cost_control.md
-- **`design/`**: 설계 결정/근거 문서 (key decisions, rationale)
-- **`guides/`**: 온보딩/흐름 가이드 (core flows, scoring)
-- **`deep-dive/`**: 상세 레퍼런스 (codebase meaning 등)
-- **`docs/design/key-design-decisions.md`**: 핵심 설계 결정 요약 (본 문서와 쌍으로 참고)
-- **`CODE_STRUCTURE.md`**: 본 문서
+- **`design/`**: design decisions/rationale (key decisions, rationale)
+- **`guides/`**: onboarding/flow guides (core flows, scoring)
+- **`deep-dive/`**: deep references (codebase meaning, etc.)
+- **`docs/design/key-design-decisions.md`**: key design decisions summary (pair with this doc)
+- **`CODE_STRUCTURE.md`**: this document
 
 ### `scripts/` Directory
 
-- **`ingest_resumes.py`**: 이력서 수집 (source: all 등, target: mongo / milvus)
-- **`run_eval.sh`**, **`run_retrieval_eval.sh`**, **`run_rerank_eval.sh`**: 평가 실행
-- **`update_golden_set.sh`**, **`regen_golden_set.sh`**: golden set 갱신
+- **`ingest_resumes.py`**: resume ingestion (source: all, target: mongo/milvus)
+- **`run_eval.sh`**, **`run_retrieval_eval.sh`**, **`run_rerank_eval.sh`**: run evaluations
+- **`update_golden_set.sh`**, **`regen_golden_set.sh`**: update/regenerate golden set
 
 ### `tests/` Directory
 
-- **`test_api.py`**, **`test_retrieval.py`**, **`test_scoring_service.py`**, **`test_hybrid_scoring.py`**, **`test_ingestion_preprocessing.py`**, **`test_golden_set_alignment.py`**, **`test_regen_golden_set.py`**, **`test_job_profile_extractor.py`**, **`test_sdk_runner_and_rerank_policy.py`**, **`test_resume_parsing.py`**, **`test_matching_evaluation.py`** 등
+- **`test_api.py`**, **`test_retrieval.py`**, **`test_scoring_service.py`**, **`test_hybrid_scoring.py`**, **`test_ingestion_preprocessing.py`**, **`test_golden_set_alignment.py`**, **`test_regen_golden_set.py`**, **`test_job_profile_extractor.py`**, **`test_sdk_runner_and_rerank_policy.py`**, **`test_resume_parsing.py`**, **`test_matching_evaluation.py`**, etc.
 
-### `ops/` Directory (공통 운영)
+### `ops/` Directory (shared operations)
 
 - **`logging.py`**: configure_logging, get_logger
 - **`middleware.py`**: RequestIdMiddleware, APILoggingMiddleware
-- **`mongo_handler.py`**: (선택) MongoDB 로그 핸들러
+- **`mongo_handler.py`**: (optional) MongoDB log handler
 
 ---
 
 ## Extensibility
 
-코드베이스는 모듈화와 확장을 고려해 구성되어 있어, 새 기능 추가나 컴포넌트 교체가 비교적 수월합니다.
+The codebase is organized for modularity and extensibility, making it relatively straightforward to add features or swap components.
 
-### 1. Embedding 모델 변경
+### 1. Change embedding model
 
-- **위치**: `backend.core.settings` (`openai_embedding_model`), `backend.services.retrieval_service.RetrievalService` (OpenAI Embeddings API 호출)
-- **방법**:
-  1. `.env`에서 `OPENAI_EMBEDDING_MODEL` 변경하거나, 다른 embedding provider용 서비스 클래스를 구현
-  2. 벡터 차원이 바뀌면 Milvus collection의 `dim` 및 재인덱싱 필요
-  3. Rerank embedding 모델은 `rerank_embedding_model` 설정으로 별도 지정 가능
+- **Location**: `backend.core.settings` (`openai_embedding_model`), `backend.services.retrieval_service.RetrievalService` (OpenAI Embeddings API calls)
+- **How**:
+  1. Change `OPENAI_EMBEDDING_MODEL` in `.env`, or implement a service for another embedding provider
+  2. If embedding dimensions change, update Milvus collection `dim` and re-index
+  3. Configure rerank embedding model separately via `rerank_embedding_model`
 
-### 2. Vector DB / Document Store 교체
+### 2. Swap vector DB / document store
 
-- **Vector**: `backend.core.vector_store`에서 Milvus 호출 래핑. 다른 벡터 DB로 교체 시 동일 인터페이스(search_embeddings 등)를 구현하고 `retrieval_service` / `hybrid_retriever`가 이를 사용하도록 연결
-- **Document**: `backend.repositories.mongo_repo`에서 MongoDB 조회. 다른 저장소로 바꿀 경우 동일 함수 시그니처로 새 저장소 구현 후 호출부만 교체
+- **Vector**: Milvus calls are wrapped in `backend.core.vector_store`. To swap vector DBs, implement the same interface (search_embeddings, etc.) and wire it into `retrieval_service` / `hybrid_retriever`.
+- **Document**: MongoDB queries are in `backend.repositories.mongo_repo`. To swap stores, implement a new store with the same function signatures and update call sites.
 
-### 3. Query Understanding 확장 (Deterministic)
+### 3. Extend query understanding (deterministic)
 
-- **위치**: `backend.services.job_profile_extractor` (JD → JobProfile), `backend.core.filter_options` (필터 옵션 로딩), `config/*.yml`
-- **방법**:
-  1. 새 시그널 타입이나 규칙을 추가하려면 `job_profile_extractor`와 `job_profile/signals` 확장
-  2. 필터 옵션 추가는 `config/job_filters.yml` 수정. API는 `repositories.mongo_repo.get_filter_options()`를 호출하며, 실제 데이터는 `core.filter_options`에서 YAML(job_filters.yml + skill_taxonomy.yml 병합) 로드
-  3. Query fallback은 `query_fallback_service`에서 confidence/unknown_ratio 기준으로 이미 연동됨 — 임계값 조정으로 동작 변경 가능
+- **Location**: `backend.services.job_profile_extractor` (JD → JobProfile), `backend.core.filter_options` (filter options loader), `config/*.yml`
+- **How**:
+  1. Add new signal types/rules by extending `job_profile_extractor` and `job_profile/signals`
+  2. Add filter options by editing `config/job_filters.yml`. The API calls `repositories.mongo_repo.get_filter_options()`, but actual data is loaded via `core.filter_options` from YAML (merging `job_filters.yml` + `skill_taxonomy.yml`).
+  3. Query fallback is already wired in `query_fallback_service` using confidence/unknown_ratio thresholds; adjust thresholds to change behavior.
 
-### 4. Hybrid Retrieval / Fusion 조정
+### 4. Tune hybrid retrieval / fusion
 
-- **위치**: `backend.services.hybrid_retriever.HybridRetriever`, `backend.services.retrieval.hybrid_scoring`
-- **방법**:
-  1. Fusion 가중치, 키워드/메타데이터 점수 공식은 `hybrid_scoring`에서 변경
-  2. 키워드 후보 풀 생성 로직은 `HybridRetriever._search_keyword_candidates`, `_merge_fusion_hits` 등에서 조정
-  3. 산업/카테고리 매핑은 `hybrid_scoring.INDUSTRY_CATEGORY_MAP` 및 설정 연동
+- **Location**: `backend.services.hybrid_retriever.HybridRetriever`, `backend.services.retrieval.hybrid_scoring`
+- **How**:
+  1. Adjust fusion weights and keyword/metadata scoring formulas in `hybrid_scoring`
+  2. Update keyword candidate pool generation in `HybridRetriever._search_keyword_candidates`, `_merge_fusion_hits`, etc.
+  3. Industry/category mapping is in `hybrid_scoring.INDUSTRY_CATEGORY_MAP` and settings.
 
-### 5. Rerank 정책 / 모델 변경
+### 5. Change rerank policy / models
 
-- **위치**: `backend.services.matching.rerank_policy` (게이트 조건, top_n, 모델 라우팅), `backend.services.cross_encoder_rerank_service`, `backend.core.model_routing`
-- **방법**:
-  1. Rerank 사용 여부: `RERANK_ENABLED`, `should_apply_rerank` 조건 수정
-  2. 게이트 조건: `rerank_gate_*` 설정 및 `rerank_policy` 내 조건 변경
-  3. LLM rerank vs embedding rerank: `rerank_mode`, 해당 서비스 구현체 교체 또는 라우팅 확장
+- **Location**: `backend.services.matching.rerank_policy` (gate conditions, top_n, model routing), `backend.services.cross_encoder_rerank_service`, `backend.core.model_routing`
+- **How**:
+  1. Toggle rerank via `RERANK_ENABLED` and `should_apply_rerank` conditions
+  2. Change gate behavior via `rerank_gate_*` settings and logic in `rerank_policy`
+  3. LLM rerank vs embedding rerank: `rerank_mode`, swap the service implementation or extend routing
 
-### 6. Multi-Agent 평가 / 협상 체인 확장
+### 6. Extend multi-agent evaluation / negotiation chain
 
-- **위치**: `backend.agents.contracts` (에이전트 클래스), `backend.agents.runtime.service`, `sdk_runner`, `live_runner`, `heuristics`
-- **방법**:
-  1. 새 에이전트 추가: contracts에 새 에이전트 클래스 구현 후, 오케스트레이션 서비스에서 호출 및 Score Pack 병합
-  2. 가중치 협상 로직 변경: `weight_negotiation_agent` 및 Recruiter/HiringManager 제안 포맷 수정
-  3. Fallback 순서 변경: SDK → live_json → heuristic 체인을 runtime에서 조정
+- **Location**: `backend.agents.contracts` (agent classes), `backend.agents.runtime.service`, `sdk_runner`, `live_runner`, `heuristics`
+- **How**:
+  1. Add a new agent: implement a new agent class in contracts, call it from orchestration, and merge into the ScorePack
+  2. Change negotiation logic: modify `weight_negotiation_agent` and recruiter/hiring-manager proposal formats
+  3. Change fallback order: adjust SDK → live_json → heuristic chain in runtime
 
-### 7. Fairness / Bias 정책 변경
+### 7. Change fairness / bias policies
 
-- **위치**: `backend.services.matching.fairness`, `backend.core.jd_guardrails`
-- **방법**: `fairness_*` 설정과 fairness 모듈 내 검사 규칙 추가/수정; 프론트는 `BiasGuardrailBanner`로 경고만 노출하므로 백엔드 응답 스키마만 맞추면 됨
+- **Location**: `backend.services.matching.fairness`, `backend.core.jd_guardrails`
+- **How**: update `fairness_*` settings and add/modify checks in the fairness module. The frontend only displays warnings via `BiasGuardrailBanner`, so keeping the backend response schema consistent is sufficient.
 
-### 8. 새 API 엔드포인트 추가
+### 8. Add new API endpoints
 
-- **위치**: `backend.api` (새 라우터 또는 기존 `candidates`, `jobs`, `ingestion`, `feedback`에 추가)
-- **방법**: FastAPI 라우터에 새 경로 정의 후 `main.py`에서 `app.include_router`로 등록
+- **Location**: `backend.api` (new router or add to existing `candidates`, `jobs`, `ingestion`, `feedback`)
+- **How**: define a new route in FastAPI routers and register via `app.include_router` in `main.py`
 
-### 9. 프론트엔드 컴포넌트 / 페이지 추가
+### 9. Add frontend components / pages
 
-- **위치**: `src/frontend/src/components/`, `src/api/`
-- **방법**: 새 컴포넌트 작성 후 `App.tsx` 또는 기존 페이지에 연결; API 호출은 `api/`에 함수 추가
+- **Location**: `src/frontend/src/components/`, `src/api/`
+- **How**: create a component and connect it in `App.tsx` (or an existing page); add API calls in `api/`
 
-### 10. 평가 파이프라인 확장
+### 10. Extend the evaluation pipeline
 
-- **위치**: `src/eval/` (eval_runner, golden set, LLM judge 스크립트)
-- **방법**: 새 메트릭이나 judge 기준을 추가하려면 eval_runner 및 관련 스크립트에 단계 추가; golden set 포맷은 기존 JSONL과 호환 유지
+- **Location**: `src/eval/` (eval_runner, golden set, LLM judge scripts)
+- **How**: add steps to eval_runner and related scripts for new metrics/judge criteria; keep golden set JSONL backward compatible
 
 ---
 
-## 문서 진입점 (README와의 연결)
+## Documentation entry points (linked from README)
 
-- 아키텍처: [docs/architecture/system_architecture.md](./architecture/system_architecture.md)
-- 설계 결정 요약: [docs/design/key-design-decisions.md](./design/key-design-decisions.md)
-- 설계 근거(ontology/cost/eval): [docs/design/rationale-ontology-eval-cost.md](./design/rationale-ontology-eval-cost.md)
-- 핵심 흐름 가이드: [docs/guides/codebase-core-flows.md](./guides/codebase-core-flows.md)
-- 스코어링 전체 흐름: [docs/guides/scoring-flow-guide.md](./guides/scoring-flow-guide.md)
-- 전체 코드 의미(상세): [docs/deep-dive/codebase-meaning-reference.md](./deep-dive/codebase-meaning-reference.md)
-- 코드 구조 및 확장: **docs/CODE_STRUCTURE.md** (본 문서)
-- 배포: [docs/architecture/deployment_architecture.md](./architecture/deployment_architecture.md)
-- 데이터 플로우: [docs/data-flow/resume_ingestion_flow.md](./data-flow/resume_ingestion_flow.md), [docs/data-flow/candidate_retrieval_flow.md](./data-flow/candidate_retrieval_flow.md)
-- 에이전트: [docs/agents/multi_agent_pipeline.md](./agents/multi_agent_pipeline.md)
-- 평가: [docs/evaluation/evaluation_plan.md](./evaluation/evaluation_plan.md), [docs/evaluation/evaluation_results.md](./evaluation/evaluation_results.md)
+- Architecture: [docs/architecture/system_architecture.md](./architecture/system_architecture.md)
+- Key design decisions: [docs/design/key-design-decisions.md](./design/key-design-decisions.md)
+- Design rationale (ontology/cost/eval): [docs/design/rationale-ontology-eval-cost.md](./design/rationale-ontology-eval-cost.md)
+- Core flows guide: [docs/guides/codebase-core-flows.md](./guides/codebase-core-flows.md)
+- End-to-end scoring flow: [docs/guides/scoring-flow-guide.md](./guides/scoring-flow-guide.md)
+- Codebase meaning (deep dive): [docs/deep-dive/codebase-meaning-reference.md](./deep-dive/codebase-meaning-reference.md)
+- Code structure & extensibility: **docs/CODE_STRUCTURE.md** (this document)
+- Deployment: [docs/architecture/deployment_architecture.md](./architecture/deployment_architecture.md)
+- Data flow: [docs/data-flow/resume_ingestion_flow.md](./data-flow/resume_ingestion_flow.md), [docs/data-flow/candidate_retrieval_flow.md](./data-flow/candidate_retrieval_flow.md)
+- Agents: [docs/agents/multi_agent_pipeline.md](./agents/multi_agent_pipeline.md)
+- Evaluation: [docs/evaluation/evaluation_plan.md](./evaluation/evaluation_plan.md), [docs/evaluation/evaluation_results.md](./evaluation/evaluation_results.md)

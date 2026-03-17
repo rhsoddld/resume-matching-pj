@@ -2,49 +2,49 @@
 
 ## Governance Mission (Legacy AGENT/PLAN Merged)
 
-시스템 거버넌스 목표:
-1. ingestion/query understanding의 deterministic-first 원칙 유지
-2. retrieval -> evaluation -> negotiation -> ranking의 책임 경계 명확화
-3. explainable output과 fairness guardrail을 기본 계약으로 유지
-4. 요구사항-코드-평가 산출물의 추적성 확보
+Governance goals:
+1. Maintain deterministic-first principles for ingestion/query understanding
+2. Clarify responsibility boundaries across retrieval → evaluation → negotiation → ranking
+3. Treat explainable output and fairness guardrails as baseline contracts
+4. Ensure traceability across requirements ↔ code ↔ evaluation artifacts
 
 ## Canonical Documents and Roles
 
-| 문서 | 역할 |
+| Document | Role |
 |---|---|
-| `requirements/problem_definition.md` | 문제 정의 / 목표 |
-| `requirements/functional_requirements.md` | 요구사항 ID 체계 (R1/R2/HCR/MSA/AHI/D/DS) |
-| `requirements/traceability_matrix.md` | 구현/검증/문서 증거 연결 |
-| `docs/architecture/system_architecture.md` | 목표 아키텍처와 레이어 책임 |
-| `docs/data-flow/*.md` | ingestion/retrieval 런타임 흐름 |
-| `docs/evaluation/*.md` | 평가 기준/결과 |
-| `docs/adr/*.md` | 설계 결정과 배경 |
+| `requirements/problem_definition.md` | Problem definition / objectives |
+| `requirements/functional_requirements.md` | Requirement ID system (R1/R2/HCR/MSA/AHI/D/DS) |
+| `requirements/traceability_matrix.md` | Links implementation/verification/document evidence |
+| `docs/architecture/system_architecture.md` | Target architecture and layer responsibilities |
+| `docs/data-flow/*.md` | Ingestion/retrieval runtime flows |
+| `docs/evaluation/*.md` | Evaluation criteria/results |
+| `docs/adr/*.md` | Design decisions and background |
 
 ## Status Labels
 
-- `Implemented`: 코드/문서/검증 증거 모두 존재
-- `Partial`: 코드는 있으나 운영 검증 또는 품질 증거가 부족
-- `Planned`: 설계/백로그 상태
+- `Implemented`: code + documentation + verification evidence all exist
+- `Partial`: code exists but operational verification or quality evidence is lacking
+- `Planned`: design/backlog state
 
 ## Governance Control Rules
 
-1. 신규 기능은 코드와 문서를 같은 변경 단위로 업데이트한다.
-2. 점수/프롬프트/모델 라우팅 변경 시 최소 1개 이상 평가 증거를 남긴다.
-3. fallback 정책(`sdk_handoff -> live_json -> heuristic`)은 문서와 구현을 동기화한다.
-4. 민감 속성은 점수 근거에서 제외하고, 관련 경고를 응답/로그에 남긴다.
-5. 버전 필드(`normalization_version`, `taxonomy_version`, `embedding_text_version`, `PROMPT_VERSION`)를 변경하면 변경 이유를 문서화한다.
+1. Ship new features with code + documentation updated in the same change.
+2. For scoring/prompt/model-routing changes, leave at least one evaluation evidence artifact.
+3. Keep fallback policy (`sdk_handoff -> live_json -> heuristic`) synchronized between docs and implementation.
+4. Exclude sensitive attributes from scoring evidence and record related warnings in responses/logs.
+5. When changing version fields (`normalization_version`, `taxonomy_version`, `embedding_text_version`, `PROMPT_VERSION`), document the rationale.
 
 ## Review Cadence
 
-| 주기 | 검토 항목 |
+| Cadence | Review items |
 |---|---|
-| 매 PR | 요구사항 영향, 테스트 영향, 문서 영향 |
-| 주간 | retrieval/agent/fairness 지표 추세 |
-| 릴리스 전 | traceability matrix 최신화, evaluation 결과 검토, ADR 갱신 |
+| Per PR | requirements impact, test impact, documentation impact |
+| Weekly | trends for retrieval/agent/fairness metrics |
+| Pre-release | refresh traceability matrix, review evaluation results, update ADRs |
 
 ## Current Governance Priorities
 
-1. retrieval quality 회귀 감지 자동화
-2. rerank 효과 대비 latency/cost 검증 고도화
-3. fairness 경고 지표의 운영 대시보드 정착
-4. feedback loop 및 hiring intelligence 근거 데이터 강화
+1. Automate regression detection for retrieval quality
+2. Improve validation of rerank impact vs latency/cost
+3. Operationalize a dashboard for fairness warning metrics
+4. Strengthen evidence data for feedback loops and hiring intelligence

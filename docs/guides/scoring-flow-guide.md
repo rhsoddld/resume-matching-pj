@@ -1,196 +1,195 @@
-# 스코어링 전체 흐름 가이드
+# End-to-end scoring flow guide
 
-**목적:** "몇 명을 필터해서 어떤 계산을 하는지"를 **처음부터 끝까지** 한 번에 이해할 수 있도록 단계별로 정리합니다.  
-스코어링이 이 시스템에서 가장 복잡한 부분이므로, **인원 수**와 **계산 공식**을 명확히 적었습니다.
+**Purpose:** Explain **step by step** "how many candidates are filtered and how scores are computed" from start to finish.  
+Scoring is the most complex part of this system, so **head counts** and **formulas** are spelled out clearly.
 
 ---
 
-## 1. 한눈에 보는 전체 파이프라인
+## 1. Pipeline at a glance
 
-사용자가 **"상위 10명(top_k=10) 추천해줘"**라고 요청했다고 가정합니다.
+Assume the user asks for **"top 10 (top_k=10) recommendations"**.
 
 ```
-[전체 DB] → Retrieval(N명) → Enrichment(메타 필터) → Shortlist(최대 top_k명) → 스코어 계산 → 최종 정렬
+[Full DB] → Retrieval(N) → Enrichment(meta filters) → Shortlist(up to top_k) → Score computation → Final ordering
                 ↑                    ↑                        ↑
-           예: 10~50명          조건 미충족 탈락           그중 상위 10명
-                                                      → 이 중 상위 5명만 에이전트 평가
-                                                      → 나머지 5명은 규칙 기반 점수만
+           e.g. 10–50             drop if conditions         top 10 of those
+                                 not met              → top 5 get agent eval
+                                                      → remaining 5 rule-based score only
 ```
 
-| 단계 | 담당 모듈 | 인원(예시, top_k=10) | 하는 일 |
+| Stage | Module | Head count (e.g. top_k=10) | What it does |
 |------|-----------|------------------------|---------|
-| 1. Retrieval | `HybridRetriever` | **N명** (기본 10명, rerank 켜면 더 많이) | 벡터+키워드+메타데이터로 후보 검색 |
-| 2. Enrichment | `candidate_enricher` | **N명 → M명** (M ≤ N) | Mongo 문서 결합 + 경력연차/학력/지역/산업 필터 적용 → 조건 안 맞으면 제외 |
-| 3. Shortlist | `_shortlist_candidates` | **최대 top_k명(10명)** | rerank 게이트 통과 시 Cross-Encoder rerank 후 상위 10명, 아니면 fusion 순서 그대로 상위 10명 |
-| 4. 스코어 계산 | `_score_candidates` + `build_match_candidate` | **10명 전원** | 10명 모두 **deterministic 점수** 계산 → 그중 **상위 5명(agent_eval_top_n)**만 에이전트 평가 → **최종 rank_score** 산출 |
-| 5. 정렬·응답 | `MatchingService` | **10명** | 에이전트 평가 받은 사람 우선, 동일하면 `score` 내림차순 → `JobMatchResponse` 반환 |
+| 1. Retrieval | `HybridRetriever` | **N** (default 10; more if rerank on) | Retrieve candidates via vector + keyword + metadata |
+| 2. Enrichment | `candidate_enricher` | **N → M** (M ≤ N) | Join Mongo docs + apply experience/education/region/industry filters → drop if conditions not met |
+| 3. Shortlist | `_shortlist_candidates` | **Up to top_k (10)** | If rerank gate passes: Cross-Encoder rerank then top 10; else top 10 by fusion order |
+| 4. Score computation | `_score_candidates` + `build_match_candidate` | **All 10** | Compute **deterministic score** for all 10 → only **top 5 (agent_eval_top_n)** get agent eval → produce **final rank_score** |
+| 5. Order & response | `MatchingService` | **10** | Agent-evaluated first, then by `score` descending → return `JobMatchResponse` |
 
 ---
 
-## 2. 단계별 상세: 몇 명이 남고, 어떤 계산을 하는가
+## 2. Step-by-step details: how many remain, what we compute
 
-### 2.1 Retrieval — "몇 명을 가져올까"
+### 2.1 Retrieval — “how many do we fetch?”
 
-- **목표 인원:** `retrieval_top_n`
-  - rerank 비활성: `retrieval_top_n = top_k` (예: 10)
-  - rerank 활성: `retrieval_top_n = max(top_k, rerank_pool_n)`  
+- **Target count:** `retrieval_top_n`
+  - rerank disabled: `retrieval_top_n = top_k` (e.g. 10)
+  - rerank enabled: `retrieval_top_n = max(top_k, rerank_pool_n)`  
     - `rerank_pool_n = max(top_k, min(rerank_top_n, rerank_gate_max_top_n))`  
-    - 기본 설정: `rerank_top_n=50`, `rerank_gate_max_top_n=8` → top_k=10이면 **10명** 검색
-- **하는 일:**
-  1. **Mongo 키워드 검색** (항상): JD에서 뽑은 lexical query로 검색 → `keyword_hits`
-  2. **Milvus 벡터 검색** (가능 시): JD 임베딩으로 유사도 검색 → `vector_hits`
-  3. **합치기:** 동일 후보는 merge, 점수는 **fusion** 한 번에 합산
-- **Fusion 공식 (Retrieval 단계):**
+    - defaults: `rerank_top_n=50`, `rerank_gate_max_top_n=8` → for top_k=10, fetch **10**
+- **What happens:**
+  1. **Mongo keyword search** (always): search with lexical query extracted from the JD → `keyword_hits`
+  2. **Milvus vector search** (when available): embed the JD and search by similarity → `vector_hits`
+  3. **Merge:** de-duplicate by candidate and compute a single **fusion** score
+- **Fusion formula (retrieval stage):**
   ```
   fusion_score = (vector_weight × vector_score) + (keyword_weight × keyword_score) + (metadata_weight × metadata_score)
   ```
-  - 기본 가중치: **vector 0.48, keyword 0.37, metadata 0.15**
-  - `vector_score`: Milvus 유사도 [-1,1]을 [0,1]로 정규화
-  - `keyword_score`: JD 필수 스킬·용어와 후보 스킬 겹침 비율
-  - `metadata_score`: category/industry/경력연차/seniority 일치 여부
-- **결과:** `fusion_score` 기준 정렬된 **N개의 hit** (각 hit에 `score`=원시 벡터점수, `fusion_score` 보관)
+  - default weights: **vector 0.48, keyword 0.37, metadata 0.15**
+  - `vector_score`: normalize Milvus similarity \([-1, 1]\) into \([0, 1]\)
+  - `keyword_score`: overlap ratio between JD required skills/terms and candidate skills
+  - `metadata_score`: match signals for category/industry/experience years/seniority
+- **Output:** **N hits** sorted by `fusion_score` (each hit keeps raw `score` plus `fusion_score`)
 
 ---
 
-### 2.2 Enrichment — "메타 필터로 누구를 빼는가"
+### 2.2 Enrichment — “who gets filtered out by metadata?”
 
-- **입력:** Retrieval에서 나온 **N명** (hit 리스트)
-- **하는 일:**
-  - 각 hit에 대해 Mongo에서 **전체 후보 문서** 조회
-  - 아래 조건 하나라도 안 맞으면 **제외** (enriched 리스트에 안 넣음)
-    - `min_experience_years`: 후보 경력 연차가 미만이면 제외
-    - `education`: 학력 조건 불일치 시 제외
-    - `region`: 지역/원격 조건 불일치 시 제외
-    - `industry`: 산업 조건 불일치 시 제외
-- **결과:** **(hit, candidate_doc)** 쌍 리스트 **M명** (M ≤ N). 이후 단계는 이 M명만 사용.
-
----
-
-### 2.3 Shortlist — "최종 스코어링 대상 몇 명으로 자를까"
-
-- **목표:** **최대 top_k명** (예: 10명)만 남겨서, 이들만 스코어 계산·에이전트 평가 대상으로 둠.
-- **하는 일:**
-  1. **Rerank 게이트** (`should_apply_rerank`):
-     - rerank 비활성 또는 게이트 불통과 → `enriched_hits`를 **fusion_score 순**으로 정렬한 뒤 **앞에서 top_k명** 잘라서 shortlist
-     - 게이트 통과 시 → `resolve_rerank_pool_n(top_k)`만큼만(예: 10명) Cross-Encoder rerank 호출 → rerank 점수와 기존 fusion을 **0.75×rerank + 0.25×fusion**으로 블렌딩 후, **상위 top_k명**을 shortlist
-  2. **Shortlist 결과:** 항상 **최대 top_k명** (10명). 이 10명이 `shortlisted_hits`로 스코어 단계에 넘어감.
+- **Input:** **N** hits from retrieval
+- **What happens:**
+  - fetch full candidate documents from Mongo for each hit
+  - **drop** the candidate if any metadata condition fails (not included in the enriched list)
+    - `min_experience_years`: drop if candidate experience years is below the minimum
+    - `education`: drop if education requirement does not match
+    - `region`: drop if region/remote requirement does not match
+    - `industry`: drop if industry requirement does not match
+- **Output:** **M** pairs of **(hit, candidate_doc)** (M ≤ N). Downstream uses only these M.
 
 ---
 
-### 2.4 스코어 계산 — "10명 전원 점수 내기 + 상위 5명만 에이전트"
+### 2.3 Shortlist — “how many become scoring candidates?”
 
-여기가 **가장 복잡한 부분**입니다. 두 가지 점수가 순서대로 나옵니다.
+- **Goal:** keep **up to top_k** (e.g. 10) as scoring/agent-eval candidates.
+- **What happens:**
+  1. **Rerank gate** (`should_apply_rerank`):
+     - rerank disabled or gate fails → sort `enriched_hits` by **fusion_score** and take first **top_k**
+     - gate passes → rerank only the pool `resolve_rerank_pool_n(top_k)` (e.g. 10) via Cross-Encoder rerank, then blend **0.75×rerank + 0.25×fusion**, and take top **top_k**
+  2. **Result:** always **up to top_k**. These are `shortlisted_hits` passed to scoring.
 
-#### Step A: 10명 전원 — Deterministic 점수 (규칙 기반)
+---
 
-**모든 shortlist 후보(10명)**에 대해 먼저 **deterministic match score**를 한 번에 계산합니다.
+### 2.4 Score computation — “score all 10 + agents for top 5”
 
-- **입력 (hit + candidate_doc):**
-  - `hit["score"]`: retrieval 단계의 **원시 벡터 유사도** (deterministic 공식의 semantic 입력)
-  - `hit`의 `experience_years`, `seniority_level`, `category` 등
-  - `candidate_doc["parsed"]`: 스킬·경력 등
-  - `job_profile`: required_skills, expanded_skills, required_experience_years, preferred_seniority 등
+This is the **most complex** part. Two scores are produced in order.
 
-- **1) 스킬 겹침 (skill_overlap)** — `scoring_service.compute_skill_overlap`
-  - 후보의 core_skills / expanded_skills / normalized_skills와  
-    JD의 required_skills·expanded_skills를 **soft overlap**으로 비교
-  - **분모 캡:** JD 스킬은 상위 **최대 10개**만 사용 (과다 시 점수 과도 하락 방지)
-  - core 있으면: `0.45×core_overlap + 0.35×expanded_overlap + 0.2×normalized_overlap`
-  - core 없으면: `0.5×normalized_overlap + 0.5×expanded_overlap`
-  - **에이전트 있을 때:** 위 값과 에이전트 스킬 점수를 50:50 블렌딩한 값을 최종 skill_overlap으로 사용 (매칭 시점 판단 반영)
+#### Step A: all 10 — deterministic score (rule-based)
+
+First, compute the deterministic match score for **all shortlisted candidates (10)**.
+
+- **Inputs (hit + candidate_doc):**
+  - `hit["score"]`: **raw vector similarity** from retrieval (semantic input to deterministic scoring)
+  - `hit` fields such as `experience_years`, `seniority_level`, `category`, etc.
+  - `candidate_doc["parsed"]`: skills, experience, etc.
+  - `job_profile`: required_skills, expanded_skills, required_experience_years, preferred_seniority, etc.
+
+- **1) Skill overlap (`skill_overlap`)** — `scoring_service.compute_skill_overlap`
+  - Compare candidate core/expanded/normalized skills against JD required/expanded skills via **soft overlap**
+  - **Denominator cap:** use at most **top 10** JD skills to avoid runaway penalties for very long skill lists
+  - when core exists: `0.45×core_overlap + 0.35×expanded_overlap + 0.2×normalized_overlap`
+  - when core is missing: `0.5×normalized_overlap + 0.5×expanded_overlap`
+  - **When agents run:** blend 50:50 with the agent skill score to reflect richer, match-time evidence
 
 - **2) Deterministic match score** — `scoring_service.compute_deterministic_match_score`
   ```
-  semantic_similarity = (raw_similarity + 1) / 2   # 벡터 점수 [0,1]로
-  experience_fit      = 경력 연차 적합도 (요구연차 대비, 과다 시 소폭 페널티)
-  seniority_fit      = 시니어리티 레벨 거리 기반 0~1
-  category_fit       = category 일치 시 category_bonus, 아니면 0
+  semantic_similarity = (raw_similarity + 1) / 2   # normalize vector score to [0,1]
+  experience_fit      = experience-years fit vs requirement (slight penalty if overqualified)
+  seniority_fit       = 0..1 based on seniority level distance
+  category_fit        = category bonus if matched, else 0
 
   final_score = w_sem×semantic_similarity + w_skill×skill_overlap + w_exp×experience_fit + w_seniority×seniority_fit + category_fit
   ```
-  - \(w_\*\) 및 `category_bonus`는 **deterministic scoring policy(versioned)** 로 관리한다: `src/backend/services/scoring_policies.py` (기본 v1).
-  - 위 값을 0~1로 clip한 것이 **deterministic_score**.
+  - \(w_\*\) and `category_bonus` are managed as a **versioned deterministic scoring policy** in `src/backend/services/scoring_policies.py` (default v1).
+  - Clip the result into \([0, 1]\) to get **deterministic_score**.
 
-이 **deterministic_score**로 10명을 **정렬**한 뒤, **상위 agent_eval_top_n명(기본 5명)**만 다음 단계(에이전트)로 넘깁니다.
+Sort the 10 candidates by **deterministic_score**, and send only the **top agent_eval_top_n (default 5)** to the next stage (agents).
 
-#### Step B: 상위 5명 — 에이전트 평가 + Agent 가중 점수
+#### Step B: top 5 — agent evaluation + agent-weighted score
 
-- **대상:** Step A에서 **점수 높은 순 5명**만 (`select_agent_eval_indices`).
-- **하는 일 (1명당):**
-  1. **4개 에이전트** 실행: Skill / Experience / Technical / Culture → 각 0~1 점수 + evidence
-  2. **Recruiter vs Hiring Manager** 가중치 제안 → **WeightNegotiation**으로 최종 가중치 결정 (skill, experience, technical, culture 합=1.0)
-  3. **Agent 가중 점수** 계산 — `compute_weighted_score`:
+- **Scope:** only the **top 5 by score** from Step A (`select_agent_eval_indices`).
+- **Per candidate:**
+  1. Run **four agents**: Skill / Experience / Technical / Culture → each outputs a 0..1 score + evidence
+  2. Recruiter vs Hiring Manager propose weights → finalize via **WeightNegotiation** (skill+experience+technical+culture sum to 1.0)
+  3. Compute **agent-weighted score** via `compute_weighted_score`:
      ```
      agent_weighted_score = skill×w_skill + experience×w_exp + technical×w_tech + culture×w_culture
      ```
 
-#### Step C: 10명 전원 — 최종 rank_score (노출용 점수)
+#### Step C: all 10 — final rank_score (display score)
 
-**10명 모두**에 대해 `build_match_candidate` 안에서 **최종 노출 점수**를 냅니다.
+Compute the final display score for **all 10** inside `build_match_candidate`.
 
-- **에이전트 평가 받은 5명:**
+- **Candidates with agent eval (5):**
   ```
   rank_score = rank_deterministic_weight × deterministic_score + rank_agent_weight × agent_weighted_score
-  rank_score = rank_score × (1 - must_have_penalty)   # 0~1 클립
+  rank_score = rank_score × (1 - must_have_penalty)   # clip to 0..1
   ```
-  - `must_have_penalty`: JD must-have 스킬 미충족 시 최대 0.12까지 감점 (adjacent 스킬로 일부 상쇄 가능).
+  - `must_have_penalty`: up to 0.12 penalty when must-have JD skills are missing (can be partially offset via adjacent skills).
 
-- **에이전트 평가 안 받은 5명 (outside agent eval scope):**
+- **Candidates without agent eval (5):**
   ```
   rank_score = deterministic_score
   rank_score = rank_score × (1 - must_have_penalty)
   ```
 
-즉, **같은 deterministic만 써도**, 에이전트를 탄 5명은 **deterministic 30% + agent 70%**로 더 세밀하게 점수가 나오고, 나머지 5명은 **deterministic만(그대로)** 사용합니다.
+So, even with the same deterministic base, the top-5 with agent eval get a finer score via **30% deterministic + 70% agent**, while the remaining 5 keep **deterministic-only** scoring.
 
 ---
 
-### 2.5 정렬·응답
+### 2.5 Ordering and response
 
-- **정렬 키:**  
-  1) 에이전트 평가 적용된 사람 먼저, 2) 그 다음 `score`(rank_score) 내림차순.
-- **Fairness guardrails** 적용 후 `JobMatchResponse`로 반환 (matches 리스트가 곧 “추천 후보 10명” + 각자 score·설명).
+- **Ordering key:**  
+  1) candidates with agent eval first, 2) then by descending `score` (rank_score).
+- Apply **fairness guardrails**, then return `JobMatchResponse` (the `matches` list is the “10 recommended candidates” with score + explanation).
 
 ---
 
-## 3. 수식만 모아 보기
+## 3. Formulas (summary)
 
-| 단계 | 수식 요약 |
+| Stage | Formula summary |
 |------|-----------|
-| **Skill overlap (표시·deterministic 입력)** | JD 스킬 상위 10개만 분모 사용. core 있음: `0.45×core + 0.35×expanded + 0.2×normalized` / core 없음: `0.5×normalized + 0.5×expanded`. 에이전트 O면 위 값과 agent 스킬 점수 50:50 블렌딩. |
+| **Skill overlap (display / deterministic input)** | Use only top-10 JD skills as denominator. With core: `0.45×core + 0.35×expanded + 0.2×normalized` / without core: `0.5×normalized + 0.5×expanded`. If agents run, blend 50:50 with agent skill score. |
 | **Retrieval fusion** | `fusion = 0.48×vector + 0.37×keyword + 0.15×metadata` |
 | **Deterministic score** | `w_sem×semantic + w_skill×skill_overlap + w_exp×experience_fit + w_seniority×seniority_fit + category_bonus(if matched)` (policy v1: `scoring_policies.py`) |
-| **Agent weighted score** | `skill×w_s + experience×w_e + technical×w_t + culture×w_c` (가중치 합=1, 협상으로 결정) |
-| **최종 rank_score (에이전트 O)** | `(rank_deterministic_weight×deterministic + rank_agent_weight×agent) × (1 - must_have_penalty)` |
-| **최종 rank_score (에이전트 X)** | `deterministic × (1 - must_have_penalty)` |
+| **Agent weighted score** | `skill×w_s + experience×w_e + technical×w_t + culture×w_c` (weights sum to 1, negotiated) |
+| **Final rank_score (agents on)** | `(rank_deterministic_weight×deterministic + rank_agent_weight×agent) × (1 - must_have_penalty)` |
+| **Final rank_score (agents off)** | `deterministic × (1 - must_have_penalty)` |
 
 ---
 
-## 4. 설정으로 바꿀 수 있는 숫자 (요약)
+## 4. Tunable numbers (summary)
 
-| 설정 | 기본값 | 의미 |
+| Setting | Default | Meaning |
 |------|--------|------|
-| `top_k` | (요청 파라미터, 예: 10) | 최종 반환 인원 + shortlist 크기 |
-| `retrieval_top_n` | top_k 또는 rerank 시 더 큼 | 1단계에서 가져오는 최대 인원 |
-| `agent_eval_top_n` | 5 | 에이전트 평가할 상위 인원 (나머지는 deterministic만) |
-| `rerank_top_n` / `rerank_gate_max_top_n` | 50 / 8 | rerank 풀 크기 상한 |
-| `token_budget_enabled` | False | True면 agent_eval_top_n이 토큰 예산에 맞게 줄어들 수 있음 |
-| `rank_deterministic_weight` / `rank_agent_weight` | 0.30 / 0.70 | 최종 rank_score에서 deterministic vs agent_weighted 블렌딩 비율 (env/Settings로 관리) |
-| `fallback_recruiter_weights` / `fallback_hiring_manager_weights` | (문서 기본값) | LLM 협상 실패 시 fallback 협상 가중치(Recruiter/HM) 및 조정폭 (env/Settings로 관리) |
-| `deterministic scoring policy` | v1 | deterministic 내부 가중치/보너스는 env가 아니라 **repo-managed 정책 버전**으로 관리 (`scoring_policies.py`) |
+| `top_k` | (request param, e.g. 10) | final return count + shortlist size |
+| `retrieval_top_n` | top_k (or larger with rerank) | max candidates fetched in stage 1 |
+| `agent_eval_top_n` | 5 | top candidates evaluated by agents (others deterministic-only) |
+| `rerank_top_n` / `rerank_gate_max_top_n` | 50 / 8 | rerank pool size cap |
+| `token_budget_enabled` | False | when True, agent_eval_top_n may be reduced to fit token budget |
+| `rank_deterministic_weight` / `rank_agent_weight` | 0.30 / 0.70 | blending ratio for deterministic vs agent_weighted in final rank_score (env/Settings) |
+| `fallback_recruiter_weights` / `fallback_hiring_manager_weights` | (doc defaults) | fallback negotiation weights and adjustment range when LLM negotiation fails (env/Settings) |
+| `deterministic scoring policy` | v1 | deterministic internal weights/bonuses are a **repo-managed policy version** (`scoring_policies.py`), not an env knob |
 
 ---
 
-## 5. 관련 코드 위치
+## 5. Related code locations
 
-| 내용 | 파일 |
+| Topic | File |
 |------|------|
-| 파이프라인 오케스트레이션 (retrieval → enrich → shortlist → score) | `src/backend/services/matching_service.py` |
-| Retrieval fusion, 인원 수 | `src/backend/services/hybrid_retriever.py`, `src/backend/services/matching/rerank_policy.py` |
-| Enrichment·메타 필터 | `src/backend/services/candidate_enricher.py` |
-| Shortlist·rerank 게이트 | `src/backend/services/matching_service.py` (`_shortlist_candidates`), `src/backend/services/matching/rerank_policy.py` |
-| Deterministic·skill overlap·최종 blend | `src/backend/services/scoring_service.py`, `src/backend/services/scoring_policies.py`, `src/backend/services/match_result_builder.py` |
-| 에이전트 4개 + 가중치 협상 + agent_weighted_score | `src/backend/agents/runtime/service.py`, `src/backend/agents/runtime/helpers.py` |
-| 에이전트 평가할 인덱스 선택 | `src/backend/services/matching/evaluation.py` (`select_agent_eval_indices`) |
+| Pipeline orchestration (retrieval → enrich → shortlist → score) | `src/backend/services/matching_service.py` |
+| Retrieval fusion and counts | `src/backend/services/hybrid_retriever.py`, `src/backend/services/matching/rerank_policy.py` |
+| Enrichment / metadata filters | `src/backend/services/candidate_enricher.py` |
+| Shortlist / rerank gate | `src/backend/services/matching_service.py` (`_shortlist_candidates`), `src/backend/services/matching/rerank_policy.py` |
+| Deterministic scoring, skill overlap, final blend | `src/backend/services/scoring_service.py`, `src/backend/services/scoring_policies.py`, `src/backend/services/match_result_builder.py` |
+| Four agents + weight negotiation + agent_weighted_score | `src/backend/agents/runtime/service.py`, `src/backend/agents/runtime/helpers.py` |
+| Selecting agent-eval indices | `src/backend/services/matching/evaluation.py` (`select_agent_eval_indices`) |
 
-이 문서만 따라가면 **“몇 명을 필터하고, 어떤 계산으로 점수를 내서 최종 10명을 주는지”**를 처음부터 끝까지 추적할 수 있습니다.
+Following this document lets you trace **“how many candidates are filtered, what computations produce scores, and how the final top-10 is returned”** end to end.

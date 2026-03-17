@@ -2,7 +2,7 @@
 
 ## Observability Baseline
 
-| 영역 | 구현 |
+| Area | Implementation |
 |---|---|
 | Structured logging | `src/ops/logging.py` |
 | Request correlation | `src/ops/middleware.py` (`X-Request-Id`) |
@@ -13,22 +13,22 @@
 ## Core Operational Signals
 
 1. API latency p50/p95/p99
-2. retrieval success rate 및 fallback rate
+2. retrieval success rate and fallback rate
 3. rerank invocation/timeouts/added latency
-4. agent runtime mode 분포(`sdk_handoff/live_json/heuristic`)
+4. agent runtime mode distribution (`sdk_handoff/live_json/heuristic`)
 5. fairness warning trigger frequency
 6. token budget/cache hit ratio
 7. candidates/sec, call/sec
 
 ## Stage-wise Reliability Signals
 
-| Stage | 핵심 지표 | 장애 시 기대 동작 |
+| Stage | Key metrics | Expected behavior on failure |
 |---|---|---|
-| Query understanding | confidence, unknown_ratio, fallback_rate | fallback query profile 생성 |
-| Retrieval | vector success rate, Mongo fallback rate | lexical fallback 후 결과 유지 |
-| Rerank | rerank 실행률, timeout rate | rerank 생략 후 baseline 유지 |
-| Agent orchestration | mode distribution, agent error rate | `sdk -> live -> heuristic` 강등 |
-| Final response | score coverage, warning counts | 최소 설명 필드 보장 |
+| Query understanding | confidence, unknown_ratio, fallback_rate | generate fallback query profile |
+| Retrieval | vector success rate, Mongo fallback rate | keep results via lexical fallback |
+| Rerank | rerank rate, timeout rate | skip rerank and keep baseline |
+| Agent orchestration | mode distribution, agent error rate | degrade `sdk -> live -> heuristic` |
+| Final response | score coverage, warning counts | guarantee minimum explanation fields |
 
 ## Legacy Benchmark References (Restored)
 
@@ -52,7 +52,7 @@
 
 ## Alerting Guidelines
 
-- Retrieval success rate 급락 시 즉시 경보
-- p99 latency 급증 시 stage별 병목 분리 알림
-- `heuristic` 모드 비율 급증 시 agent runtime 장애 알림
-- fairness warning 급증 시 데이터/정책 드리프트 점검
+- Alert immediately on sharp drops in retrieval success rate
+- Alert on p99 latency spikes and attribute to the bottleneck stage
+- Alert if `heuristic` mode usage spikes (agent runtime degradation/outage)
+- Investigate data/policy drift if fairness warnings spike

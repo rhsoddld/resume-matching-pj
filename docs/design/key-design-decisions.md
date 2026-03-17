@@ -1,9 +1,9 @@
 # Key Design Decisions – AI Resume Matching System
 
 **Project:** `resume-matching-pj` | **Version:** MVP / Capstone baseline | **Date:** March 2026  
-**Goal:** JD(Job Description) → 구조화된 쿼리 → Hybrid Retrieval → Multi-Agent 평가 → Explainable Candidate Recommendation
+**Goal:** JD (Job Description) → structured query → hybrid retrieval → multi-agent evaluation → explainable candidate recommendation
 
-**설계 근거 요약 (온톨로지·비용·평가):** [rationale-ontology-eval-cost.md](./rationale-ontology-eval-cost.md) — 왜 스킬 온톨로지(Agentic AI 친화성), 장기 비용 구조(에이전트 작업 집중), eval 수치·관점 정리.
+**Design rationale (ontology/cost/eval):** [rationale-ontology-eval-cost.md](./rationale-ontology-eval-cost.md) — why a skill ontology (agentic-AI friendliness), long-run cost structure (agent work focus), and evaluation metrics/viewpoints.
 
 ## 1. Vector DB & Document Store → Milvus + MongoDB
 
@@ -30,22 +30,22 @@
 | Decision | Reason | Alternative Considered |
 |----------|--------|-------------------------|
 | **Deterministic JD parsing** | Predictable, fast, no LLM cost; skill taxonomy + alias normalization + role inference | LLM-based JD extraction (slow, costly, non-deterministic) |
-| **Skill taxonomy + config YAML** | skill_taxonomy.yml, skill_aliases.yml, skill_capability_phrases.yml, job_filters.yml로 정규화 및 시그널 품질 보장 | DB-driven taxonomy, external API |
-| **Signal quality & confidence** | `signal_quality`, `confidence` 출력으로 retrieval/rerank 게이트 및 평가 추적 가능 | Opaque query object |
-| **Query fallback (optional)** | Low confidence / high unknown_ratio 시 LLM query fallback 옵션 제공 | Always LLM or never LLM |
+| **Skill taxonomy + config YAML** | Normalize and stabilize signal quality via skill_taxonomy.yml, skill_aliases.yml, skill_capability_phrases.yml, job_filters.yml | DB-driven taxonomy, external API |
+| **Signal quality & confidence** | Emit `signal_quality` and `confidence` to support retrieval/rerank gating and evaluation traceability | Opaque query object |
+| **Query fallback (optional)** | Provide an optional LLM query fallback when confidence is low or unknown_ratio is high | Always LLM or never LLM |
 
 *Ref: [ADR-005-deterministic-query-understanding.md](../adr/ADR-005-deterministic-query-understanding.md)*  
 *Implementation:* `src/backend/services/job_profile_extractor.py`, `src/backend/core/filter_options.py`, `config/*.yml`
 
-**설명 vs 코드:** 필터 옵션 API(`/api/jobs/filters`)는 `repositories.mongo_repo.get_filter_options()`를 호출하지만, 현재 구현에서는 **MongoDB를 읽지 않고** `core.filter_options.get_filter_options()`(YAML: `job_filters.yml` + `skill_taxonomy.yml` 병합)만 사용한다. 즉 필터 옵션 소스는 100% 설정 파일이다.
+**Docs vs code:** the filter-options API (`/api/jobs/filters`) calls `repositories.mongo_repo.get_filter_options()`, but the current implementation **does not read MongoDB**. It uses only `core.filter_options.get_filter_options()` (YAML merge of `job_filters.yml` + `skill_taxonomy.yml`). In other words, filter options are 100% config-file driven.
 
 ## 4. Hybrid Retrieval (Vector + Keyword + Metadata)
 
 | Decision | Reason | Alternative Considered |
 |----------|--------|-------------------------|
 | **Vector + lexical + metadata** | Semantic recall + exact skill coverage + structured filters (category, experience, etc.) | Vector-only or keyword-only |
-| **Fusion scoring** | `hybrid_scoring.fusion_score`로 vector similarity, keyword score, metadata score 결합 | Single-score ranking |
-| **Mongo fallback** | Milvus 불가 시 Mongo 기반 lexical path로 후보 풀 생성 | Fail fast |
+| **Fusion scoring** | Combine vector similarity, keyword score, and metadata score via `hybrid_scoring.fusion_score` | Single-score ranking |
+| **Mongo fallback** | If Milvus is unavailable, build a candidate pool via the Mongo lexical path | Fail fast |
 
 *Ref: [ADR-003-hybrid-retrieval.md](../adr/ADR-003-hybrid-retrieval.md)*  
 *Implementation:* `src/backend/services/hybrid_retriever.py`, `src/backend/services/retrieval/hybrid_scoring.py`
@@ -54,27 +54,27 @@
 
 | Decision | Reason | Alternative Considered |
 |----------|--------|-------------------------|
-| **Rerank OFF by default** | Latency/quality A/B 증거 확보 전까지 baseline shortlist 유지 | Always rerank |
-| **Gate conditions** | tie-like (top2 gap 작음), ambiguous query (low confidence / high unknown_ratio)일 때만 rerank 실행 | Unconditional rerank |
+| **Rerank OFF by default** | Keep baseline shortlist until latency/quality A/B evidence is established | Always rerank |
+| **Gate conditions** | Run rerank only for tie-like (small top2 gap) or ambiguous queries (low confidence / high unknown_ratio) | Unconditional rerank |
 | **Model routing** | Default path `RERANK_MODEL_DEFAULT`, ambiguity/tie-break path `RERANK_MODEL_HIGH_QUALITY` (e.g. gpt-4o) | Single model |
-| **Timeout & fallback** | `RERANK_TIMEOUT_SEC` 적용, 실패 시 baseline shortlist 반환 | Block until rerank completes |
-| **R2.3 fine-tuned embedding rerank** | Intentionally deferred; baseline 이상 주장하지 않음 | Implement from start |
+| **Timeout & fallback** | Apply `RERANK_TIMEOUT_SEC`; on failure return the baseline shortlist | Block until rerank completes |
+| **R2.3 fine-tuned embedding rerank** | Intentionally deferred; do not claim beyond baseline | Implement from start |
 
 *Ref: [ADR-006-rerank-policy.md](../adr/ADR-006-rerank-policy.md)*  
 *Implementation:* `src/backend/services/matching/rerank_policy.py`, `src/backend/services/cross_encoder_rerank_service.py`, `src/backend/core/model_routing.py`
 
-**설명 vs 코드:** Rerank 서비스 파일명은 `cross_encoder_rerank_service.py`이지만, 실제 구현은 **embedding 기반** rerank와 **LLM** rerank 두 모드만 지원한다. Cross-Encoder 모델(예: ms-marco-MiniLM-L-6-v2)은 사용하지 않으며, `rerank_mode`가 `embedding`일 때는 쿼리+후보 텍스트를 embedding한 뒤 유사도로 재정렬한다.
+**Docs vs code:** although the rerank service file is named `cross_encoder_rerank_service.py`, the implementation supports only two modes: **embedding-based** rerank and **LLM** rerank. It does not use a Cross-Encoder model (e.g., ms-marco-MiniLM-L-6-v2). When `rerank_mode=embedding`, it embeds query + candidate text and reorders by similarity.
 
 ## 6. Multi-Agent Evaluation & Weight Negotiation
 
 | Decision | Reason | Alternative Considered |
 |----------|--------|-------------------------|
-| **4 evaluation agents (parallel)** | Skill / Experience / Technical / Culture 분리 → 각각 독립 점수 및 근거 | Single monolithic LLM call |
-| **Recruiter vs Hiring Manager weights** | RecruiterAgent + HiringManagerAgent 제안 → WeightNegotiationAgent로 최종 가중치 | Fixed weights |
-| **Runtime fallback chain** | SDK handoff → live_json → heuristic; 응답에 `runtime_mode` 및 fallback reason 포함 | Single path only |
-| **RAG-as-a-Tool** | 에이전트가 `search_candidate_evidence`로 증거 탐색 가능 | No tool use |
+| **4 evaluation agents (parallel)** | Split Skill/Experience/Technical/Culture → independent scores and evidence | Single monolithic LLM call |
+| **Recruiter vs Hiring Manager weights** | RecruiterAgent + HiringManagerAgent proposals → final weights via WeightNegotiationAgent | Fixed weights |
+| **Runtime fallback chain** | SDK handoff → live_json → heuristic; response includes `runtime_mode` and fallback reason | Single path only |
+| **RAG-as-a-Tool** | Agents can search for evidence via `search_candidate_evidence` | No tool use |
 
-**Agent 지연 트레이드오프와 대응:** OpenAI SDK 경로에서는 후보당 다중 에이전트가 순차·handoff로 동작해 **멀티에이전트 통신이 다발하고 처리 시간이 길어짐**. 이에 대한 대응으로 **(1) 후보 단위 병렬 처리**(ThreadPoolExecutor로 shortlist 동시 평가), **(2) 스트리밍(SSE)** 으로 profile → thought_process → candidate 순차 전달해 **UX 개선**, **(3) agent_eval_top_n 상한** 및 **(4) live_json/heuristic fallback**으로 지연·비용·장애를 완화한다. 상세: [design_tradeoffs.md](../tradeoffs/design_tradeoffs.md) § Agent 설계 트레이드오프.
+**Agent latency tradeoff and mitigations:** in the OpenAI SDK path, multiple agents run sequentially via handoffs per candidate, which increases inter-agent communication and overall runtime latency. Mitigations include **(1) per-candidate parallelism** (evaluate shortlist candidates concurrently via ThreadPoolExecutor), **(2) streaming (SSE)** to deliver profile → thought_process → candidate incrementally for better UX, **(3) an `agent_eval_top_n` cap**, and **(4) live_json/heuristic fallback** to reduce latency/cost and improve resilience. See [design_tradeoffs.md](../tradeoffs/design_tradeoffs.md) § Agent tradeoffs.
 
 *Ref: [ADR-004-agent-orchestration.md](../adr/ADR-004-agent-orchestration.md)*  
 *Implementation:* `src/backend/agents/contracts/*.py`, `src/backend/agents/runtime/service.py`, `sdk_runner.py`, `live_runner.py`, `heuristics.py`
@@ -95,14 +95,14 @@ All model names and versions are configurable via `backend.core.settings` (env).
 
 | Decision | Reason | Alternative Considered |
 |----------|--------|-------------------------|
-| **Sensitive term scan** | JD/설명 텍스트에서 민감속성 키워드 탐지 → `fairness.warnings` | No scan |
-| **Culture weight cap** | `fairness_max_culture_weight` 초과 시 경고 | No cap |
-| **Must-have vs culture gate** | must-have 미달 + culture 고신뢰 조합 시 경고 | No gate |
-| **Top-K seniority distribution** | JD seniority 미지정 시 상위 K명 seniority 쏠림 검사 | No check |
+| **Sensitive term scan** | Detect sensitive-attribute keywords in JD/explanations → `fairness.warnings` | No scan |
+| **Culture weight cap** | Warn when exceeding `fairness_max_culture_weight` | No cap |
+| **Must-have vs culture gate** | Warn on must-have shortfall + high culture confidence | No gate |
+| **Top-K seniority distribution** | Check for Top-K seniority skew when JD seniority is unspecified | No check |
 
 *Ref: [ADR-008-bias-fairness-guardrails.md](../adr/ADR-008-bias-fairness-guardrails.md)*  
 *Implementation:* `src/backend/services/matching/fairness.py`, `src/backend/core/jd_guardrails.py`  
-*Frontend:* `BiasGuardrailBanner.tsx`로 경고 노출
+*Frontend:* warnings are displayed via `BiasGuardrailBanner.tsx`
 
 ## 9. Observability & Operations
 
@@ -134,15 +134,15 @@ Explainability:  Match result builder + frontend CandidateDetailModal / Explaina
 Evaluation:      DeepEval, LLM-as-Judge, golden set; Bias guardrails v1
 ```
 
-## 11. 구현 갭 및 향후 고도화 (현재 상태 기준)
+## 11. Implementation gaps and future improvements (current state)
 
-| 갭 | 설명 |
+| Gap | Description |
 |----|------|
-| Query Understanding v3 | 직군별 golden set으로 role/skill/capability strength 상시 검증 필요 |
-| Hybrid fusion weight | 직군별 calibration 미완 |
-| Rerank A/B | 조건부 게이트/타임아웃/fallback 구현됨; latency/quality benchmark로 품질 개선 입증 필요 |
-| Fine-tuned embedding rerank | R2.3 의도적 defer; 학습/버전/rollback/A-B 확보 후 주장 |
-| Explainability 품질 | DeepEval/LLM-as-Judge로 문장 품질·근거 일관성 자동 평가 고도화 |
-| Fairness 운영 | v1 구현됨; fairness metrics 대시보드 및 정책 튜닝 고도화 |
+| Query Understanding v3 | Need continuous validation of role/skill/capability strength with job-family-specific golden sets |
+| Hybrid fusion weight | Per-job-family calibration is incomplete |
+| Rerank A/B | Conditional gates/timeouts/fallback exist; need latency/quality benchmarks proving consistent improvements |
+| Fine-tuned embedding rerank | R2.3 intentionally deferred; claim only after training/versioning/rollback/A-B evidence |
+| Explainability quality | Improve automated sentence quality + evidence consistency evaluation via DeepEval/LLM-as-Judge |
+| Fairness operations | v1 implemented; improve fairness metrics dashboards and policy tuning |
 
-*상세: [docs/architecture/system_architecture.md](../architecture/system_architecture.md) § 구현 갭*
+*Details: [docs/architecture/system_architecture.md](../architecture/system_architecture.md) § Implementation gaps*

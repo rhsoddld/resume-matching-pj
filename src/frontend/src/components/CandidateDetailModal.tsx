@@ -454,7 +454,7 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
             <span className="action-bar__label">Recruiter Decision</span>
 
             {activeFeedback ? (
-              /* ── 선택 완료 상태: badge만 표시 ── */
+              /* Selected state: show badge only */
               <div className="feedback-decided">
                 <span className={`feedback-decided__badge feedback-decided__badge--${activeFeedback}`}>
                   {activeFeedback === "pass" && <>✔︎ Passed</>}
@@ -464,7 +464,7 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
                 <span className="feedback-decided__hint">Saved to session</span>
               </div>
             ) : (
-              /* ── 미선택 상태: 버튼 3개 ── */
+              /* Unselected state: show three buttons */
               <div className="action-bar__buttons">
                 {(["pass", "reject", "review"] as FeedbackRating[]).map((rating) => {
                   const meta: Record<FeedbackRating, { label: string; mark: string }> = {

@@ -51,18 +51,18 @@ Added alias mappings to [`config/skill_aliases.yml`](../../config/skill_aliases.
 ## Query Extraction Hardening
 Updated [`src/backend/services/job_profile_extractor.py`](../../src/backend/services/job_profile_extractor.py):
 
-- role pattern 강화:
+- Strengthened role patterns:
   - `junior software engineer`
   - `graduate software engineer`
   - `associate engineer`
-- phrase skill hints 추가:
+- Added phrase skill hints:
   - junior tracks: python/java/git/data structures/unit testing
   - senior architect tracks: system architecture/distributed systems/cloud architecture/technical leadership/security by design
-- capability hints 추가:
+- Added capability hints:
   - `software engineering fundamentals`
   - `architecture leadership`
-- role inference 보강:
-  - junior/senior architect 문자열 신호를 직접 role 후보에 반영
+- Improved role inference:
+  - junior/senior architect string signals reflected directly into role candidates
 
 ## Continuous Update Loop
 Run these after ontology changes or golden set edits:
@@ -88,5 +88,5 @@ GOLDEN_SET=src/eval/golden_set.normalized.jsonl ./scripts/run_rerank_eval.sh
 - `src/eval/outputs/golden_skill_gap_report.md`
 
 ## Gating Rule (Fast)
-- `golden_skill_gap_report.md`에서 `unmapped unique skills == 0`일 때만 retrieval KPI 비교.
-- unmapped > 0 이면 먼저 ontology/alias를 보강 후 재평가.
+- Compare retrieval KPIs only when `unmapped unique skills == 0` in `golden_skill_gap_report.md`.
+- If unmapped > 0, strengthen ontology/alias first, then re-run eval.

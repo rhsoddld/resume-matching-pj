@@ -6,7 +6,7 @@
 
 | Field | Value |
 |-------|--------|
-| **runbook** | {runbook name} — 본문 링크: {path} |
+| **runbook** | {runbook name} — doc link: {path} |
 | **executed_at** | YYYY-MM-DDTHH:MMZ |
 | **executor** | name or CI job id |
 | **environment** | local / staging / production |

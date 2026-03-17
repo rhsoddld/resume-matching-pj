@@ -393,8 +393,8 @@ def run_agents_sdk(
             model=model,
             instructions=(
                 PROMPTS.skill_eval + 
-                "\n정말 중대한 필수 요구 스킬(Core JD Requirements)이 누락되었다고 판단될 경우에만 search_candidate_evidence 도구를 사용하여 이력서 구조화 데이터를 1회 검색하세요. "
-                "그 외의 정보 부족은 명시된 요약 데이터만으로 추론하여 결론을 내리세요."
+                "\nUse the `search_candidate_evidence` tool at most once, and only if you believe a truly critical core JD requirement is missing. "
+                "Otherwise, make the best judgment using only the provided summarized/structured context."
             ),
             output_type=_wrap_output(_SdkSkillAgentOutput),
             tools=[search_candidate_evidence],
@@ -405,8 +405,8 @@ def run_agents_sdk(
             model=model,
             instructions=(
                 PROMPTS.experience_eval + 
-                "\n가장 핵심적인 성과 지표나 필수 경력 기간이 불분명할 경우에만 search_candidate_evidence 도구를 1회 호출하세요. "
-                "그 외의 정보 부족은 명시된 데이터와 문맥만으로 평가를 완료하세요."
+                "\nCall `search_candidate_evidence` at most once, and only if key outcome metrics or required tenure are unclear. "
+                "Otherwise, complete the evaluation using the provided context and reasonable inference."
             ),
             output_type=_wrap_output(_SdkExperienceAgentOutput),
             tools=[search_candidate_evidence],
@@ -417,8 +417,8 @@ def run_agents_sdk(
             model=model,
             instructions=(
                 PROMPTS.technical_eval + 
-                "\n지원 직무의 핵심 필수 기술 스택의 실제 활용 여부를 도무지 파악할 수 없을 때만 search_candidate_evidence 도구를 1회 사용하세요. "
-                "그 외의 경우는 주어진 정보 내에서 최선의 판단을 내리세요."
+                "\nUse `search_candidate_evidence` at most once, and only when you cannot determine whether the candidate actually used the core required stack. "
+                "In all other cases, decide based on the given evidence."
             ),
             output_type=_wrap_output(_SdkTechnicalAgentOutput),
             tools=[search_candidate_evidence],
@@ -429,7 +429,7 @@ def run_agents_sdk(
             model=model,
             instructions=(
                 PROMPTS.culture_eval + 
-                "\n정성적 평가(협업/소통/문제해결 등)에 대한 단서가 아예 전무하여 심각한 감점이 예상될 때만 제한적으로 search_candidate_evidence 도구를 1회 호출하세요."
+                "\nCall `search_candidate_evidence` at most once, and only if there is virtually no signal for qualitative evaluation (collaboration/communication/problem-solving) and a severe penalty would otherwise be applied."
             ),
             output_type=_wrap_output(_SdkCultureAgentOutput),
             tools=[search_candidate_evidence],

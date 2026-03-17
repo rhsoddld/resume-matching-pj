@@ -1,6 +1,6 @@
 # ── Core Skill Taxonomy ──────────────────────────────────────────────
 # taxonomy-v4-domain (2026-03-13)
-# Domain → Family 계층 + parents (expanded_skills 생성용)
+# Domain → Family hierarchy + parents (for `expanded_skills` expansion)
 
 # ── Database / SQL ───────────────────────────────────────────────────
 sql:

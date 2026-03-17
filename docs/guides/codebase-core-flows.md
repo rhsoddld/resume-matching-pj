@@ -1,88 +1,88 @@
-# 코드 구조 및 핵심 흐름 가이드
+# Code structure and core flows guide
 
-전체 코드베이스를 구조적으로 이해하고, **특히 중요한 포인트**를 흐름도와 함께 파악하기 위한 가이드입니다.
+This guide helps you understand the codebase structurally and identify **the most important points** with flow diagrams.
 
-- **스코어링(필터 → 계산 → 최종 점수)만 따로 보고 싶다면:** [스코어링 전체 흐름 가이드](./scoring-flow-guide.md) 참고.
+- **If you only want scoring (filter → compute → final score):** see [End-to-end scoring flow guide](./scoring-flow-guide.md).
 
 ---
 
-## 1. 프로젝트 전체 구조 (한눈에 보기)
+## 1. Project structure (at a glance)
 
 ```
 resume-matching-pj/
-├── config/                    # 스킬·필터 등 YAML 설정 (LLM 없이 deterministic)
-├── docs/                      # 아키텍처, 데이터 플로우, 평가, ADR
-├── requirements/             # 문제 정의, 기능 요구사항, 추적 행렬
-├── scripts/                  # 이력서 수집, 평가, golden set 스크립트
+├── config/                    # YAML config (skills/filters, deterministic without LLM)
+├── docs/                      # architecture, data flows, evaluation, ADRs
+├── requirements/             # problem definition, functional requirements, traceability
+├── scripts/                  # ingestion, evaluation, golden set scripts
 ├── src/
-│   ├── backend/              # FastAPI 백엔드 (매칭·검색·에이전트)
-│   ├── frontend/             # React(Vite) + TypeScript UI
-│   └── eval/                 # 평가 러너, golden set, LLM Judge
-├── tests/                    # 단위·통합 테스트
-├── ops/                      # 로깅·미들웨어 등 공통 운영 (backend와 분리)
+│   ├── backend/              # FastAPI backend (matching/retrieval/agents)
+│   ├── frontend/             # React (Vite) + TypeScript UI
+│   └── eval/                 # eval runner, golden set, LLM judge
+├── tests/                    # unit/integration tests
+├── ops/                      # shared operations (logging/middleware, separate from backend)
 ├── requirements.txt
 ├── docker-compose.yml
 └── README.md
 ```
 
-**역할 요약**
+**Role summary**
 
-| 영역 | 역할 |
+| Area | Role |
 |------|------|
-| **config/** | 스킬 택소노미, 별칭, 역량 문구, 직무 필터 — Query Understanding·검색의 입력 |
-| **src/backend** | JD 해석 → Hybrid 검색 → 에이전트 평가 → 가중치 협상 → 설명 가능한 순위 |
-| **src/frontend** | JD 입력, 필터, 매칭 결과·점수·설명·fairness 경고 표시 |
-| **src/eval** | retrieval/rerank/agent 품질 평가, golden set 유지, LLM-as-Judge |
-| **scripts** | 오프라인 ingestion(Mongo/Milvus), 평가·golden set 실행 |
+| **config/** | skill taxonomy, aliases, capability phrases, job filters — inputs to query understanding & retrieval |
+| **src/backend** | interpret JD → hybrid retrieval → agent evaluation → weight negotiation → explainable ranking |
+| **src/frontend** | enter JD + filters; display matches, scores, explanations, fairness warnings |
+| **src/eval** | evaluate retrieval/rerank/agents; maintain golden set; LLM-as-Judge |
+| **scripts** | offline ingestion (Mongo/Milvus) and eval/golden-set execution |
 
 ---
 
-## 2. 백엔드 디렉터리 구조 (핵심)
+## 2. Backend directory structure (core)
 
 ```
 src/backend/
-├── main.py                 # FastAPI 앱, lifespan, 라우터 등록, /api/health, /api/ready
-├── api/                    # REST 엔드포인트
+├── main.py                 # FastAPI app, lifespan, router registration, /api/health, /api/ready
+├── api/                    # REST endpoints
 │   ├── jobs.py             # POST /api/jobs/match, match/stream, extract-pdf, draft-email
-│   ├── candidates.py       # 후보·필터 옵션 조회
+│   ├── candidates.py       # candidates + filter options
 │   ├── ingestion.py        # POST /api/ingestion/resumes
-│   └── feedback.py         # 피드백 API
-├── core/                   # 인프라·설정·공통
-│   ├── settings.py         # 환경 변수 기반 설정
-│   ├── database.py         # MongoDB 연결
-│   ├── vector_store.py     # Milvus 래핑
-│   ├── filter_options.py   # job_filters.yml + skill_taxonomy 병합
-│   ├── jd_guardrails.py    # JD 텍스트 보안/정제
-│   ├── model_routing.py    # rerank 모델 라우팅
-│   └── observability.py    # 트레이싱
-├── schemas/                # Pydantic 모델
+│   └── feedback.py         # feedback API
+├── core/                   # infrastructure, settings, shared modules
+│   ├── settings.py         # env-based settings
+│   ├── database.py         # MongoDB connection
+│   ├── vector_store.py     # Milvus wrapper
+│   ├── filter_options.py   # merge job_filters.yml + skill_taxonomy
+│   ├── jd_guardrails.py    # JD text safety/sanitization
+│   ├── model_routing.py    # rerank model routing
+│   └── observability.py    # tracing
+├── schemas/                # Pydantic models
 │   ├── job.py              # JobMatchRequest, JobMatchResponse, QueryUnderstandingProfile
-│   ├── candidate.py        # 후보 스키마
-│   ├── ingestion.py        # ingestion 요청/응답
+│   ├── candidate.py        # candidate schema
+│   ├── ingestion.py        # ingestion request/response
 │   └── feedback.py
-├── repositories/           # 저장소 계층
-│   ├── mongo_repo.py       # 후보 조회, get_filter_options
-│   ├── hybrid_retriever.py # 재export (실제 구현은 services)
-│   └── session_repo.py     # JD 세션 저장
-├── services/               # 비즈니스 로직
-│   ├── matching_service.py      # ★ 매칭 오케스트레이션 (진입점)
-│   ├── job_profile_extractor.py # ★ JD → 구조화 Query (deterministic)
-│   ├── hybrid_retriever.py       # ★ Vector + Keyword + Metadata 검색
-│   ├── retrieval_service.py     # 임베딩 생성 + Milvus 검색
-│   ├── candidate_enricher.py     # hit → Mongo 문서 보강
-│   ├── cross_encoder_rerank_service.py # 선택적 rerank
-│   ├── scoring_service.py       # 최종 점수·deterministic blend
-│   ├── match_result_builder.py   # 응답 DTO 조립
-│   ├── query_fallback_service.py # confidence/unknown_ratio 기반 fallback
-│   ├── ingest_resumes.py         # 이력서 수집 오케스트레이션
-│   ├── resume_parsing.py         # 규칙/spaCy 기반 파싱
-│   ├── job_profile/              # 시그널 품질, 중복 제거
-│   ├── skill_ontology/           # 택소노미 로더, 정규화, 런타임
-│   ├── ingestion/               # 전처리, 변환, state, 상수
+├── repositories/           # repository layer
+│   ├── mongo_repo.py       # candidate queries, get_filter_options
+│   ├── hybrid_retriever.py # re-export (implementation in services)
+│   └── session_repo.py     # JD session storage
+├── services/               # business logic
+│   ├── matching_service.py      # ★ matching orchestration (entrypoint)
+│   ├── job_profile_extractor.py # ★ JD → structured query (deterministic)
+│   ├── hybrid_retriever.py      # ★ vector + keyword + metadata retrieval
+│   ├── retrieval_service.py     # embeddings + Milvus search
+│   ├── candidate_enricher.py    # hit → enrich with Mongo doc
+│   ├── cross_encoder_rerank_service.py # optional rerank
+│   ├── scoring_service.py       # final score + deterministic blend
+│   ├── match_result_builder.py  # response DTO assembly
+│   ├── query_fallback_service.py # confidence/unknown_ratio fallback
+│   ├── ingest_resumes.py        # ingestion orchestration
+│   ├── resume_parsing.py        # rule/spaCy parsing
+│   ├── job_profile/             # signal quality, dedupe
+│   ├── skill_ontology/          # taxonomy loader, normalization, runtime
+│   ├── ingestion/               # preprocessing, transforms, state, constants
 │   ├── matching/                # cache, fairness, evaluation, rerank_policy
-│   └── retrieval/               # hybrid_scoring (fusion 공식)
+│   └── retrieval/               # hybrid_scoring (fusion formula)
 └── agents/
-    ├── contracts/          # 에이전트 “계약” (입출력 정의)
+    ├── contracts/          # agent “contracts” (I/O schemas)
     │   ├── skill_agent.py
     │   ├── experience_agent.py
     │   ├── technical_agent.py
@@ -90,33 +90,33 @@ src/backend/
     │   ├── orchestrator.py
     │   ├── ranking_agent.py
     │   └── weight_negotiation_agent.py
-    └── runtime/            # 실제 실행
-        ├── service.py      # ★ AgentOrchestrationService (에이전트 진입)
+    └── runtime/            # runtime execution
+        ├── service.py      # ★ AgentOrchestrationService (agent entrypoint)
         ├── sdk_runner.py   # SDK handoff (Recruiter→HiringManager→Negotiation)
         ├── live_runner.py  # Live JSON fallback
-        ├── heuristics.py   # 규칙 기반 fallback
-        ├── candidate_mapper.py  # 후보 입력 번들 생성
-        └── prompts.py      # 프롬프트 버전·내용
+        ├── heuristics.py   # rule-based fallback
+        ├── candidate_mapper.py  # candidate input bundle builder
+        └── prompts.py      # prompt versions/content
 ```
 
 ---
 
-## 3. 핵심 흐름 ① — 사용자 요청부터 응답까지 (매칭 파이프라인)
+## 3. Core flow (1) — from request to response (matching pipeline)
 
-**진입점:** `POST /api/jobs/match` → `MatchingService.match_jobs()`
+**Entry point:** `POST /api/jobs/match` → `MatchingService.match_jobs()`
 
-전체가 **한 번에** 이어지는 흐름은 아래와 같습니다.
+The end-to-end flow is shown below.
 
 ```mermaid
 flowchart TB
-  subgraph REQ["1. 요청"]
+  subgraph REQ["1. Request"]
     A["POST /api/jobs/match\n(JD, top_k, category, filters)"]
   end
 
-  subgraph CACHE["2. 캐시"]
+  subgraph CACHE["2. Cache"]
     B{"Token cache\nlookup"}
-    B -->|hit| C["캐시된 JobMatchResponse 반환"]
-    B -->|miss| D["다음 단계 진행"]
+    B -->|hit| C["Return cached JobMatchResponse"]
+    B -->|miss| D["Proceed to next stage"]
   end
 
   subgraph QUERY["3. Query Understanding"]
@@ -126,9 +126,9 @@ flowchart TB
 
   subgraph RET["4. Retrieval"]
     G["HybridRetriever.search_candidates()"]
-    G --> H["Mongo 키워드 검색 (항상)"]
+    G --> H["Mongo keyword search (always)"]
     G --> I["RetrievalService: embed → Milvus"]
-    I --> J{"Vector 사용 가능?"}
+    I --> J{"Vector available?"}
     J -->|yes| K["Fusion: vector + keyword + metadata"]
     J -->|no| L["Keyword-only fallback"]
     H --> K
@@ -138,25 +138,25 @@ flowchart TB
   end
 
   subgraph ENRICH["5. Enrichment"]
-    N["enrich_hits()\nMongo 배치 조회 + 메타 필터"]
+    N["enrich_hits()\nMongo batch fetch + metadata filters"]
   end
 
-  subgraph RERANK["6. Rerank (게이트)"]
+  subgraph RERANK["6. Rerank (gate)"]
     O["should_apply_rerank?"]
     O -->|yes| P["cross_encoder_rerank_service"]
-    O -->|no| Q["baseline shortlist 유지"]
+    O -->|no| Q["keep baseline shortlist"]
     P --> R["Shortlisted hits"]
     Q --> R
   end
 
-  subgraph AGENT["7. Agent 평가"]
-    S["AgentOrchestrationService.run_for_candidate()\n(후보별)"]
+  subgraph AGENT["7. Agent evaluation"]
+    S["AgentOrchestrationService.run_for_candidate()\n(per candidate)"]
     S --> T["Skill / Experience / Technical / Culture"]
     T --> U["Recruiter → HiringManager → WeightNegotiation"]
-    U --> V["Evaluation Score Pack + 최종 weight"]
+    U --> V["Evaluation Score Pack + final weights"]
   end
 
-  subgraph RANK["8. 랭킹·응답"]
+  subgraph RANK["8. Ranking & response"]
     W["scoring_service: deterministic + agent blend"]
     W --> X["match_result_builder: JobMatchCandidate[]"]
     X --> Y["Fairness guardrails"]
@@ -173,62 +173,62 @@ flowchart TB
   Z --> C
 ```
 
-**요약 표**
+**Summary table**
 
-| 단계 | 담당 모듈 | 설명 |
+| Stage | Module | Description |
 |------|-----------|------|
-| 1 | `api/jobs.py` | `JobMatchRequest` 수신 |
-| 2 | `matching/cache.py` | JD+filters 키로 LRU+TTL 캐시; hit 시 retrieval/agent 생략 |
-| 3 | `job_profile_extractor` | JD → JobProfile (deterministic, ontology 기반) |
-| 4 | `hybrid_retriever` + `retrieval_service` | 키워드(항상) + 벡터(가능 시) → fusion 또는 keyword-only fallback |
-| 5 | `candidate_enricher` | hit에 Mongo 문서 합쳐 메타 필터 적용 |
-| 6 | `rerank_policy` + `cross_encoder_rerank_service` | 게이트 통과 시에만 rerank |
-| 7 | `agents/runtime/service` | 4개 에이전트 + Recruiter/HiringManager/Negotiation |
-| 8 | `scoring_service` + `match_result_builder` + `fairness` | 최종 점수·응답·fairness 경고 |
+| 1 | `api/jobs.py` | receive `JobMatchRequest` |
+| 2 | `matching/cache.py` | LRU+TTL cache keyed by JD+filters; on hit, skip retrieval/agents |
+| 3 | `job_profile_extractor` | JD → JobProfile (deterministic, ontology-driven) |
+| 4 | `hybrid_retriever` + `retrieval_service` | keyword (always) + vector (if available) → fusion or keyword-only fallback |
+| 5 | `candidate_enricher` | join Mongo candidate docs and apply metadata filters |
+| 6 | `rerank_policy` + `cross_encoder_rerank_service` | rerank only when the gate passes |
+| 7 | `agents/runtime/service` | four agents + Recruiter/HiringManager/Negotiation |
+| 8 | `scoring_service` + `match_result_builder` + `fairness` | final score + response + fairness warnings |
 
 ---
 
-## 4. 핵심 흐름 ② — Query Understanding (JD → 구조화 검색)
+## 4. Core flow (2) — Query understanding (JD → structured search)
 
-**포인트:** LLM이 아닌 **deterministic** 규칙 + 택소노미로 JD를 구조화된 쿼리로 바꿉니다.
+**Key point:** convert a JD into a structured query via **deterministic** rules + taxonomy (not an LLM).
 
 ```mermaid
 flowchart LR
-  A["Job Description\n(자연어)"] --> B["job_profile_extractor\nbuild_job_profile()"]
-  B --> C["skill_ontology\n정규화·확장"]
-  B --> D["job_profile/signals\n시그널 품질·중복제거"]
+  A["Job Description\n(natural language)"] --> B["job_profile_extractor\nbuild_job_profile()"]
+  B --> C["skill_ontology\nnormalize + expand"]
+  B --> D["job_profile/signals\nsignal quality + dedupe"]
   C --> E["JobProfile"]
   D --> E
   E --> F["roles, required_skills\nrelated_skills, seniority_hint"]
   E --> G["lexical_query\nquery_text_for_embedding"]
   E --> H["filters, metadata_filters\nconfidence, signal_quality"]
-  F --> I["Retrieval / Agent 공통 입력"]
+  F --> I["Shared input for retrieval/agents"]
   G --> I
   H --> I
 ```
 
-- **입력:** `job_description` (문자열), 선택적 `category`/`education`/`region`/`industry` 오버라이드
-- **출력:** `JobProfile` — `schemas/job.py`의 Query 이해 결과와 동일한 개념
-- **설정:** `config/skill_taxonomy.yml`, `skill_aliases.yml`, `skill_capability_phrases.yml`, `job_filters.yml` 등이 `filter_options`·`skill_ontology`를 통해 사용됨
+- **Input:** `job_description` (string) with optional `category`/`education`/`region`/`industry` overrides
+- **Output:** `JobProfile` — conceptually the same as query-understanding output in `schemas/job.py`
+- **Config:** `config/skill_taxonomy.yml`, `skill_aliases.yml`, `skill_capability_phrases.yml`, `job_filters.yml` are loaded via `filter_options` and `skill_ontology`
 
 ---
 
-## 5. 핵심 흐름 ③ — Hybrid Retrieval (Vector + Keyword + Metadata)
+## 5. Core flow (3) — Hybrid retrieval (vector + keyword + metadata)
 
-**포인트:** 벡터만 쓰지 않고, **키워드(항상) + 벡터(가능 시) + 메타데이터**를 합쳐서 recall을 보장합니다.
+**Key point:** ensure recall by combining **keyword (always) + vector (when available) + metadata**, rather than vector-only.
 
 ```mermaid
 flowchart TB
-  subgraph IN["입력"]
+  subgraph IN["Input"]
     J["JobProfile"]
   end
 
-  subgraph KEY["키워드 경로 (항상)"]
+  subgraph KEY["Keyword path (always)"]
     K["_search_keyword_candidates\nMongo lexical"]
     K --> K1["keyword_hits"]
   end
 
-  subgraph VEC["벡터 경로"]
+  subgraph VEC["Vector path"]
     V1["query_text_for_embedding → embed"]
     V1 --> V2["Milvus search"]
     V2 --> V3["vector_hits"]
@@ -237,61 +237,61 @@ flowchart TB
   subgraph FUSION["Fusion"]
     F1["vector_hits + keyword_hits\nmerge by candidate_id"]
     F1 --> F2["hybrid_scoring\n0.48*vector + 0.37*keyword + 0.15*metadata"]
-    F2 --> F3["정렬된 hits"]
+    F2 --> F3["sorted hits"]
   end
 
   subgraph FALLBACK["Fallback"]
-    E1["Vector 실패 시"]
-    E1 --> E2["keyword_hits만 사용"]
+    E1["on vector failure"]
+    E1 --> E2["use keyword_hits only"]
   end
 
   J --> K
   J --> V1
   K1 --> F1
   V3 --> F1
-  V2 -.->|실패| E1
+  V2 -.->|failure| E1
   E2 --> F3
 ```
 
-- **구현:** `services/hybrid_retriever.py`, `services/retrieval_service.py`, `services/retrieval/hybrid_scoring.py`
-- **Fusion 비율:** 문서 기준 `0.48 * vector + 0.37 * keyword + 0.15 * metadata` (설정으로 조정 가능)
+- **Implementation:** `services/hybrid_retriever.py`, `services/retrieval_service.py`, `services/retrieval/hybrid_scoring.py`
+- **Fusion weights:** `0.48 * vector + 0.37 * keyword + 0.15 * metadata` (tunable via settings)
 
 ---
 
-## 6. 핵심 흐름 ④ — Multi-Agent 평가 + 가중치 협상
+## 6. Core flow (4) — Multi-agent evaluation + weight negotiation
 
-**포인트:** Top-K 후보마다 **4개 평가 에이전트**를 돌리고, **Recruiter / Hiring Manager** 제안을 **Weight Negotiation**으로 합의해 최종 점수를 냅니다.
+**Key point:** run **four evaluation agents** per Top‑K candidate, then combine Recruiter/Hiring Manager proposals via **Weight Negotiation** to produce final scores.
 
 ```mermaid
 flowchart TB
-  subgraph INPUT["입력 (후보 1명)"]
+  subgraph INPUT["Input (one candidate)"]
     JD["Job Description"]
     JP["JobProfile"]
     HIT["Hit + Candidate doc"]
   end
 
-  subgraph RUN["실행 모드 (우선순위)"]
+  subgraph RUN["Runtime modes (priority order)"]
     R1["1. sdk_runner (SDK handoff)"]
     R2["2. live_runner (Live JSON)"]
-    R3["3. heuristics (규칙 fallback)"]
+    R3["3. heuristics (rule-based fallback)"]
   end
 
-  subgraph FOUR["4개 평가 에이전트 (병렬)"]
+  subgraph FOUR["Four evaluation agents (parallel)"]
     A1["SkillMatchingAgent"]
     A2["ExperienceEvaluationAgent"]
     A3["TechnicalEvaluationAgent"]
     A4["CultureFitAgent"]
   end
 
-  subgraph NEG["가중치 협상"]
-    Rec["RecruiterAgent\n(skill/culture 강조)"]
-    HM["HiringManagerAgent\n(technical/experience 강조)"]
-    Neg["WeightNegotiationAgent\n합의 weight"]
+  subgraph NEG["Weight negotiation"]
+    Rec["RecruiterAgent\n(emphasize skill/culture)"]
+    HM["HiringManagerAgent\n(emphasize technical/experience)"]
+    Neg["WeightNegotiationAgent\nfinal weights"]
     Rec --> Neg
     HM --> Neg
   end
 
-  subgraph OUT["출력"]
+  subgraph OUT["Output"]
     Pack["Evaluation Score Pack"]
     Rank["RankingAgent\nweighted score + explanation"]
   end
@@ -311,34 +311,34 @@ flowchart TB
   Neg --> Rank
 ```
 
-- **진입:** `AgentOrchestrationService.run_for_candidate()` (`agents/runtime/service.py`)
-- **에이전트 계약:** `agents/contracts/` (skill, experience, technical, culture, ranking, weight_negotiation)
-- **런타임:** `sdk_runner` → `live_runner` → `heuristics` 순 fallback, 응답에 `runtime_mode`/`runtime_reason` 포함
+- **Entry:** `AgentOrchestrationService.run_for_candidate()` (`agents/runtime/service.py`)
+- **Agent contracts:** `agents/contracts/` (skill, experience, technical, culture, ranking, weight_negotiation)
+- **Runtime:** fallback order `sdk_runner` → `live_runner` → `heuristics`; response includes `runtime_mode`/`runtime_reason`
 
-### 6.1 4개 에이전트별 점수 계산 흐름 (휴리스틱)
+### 6.1 Per-agent scoring flow (heuristics)
 
-아래는 **heuristic fallback** 시 각 에이전트가 점수를 내는 **계산 로직 흐름**입니다. LLM 사용 시에는 동일 출력 스키마를 채우되 점수는 모델이 루브릭에 따라 결정합니다.
+Below is the scoring logic flow used in **heuristic fallback** mode. When using an LLM, the same output schema is filled, but scores are determined by the model according to the rubric.
 
 ```mermaid
 flowchart TB
-  subgraph SKILL["Skill 에이전트"]
+  subgraph SKILL["Skill agent"]
     S_in["required_skills\ncandidate_normalized_skills"]
     S_in --> S_calc["compute_skill_score"]
     S_calc --> S_formula["score = |required ∩ candidate| / |required|"]
     S_formula --> S_out["SkillAgentOutput\nscore, matched_skills, missing_skills, evidence"]
   end
 
-  subgraph EXP["Experience 에이전트"]
+  subgraph EXP["Experience agent"]
     E_in["required_experience_years\ncandidate_experience_years\npreferred_seniority\ncandidate_seniority_level"]
-    E_in --> E_fit["compute_experience_fit\nratio = 후보연차/요구연차"]
-    E_in --> E_sen["compute_seniority_fit\n일치=1.0, 불일치=0.4"]
+    E_in --> E_fit["compute_experience_fit\nratio = candidate_years / required_years"]
+    E_in --> E_sen["compute_seniority_fit\nmatch=1.0, mismatch=0.4"]
     E_fit --> E_join["score = (experience_fit + seniority_fit) / 2"]
     E_sen --> E_join
     E_join --> E_out["ExperienceAgentOutput\nscore, experience_fit, seniority_fit, career_trajectory"]
   end
 
-  subgraph TECH["Technical 에이전트"]
-    T_in["required_stack\ncandidate_skills\nhit.score(벡터유사도)"]
+  subgraph TECH["Technical agent"]
+    T_in["required_stack\ncandidate_skills\nhit.score(vector similarity)"]
     T_in --> T_cov["stack_coverage = compute_skill_score\nrequired_stack vs candidate_skills"]
     T_in --> T_dep["depth_signal = min(1, stack_coverage×0.8 + vector_score×0.2)"]
     T_cov --> T_join["score = (stack_coverage + depth_signal) / 2"]
@@ -346,21 +346,21 @@ flowchart TB
     T_join --> T_out["TechnicalAgentOutput\nscore, stack_coverage, depth_signal, evidence"]
   end
 
-  subgraph CULT["Culture 에이전트"]
+  subgraph CULT["Culture agent"]
     C_in["category_filter\nhit.category"]
-    C_in --> C_match{"category\n일치?"}
-    C_match -->|예| C_yes["culture_alignment = 0.75\nrisk_flags = []"]
-    C_match -->|아니오| C_no["culture_alignment = 0.6\nrisk_flags = indirect-domain-signal"]
+    C_in --> C_match{"category\nmatch?"}
+    C_match -->|yes| C_yes["culture_alignment = 0.75\nrisk_flags = []"]
+    C_match -->|no| C_no["culture_alignment = 0.6\nrisk_flags = indirect-domain-signal"]
     C_yes --> C_out["CultureAgentOutput\nscore, alignment, risk_flags, evidence"]
     C_no --> C_out
   end
 ```
 
-### 6.2 가중치 협상 → 에이전트 가중 점수 → 최종 랭킹 점수
+### 6.2 Weight negotiation → agent-weighted score → final ranking score
 
 ```mermaid
 flowchart LR
-  subgraph SCORES["4개 에이전트 출력"]
+  subgraph SCORES["Four agent outputs"]
     s["skill_score"]
     e["experience_score"]
     t["technical_score"]
@@ -368,17 +368,17 @@ flowchart LR
   end
 
   subgraph WEIGHTS["Weight Negotiation (final)"]
-    w_rec["Recruiter 제안\nskill 0.30, exp 0.35, tech 0.20, culture 0.15"]
-    w_hm["Hiring Manager 제안\nskill 0.40, exp 0.20, tech 0.30, culture 0.10"]
-    w_rec --> w_final["final = 정규화 중간값\n(요구연차≥5년·스킬≥6개 시 미세 조정)"]
+    w_rec["Recruiter proposal\nskill 0.30, exp 0.35, tech 0.20, culture 0.15"]
+    w_hm["Hiring Manager proposal\nskill 0.40, exp 0.20, tech 0.30, culture 0.10"]
+    w_rec --> w_final["final = normalized midpoint\n(minor adjustments when required_years≥5 and skills≥6)"]
     w_hm --> w_final
   end
 
-  subgraph WEIGHTED["가중 합"]
+  subgraph WEIGHTED["Weighted sum"]
     formula["agent_weighted_score =\n  skill×w_s + exp×w_e + tech×w_t + culture×w_c"]
   end
 
-  subgraph RANK["최종 랭킹"]
+  subgraph RANK["Final ranking"]
     blend["rank_score_before_penalty =\n  0.30 × deterministic_score +\n  0.70 × agent_weighted_score"]
     penalty["rank_score =\n  rank_score_before_penalty × (1 - must_have_penalty)"]
     blend --> penalty
@@ -389,32 +389,32 @@ flowchart LR
   WEIGHTED --> RANK
 ```
 
-- **deterministic_score:** semantic_similarity, skill_overlap, experience_fit, seniority_fit, category_fit 등으로 미리 계산된 0~1 점수.
-- **must_have_penalty:** must-have 미충족 시 적용 (최대 약 0.12 수준).
-- **구현:** `runtime/helpers.py` (`compute_skill_score`, `compute_experience_fit`, `compute_seniority_fit`, `compute_weighted_score`), `runtime/heuristics.py` (`run_heuristic_agents`), `services/scoring_service.py` (최종 rank_score).
+- **deterministic_score:** precomputed 0..1 score from semantic_similarity, skill_overlap, experience_fit, seniority_fit, category_fit, etc.
+- **must_have_penalty:** penalty applied when must-haves are not met (up to ~0.12).
+- **Implementation:** `runtime/helpers.py` (`compute_skill_score`, `compute_experience_fit`, `compute_seniority_fit`, `compute_weighted_score`), `runtime/heuristics.py` (`run_heuristic_agents`), `services/scoring_service.py` (final rank_score).
 
 ---
 
-## 7. 핵심 흐름 ⑤ — 이력서 Ingestion (오프라인)
+## 7. Core flow (5) — resume ingestion (offline)
 
-**포인트:** 생성형 LLM 없이 **규칙 + spaCy + dateparser**로 파싱·정규화 후, **MongoDB**와 **Milvus**에 적재합니다.
+**Key point:** parse/normalize with **rules + spaCy + dateparser** (no generative LLM) and ingest into **MongoDB** and **Milvus**.
 
 ```mermaid
 flowchart LR
-  subgraph SOURCE["소스"]
+  subgraph SOURCE["Sources"]
     S1["Sneha CSV\nResume.csv"]
     S2["Suri CSV\n01~05_*.csv"]
   end
 
-  subgraph PIPE["파이프라인"]
+  subgraph PIPE["Pipeline"]
     P1["Load rows"]
     P2["Parse + Normalize\n(regex, spaCy, dateparser)"]
-    P3["Map → Candidate 스키마"]
+    P3["Map → Candidate schema"]
     P4["build_embedding_text"]
     P5["normalization_hash\nembedding_hash"]
   end
 
-  subgraph TARGET["저장소"]
+  subgraph TARGET["Stores"]
     T1["MongoDB\ncandidates"]
     T2["Milvus\ncandidate_embeddings"]
   end
@@ -426,31 +426,31 @@ flowchart LR
   P5 -->|--target milvus| T2
 ```
 
-- **실행:** `scripts/ingest_resumes.py` → `services/ingest_resumes.py`
-- **전처리/변환:** `services/ingestion/preprocessing.py`, `transformers.py`, `state.py`, `constants.py`
-- **파싱:** `services/resume_parsing.py` (rule / spacy / hybrid)
-- **정책:** 변경분만 upsert (hash 비교), 재임베딩은 `--force-reembed`로 제어
+- **Run:** `scripts/ingest_resumes.py` → `services/ingest_resumes.py`
+- **Preprocessing/transforms:** `services/ingestion/preprocessing.py`, `transformers.py`, `state.py`, `constants.py`
+- **Parsing:** `services/resume_parsing.py` (rule / spacy / hybrid)
+- **Policy:** upsert only changed records (hash comparison); control re-embedding via `--force-reembed`
 
 ---
 
-## 8. 중요한 포인트만 정리
+## 8. Key takeaways
 
-| 구분 | 위치 | 설명 |
+| Area | Location | Description |
 |------|------|------|
-| **매칭 진입점** | `matching_service.match_jobs()` | 캐시 → profile → retrieval → enrich → rerank → agent → scoring → fairness → 응답 |
-| **Query 이해** | `job_profile_extractor.build_job_profile()` | JD → JobProfile (deterministic, ontology) |
-| **검색** | `HybridRetriever.search_candidates()` | 키워드(항상) + 벡터(가능 시) + fusion / keyword-only fallback |
-| **에이전트** | `AgentOrchestrationService.run_for_candidate()` | 4개 에이전트 + Recruiter/HiringManager/Negotiation, SDK → live → heuristic |
-| **최종 점수** | `scoring_service` + `match_result_builder` | deterministic + agent blend, must_have_penalty, 설명·fairness 포함 |
-| **Ingestion** | `scripts/ingest_resumes.py` → `ingest_resumes` + `ingestion/` | CSV → parse → normalize → Mongo/Milvus (hash 기반 증분) |
-| **설정** | `config/*.yml`, `core/filter_options.py` | 택소노미·필터·역량 문구 — Query Understanding·검색 품질의 입력 |
+| **Matching entrypoint** | `matching_service.match_jobs()` | cache → profile → retrieval → enrich → rerank → agents → scoring → fairness → response |
+| **Query understanding** | `job_profile_extractor.build_job_profile()` | JD → JobProfile (deterministic, ontology) |
+| **Retrieval** | `HybridRetriever.search_candidates()` | keyword (always) + vector (if available) + fusion / keyword-only fallback |
+| **Agents** | `AgentOrchestrationService.run_for_candidate()` | four agents + Recruiter/HiringManager/Negotiation, SDK → live → heuristic |
+| **Final score** | `scoring_service` + `match_result_builder` | deterministic + agent blend, must_have_penalty, explanation + fairness |
+| **Ingestion** | `scripts/ingest_resumes.py` → `ingest_resumes` + `ingestion/` | CSV → parse → normalize → Mongo/Milvus (hash-based incremental) |
+| **Config** | `config/*.yml`, `core/filter_options.py` | taxonomy/filters/capability phrases — inputs to query understanding and retrieval quality |
 
 ---
 
-## 9. 참고 문서
+## 9. Related docs
 
-- **아키텍처:** [docs/architecture/system_architecture.md](../architecture/system_architecture.md)
-- **코드 구조·확장:** [docs/CODE_STRUCTURE.md](../CODE_STRUCTURE.md)
-- **이력서 수집 플로우:** [docs/data-flow/resume_ingestion_flow.md](../data-flow/resume_ingestion_flow.md)
-- **후보 검색·매칭 플로우:** [docs/data-flow/candidate_retrieval_flow.md](../data-flow/candidate_retrieval_flow.md)
-- **에이전트 파이프라인:** [docs/agents/multi_agent_pipeline.md](../agents/multi_agent_pipeline.md)
+- **Architecture:** [docs/architecture/system_architecture.md](../architecture/system_architecture.md)
+- **Code structure & extensibility:** [docs/CODE_STRUCTURE.md](../CODE_STRUCTURE.md)
+- **Resume ingestion flow:** [docs/data-flow/resume_ingestion_flow.md](../data-flow/resume_ingestion_flow.md)
+- **Candidate retrieval/matching flow:** [docs/data-flow/candidate_retrieval_flow.md](../data-flow/candidate_retrieval_flow.md)
+- **Agent pipeline:** [docs/agents/multi_agent_pipeline.md](../agents/multi_agent_pipeline.md)

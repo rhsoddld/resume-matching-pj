@@ -9,7 +9,8 @@ from backend.services.scoring_policies import DEFAULT_DETERMINISTIC_POLICY_VERSI
 _WHITESPACE = re.compile(r"\s+")
 _SKILL_TOKEN_RE = re.compile(r"[a-z0-9+#.-]+")
 _TOKEN_STOPWORDS = {"and", "or", "with", "for", "the", "a", "an", "to", "of", "in"}
-# JD 스킬이 많을 때 분모 캡 (스킬 개수 제한으로 과도한 페널티 완화)
+# Cap the denominator when a JD lists many skills.
+# This reduces runaway penalties caused purely by very large target sets.
 _MAX_SKILLS_DENOMINATOR = 10
 _SENIORITY_LEVELS = {
     "intern": 0,
@@ -207,7 +208,7 @@ def compute_skill_overlap(candidate: Mapping[str, object], job: Mapping[str, obj
     required_list = list(job.get("required_skills") or [])[:_MAX_SKILLS_DENOMINATOR]
     expanded_list = list(job.get("expanded_skills") or [])
     job_required = _to_skill_set(required_list)
-    # expanded_target도 상위 N개로 제한 (required 먼저, 그다음 expanded)
+    # Limit the expanded target to the same top-N budget (required first, then expanded).
     seen: set[str] = set()
     expanded_target_list: list[str] = []
     for val in required_list + expanded_list:
@@ -223,8 +224,9 @@ def compute_skill_overlap(candidate: Mapping[str, object], job: Mapping[str, obj
     expanded_overlap = _soft_overlap_ratio(candidate_expanded, expanded_target)
     normalized_overlap = _soft_overlap_ratio(candidate_normalized, job_required)
 
-    # Skill Coverage: core 비중 완화, normalized/expanded 균형 (과도한 페널티 방지)
-    # core 없을 때도 동일한 완화 적용 (core_skills 비어 있는 이력서 많음)
+    # Skill coverage blends: soften core weighting and balance normalized/expanded overlap
+    # to avoid over-penalizing sparse or unevenly-parsed resumes. Apply the same idea when
+    # `core_skills` is empty (which is common for many profiles).
     if candidate_core:
         score = (0.45 * core_overlap) + (0.35 * expanded_overlap) + (0.2 * normalized_overlap)
     else:

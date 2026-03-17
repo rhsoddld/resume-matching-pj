@@ -276,7 +276,8 @@ def build_match_candidate(
         "expanded_skills": job_profile.expanded_skills,
     }
     skill_overlap_score, skill_overlap_detail = compute_skill_overlap(candidate_doc, job_skill_profile)
-    # 에이전트가 있으면 매칭 시점 판단으로 보정 (초반 고정값만 쓰지 않음)
+    # If agent evaluation is available, blend deterministic overlap with the agent's skill score.
+    # This avoids relying solely on early-stage extraction heuristics when richer evidence is present.
     if agent_result is not None and getattr(agent_result, "skill_output", None) is not None:
         agent_skill = getattr(agent_result.skill_output, "score", None)
         if isinstance(agent_skill, (int, float)):

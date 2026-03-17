@@ -1,78 +1,78 @@
 # Functional Requirements
 
-이 문서는 기존 요구사항 마스터 문서의 핵심 요구사항 ID를 현재 구조로 병합한 기준 문서다.
+This document is the canonical baseline that merges core requirement IDs from the legacy requirements master into the current structure.
 
-**요구사항↔구현 추적·레뷰어 가이드:** [docs/governance/TRACEABILITY.md](../docs/governance/TRACEABILITY.md)
+**Requirements ↔ implementation traceability (reviewer guide):** [docs/governance/TRACEABILITY.md](../docs/governance/TRACEABILITY.md)
 
 ## 1) Requirement 1 (Basic)
 
 | ID | Requirement |
 |---|---|
-| R1.1 | Basic RAG 기반 후보 검색을 제공해야 한다. |
-| R1.2 | Skills-based semantic matching을 지원해야 한다. |
-| R1.3 | Skill overlap 중심의 baseline ranking 정책을 제공해야 한다. |
-| R1.4 | Job category filtering을 지원해야 한다. |
-| R1.5 | Basic job-resume alignment scoring을 제공해야 한다. |
-| R1.6 | JD 입력 guardrails(유효성/주입 방어/토큰 안전)를 제공해야 한다. |
-| R1.7 | Resume parsing/normalization validation을 제공해야 한다. |
-| R1.8 | Metadata filtering(경력, role/category, education)을 지원해야 한다. |
-| R1.9 | 핵심 기능을 API endpoint로 제공해야 한다. |
+| R1.1 | Provide basic RAG-based candidate retrieval. |
+| R1.2 | Support skills-based semantic matching. |
+| R1.3 | Provide a baseline ranking policy centered on skill overlap. |
+| R1.4 | Support job category filtering. |
+| R1.5 | Provide basic job–resume alignment scoring. |
+| R1.6 | Provide guardrails for JD input (validation / prompt-injection defense / token safety). |
+| R1.7 | Provide resume parsing/normalization validation. |
+| R1.8 | Support metadata filtering (experience, role/category, education). |
+| R1.9 | Expose core functionality via API endpoints. |
 
 ## 2) Requirement 2 (Advanced)
 
 | ID | Requirement |
 |---|---|
-| R2.1 | DeepEval 기반 quality/diversity 평가를 지원해야 한다. |
-| R2.2 | Custom eval(skill/experience/culture/potential)을 제공해야 한다. |
-| R2.3 | Rerank 고도화(embedding/LLM/fine-tuned 경로)를 지원해야 한다. |
-| R2.4 | LLM-as-Judge 기반 soft-skill/potential 평가를 지원해야 한다. |
-| R2.5 | Token usage optimization 전략을 제공해야 한다. |
-| R2.6 | Throughput/latency benchmark(candidates/sec 포함)를 제공해야 한다. |
-| R2.7 | Bias/fairness guardrail을 제공해야 한다. |
-| R2.8 | Reviewer demo 가능한 frontend를 제공해야 한다. |
+| R2.1 | Support DeepEval-based quality/diversity evaluation. |
+| R2.2 | Provide custom evaluation (skill/experience/culture/potential). |
+| R2.3 | Support advanced reranking paths (embedding/LLM/fine-tuned). |
+| R2.4 | Support LLM-as-Judge-based soft-skill/potential evaluation. |
+| R2.5 | Provide token-usage optimization strategies. |
+| R2.6 | Provide throughput/latency benchmarks (including candidates/sec). |
+| R2.7 | Provide bias/fairness guardrails. |
+| R2.8 | Provide a frontend suitable for reviewer demos. |
 
 ## 3) Hybrid Candidate Retrieval
 
 | ID | Requirement |
 |---|---|
-| HCR.1 | Vector + keyword 결합 hybrid retrieval을 제공해야 한다. |
-| HCR.2 | Dynamic filtering(exp/skill/edu/seniority/category)을 제공해야 한다. |
-| HCR.3 | Shortlist reranking 경로를 제공해야 한다. |
+| HCR.1 | Provide hybrid retrieval combining vector + keyword signals. |
+| HCR.2 | Provide dynamic filtering (exp/skill/edu/seniority/category). |
+| HCR.3 | Provide a shortlist reranking path. |
 
 ## 4) Multi-Stage Hiring Agent Pipeline
 
 | ID | Requirement |
 |---|---|
-| MSA.1 | 다중 에이전트 기반 평가 오케스트레이션을 제공해야 한다. |
-| MSA.2 | Skill Matching Agent를 제공해야 한다. |
-| MSA.3 | Experience Evaluation Agent를 제공해야 한다. |
-| MSA.4 | Technical Evaluation Agent를 제공해야 한다. |
-| MSA.5 | Culture Fit Agent를 제공해야 한다. |
-| MSA.6 | Agent score pack을 최종 랭킹에 연결해야 한다. |
+| MSA.1 | Provide orchestration for multi-agent evaluation. |
+| MSA.2 | Provide a Skill Matching Agent. |
+| MSA.3 | Provide an Experience Evaluation Agent. |
+| MSA.4 | Provide a Technical Evaluation Agent. |
+| MSA.5 | Provide a Culture Fit Agent. |
+| MSA.6 | Connect the agent score pack into final ranking. |
 
 ## 5) Additional Hiring Intelligence
 
 | ID | Requirement |
 |---|---|
-| AHI.1 | Explainable ranking과 score breakdown을 제공해야 한다. |
-| AHI.2 | Recruiter feedback loop를 제공해야 한다. |
-| AHI.3 | Hiring analytics 관측 경로를 제공해야 한다. |
-| AHI.4 | Interview scheduling/email draft handoff를 제공해야 한다. |
-| AHI.5 | Recruiter/HiringManager A2A negotiation을 제공해야 한다. |
+| AHI.1 | Provide explainable ranking and score breakdown. |
+| AHI.2 | Provide a recruiter feedback loop. |
+| AHI.3 | Provide a hiring analytics observability path. |
+| AHI.4 | Provide interview scheduling / email draft handoff. |
+| AHI.5 | Provide recruiter/hiring-manager A2A negotiation. |
 
 ## 6) Deliverables and Dataset
 
 | ID | Requirement |
 |---|---|
-| D.1 | 시스템 아키텍처(ingestion/retrieval/agent/ranking) 다이어그램을 제공해야 한다. |
-| D.2 | 설계 의사결정과 tradeoff 문서를 제공해야 한다. |
-| D.3 | 실행 가능한 코드/README/예시 요청을 제공해야 한다. |
-| D.4 | 데모/발표를 위한 결과 요약 자료를 제공해야 한다. |
-| DS.1 | primary dataset(snehaanbhawal) 사용 경로를 제공해야 한다. |
-| DS.2 | 대체 데이터셋(suriyaganesh) 확장 경로를 제공해야 한다. |
-| DS.3 | CSV/JSON/PDF 입력 처리 경로를 제공해야 한다. |
-| DS.4 | skill/experience/education/category 핵심 필드 추출을 제공해야 한다. |
-| DS.5 | 추출 필드를 retrieval/filtering/scoring에 활용해야 한다. |
+| D.1 | Provide a system architecture diagram (ingestion/retrieval/agent/ranking). |
+| D.2 | Provide design decisions and trade-off documents. |
+| D.3 | Provide runnable code + README + example requests. |
+| D.4 | Provide a results summary suitable for demos/presentations. |
+| DS.1 | Provide a usage path for the primary dataset (snehaanbhawal). |
+| DS.2 | Provide an expansion path for the alternate dataset (suriyaganesh). |
+| DS.3 | Provide input handling paths for CSV/JSON/PDF. |
+| DS.4 | Provide extraction of key fields (skill/experience/education/category). |
+| DS.5 | Use extracted fields in retrieval/filtering/scoring. |
 
 ## 7) Priority Guidance
 

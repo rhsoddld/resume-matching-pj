@@ -535,7 +535,7 @@ class HybridRetriever:
         phrases = parsed.get("capability_phrases", []) + parsed.get("abilities", [])
         matched_phrases = [p for p in phrases if any(term in p.lower() for term in query_terms)]
         if matched_phrases:
-            evidence.append("[Capabilities] 관련 역량/기술")
+            evidence.append("[Capabilities] Related capabilities / skills")
             for p in matched_phrases[:5]:
                 evidence.append(f"- {p}")
 
@@ -544,7 +544,7 @@ class HybridRetriever:
             summary_sentences = [s.strip() for s in re.split(r'(?<=[.!?\n])\s+', summary) if s.strip()]
             matched_summary = [s for s in summary_sentences if any(term in s.lower() for term in query_terms)]
             if matched_summary:
-                evidence.append("\n[Summary] 요약")
+                evidence.append("\n[Summary]")
                 for s in matched_summary[:3]:
                     evidence.append(f"- {s}")
 
