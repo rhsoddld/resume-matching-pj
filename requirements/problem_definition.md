@@ -1,5 +1,7 @@
 # Problem Definition
 
+**요구사항↔구현 추적·레뷰어 가이드:** [docs/governance/TRACEABILITY.md](../docs/governance/TRACEABILITY.md)
+
 ## Scope
 이 프로젝트는 자연어 Job Description(JD)을 해석하고, 대규모 이력서 풀에서 적합 후보를 검색/평가/설명하는 AI 기반 후보 매칭 시스템을 구축한다.
 

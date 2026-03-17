@@ -2,6 +2,8 @@
 
 이 문서는 기존 요구사항 마스터 문서의 핵심 요구사항 ID를 현재 구조로 병합한 기준 문서다.
 
+**요구사항↔구현 추적·레뷰어 가이드:** [docs/governance/TRACEABILITY.md](../docs/governance/TRACEABILITY.md)
+
 ## 1) Requirement 1 (Basic)
 
 | ID | Requirement |

@@ -1,5 +1,7 @@
 # Traceability Matrix
 
+**레뷰어용 요건↔증거 매핑은 [`docs/governance/TRACEABILITY.md`](../docs/governance/TRACEABILITY.md)에서 Problem Definition · Functional Requirements · Reviewer Checklist와 함께 정리되어 있습니다.**
+
 ## Status Definition
 - `Implemented`: 코드 + 문서 + 실행/테스트 증거가 존재
 - `Partial`: 일부 경로는 구현됐지만 운영/검증 증거가 부족
@@ -24,4 +26,4 @@
 | MSA.1-MSA.6 (multi-agent) | `src/backend/agents/contracts/*.py`, `src/backend/agents/runtime/*.py` | `tests/test_api.py` | `docs/agents/multi_agent_pipeline.md` | Implemented | handoff trace 표준화 |
 | AHI.1 / AHI.5 | `src/backend/services/match_result_builder.py`, `src/backend/agents/contracts/weight_negotiation_agent.py` | `tests/test_api.py` | `docs/agents/multi_agent_pipeline.md` | Implemented | 조직별 weight profile 버전관리 |
 | AHI.2-AHI.4 | `src/backend/api/feedback.py`, `src/backend/services/email_draft_service.py` | `tests/test_api.py` | `requirements/functional_requirements.md` | Partial | analytics/reporting 연동 강화 |
-| D.* / DS.* (delivery/dataset) | `scripts/ingest_resumes.py`, `src/backend/services/ingest_resumes.py`, `README.md` | `tests/test_api.py`, `tests/test_retrieval.py` | `docs/architecture/*`, `docs/data-flow/*`, `docs/adr/*` | Implemented | 발표 자료/운영 runbook 보강 |
+| D.* / DS.* (delivery/dataset) | `scripts/ingest_resumes.py`, `src/backend/services/ingest_resumes.py`, `README.md` | `tests/test_api.py`, `tests/test_retrieval.py`, runbook evidence: `docs/runbooks/evidence/clean_rebuild_*.md` | `docs/architecture/*`, `docs/data-flow/*`, `docs/adr/*`, `docs/runbooks/README.md` | Implemented | 발표 자료/운영 runbook 실행 evidence 누적 |

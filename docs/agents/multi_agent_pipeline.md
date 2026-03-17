@@ -88,3 +88,7 @@ final_score = rank_score_before_penalty * (1 - must_have_penalty)
 - negotiated weighting summary
 - fairness warnings
 - runtime mode / fallback reason (`agent_scores.runtime_mode`, `agent_scores.runtime_reason`)
+
+## 상세 문서
+
+- **에이전트 평가 로직·스코어링 관점** (4차원 입력/출력, 루브릭, 가중치 협상, 최종 점수 합성, 설명 템플릿): [agent_evaluation_and_scoring.md](./agent_evaluation_and_scoring.md)

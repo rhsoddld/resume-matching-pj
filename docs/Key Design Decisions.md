@@ -3,6 +3,8 @@
 **Project:** `resume-matching-pj` | **Version:** MVP / Capstone baseline | **Date:** March 2026  
 **Goal:** JD(Job Description) → 구조화된 쿼리 → Hybrid Retrieval → Multi-Agent 평가 → Explainable Candidate Recommendation
 
+**설계 근거 요약 (온톨로지·비용·평가):** [design_rationale_ontology_eval_cost.md](./design_rationale_ontology_eval_cost.md) — 왜 스킬 온톨로지(Agentic AI 친화성), 장기 비용 구조(에이전트 작업 집중), eval 수치·관점 정리.
+
 ## 1. Vector DB & Document Store → Milvus + MongoDB
 
 | Decision | Reason | Alternative Considered |
@@ -69,6 +71,8 @@
 | **Recruiter vs Hiring Manager weights** | RecruiterAgent + HiringManagerAgent 제안 → WeightNegotiationAgent로 최종 가중치 | Fixed weights |
 | **Runtime fallback chain** | SDK handoff → live_json → heuristic; 응답에 `runtime_mode` 및 fallback reason 포함 | Single path only |
 | **RAG-as-a-Tool** | 에이전트가 `search_candidate_evidence`로 증거 탐색 가능 | No tool use |
+
+**Agent 지연 트레이드오프와 대응:** OpenAI SDK 경로에서는 후보당 다중 에이전트가 순차·handoff로 동작해 **멀티에이전트 통신이 다발하고 처리 시간이 길어짐**. 이에 대한 대응으로 **(1) 후보 단위 병렬 처리**(ThreadPoolExecutor로 shortlist 동시 평가), **(2) 스트리밍(SSE)** 으로 profile → thought_process → candidate 순차 전달해 **UX 개선**, **(3) agent_eval_top_n 상한** 및 **(4) live_json/heuristic fallback**으로 지연·비용·장애를 완화한다. 상세: [design_tradeoffs.md](./tradeoffs/design_tradeoffs.md) § Agent 설계 트레이드오프.
 
 *Ref: [ADR-004-agent-orchestration.md](./adr/ADR-004-agent-orchestration.md)*  
 *Implementation:* `src/backend/agents/contracts/*.py`, `src/backend/agents/runtime/service.py`, `sdk_runner.py`, `live_runner.py`, `heuristics.py`

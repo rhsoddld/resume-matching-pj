@@ -63,12 +63,14 @@ resume-matching-system/
 ## Documentation Entry Points
 
 - **Key Design Decisions:** [docs/Key Design Decisions.md](./docs/Key%20Design%20Decisions.md)
+- **Design rationale (ontology, cost, eval):** [docs/design_rationale_ontology_eval_cost.md](./docs/design_rationale_ontology_eval_cost.md)
 - **Code Structure & Extensibility:** [docs/CODE_STRUCTURE.md](./docs/CODE_STRUCTURE.md)
 - Architecture: [docs/architecture/system_architecture.md](./docs/architecture/system_architecture.md)
 - Deployment: [docs/architecture/deployment_architecture.md](./docs/architecture/deployment_architecture.md)
 - Ingestion flow: [docs/data-flow/resume_ingestion_flow.md](./docs/data-flow/resume_ingestion_flow.md)
 - Retrieval flow: [docs/data-flow/candidate_retrieval_flow.md](./docs/data-flow/candidate_retrieval_flow.md)
 - Agent pipeline: [docs/agents/multi_agent_pipeline.md](./docs/agents/multi_agent_pipeline.md)
+- Agent 평가·스코어링 (4차원, 가중치 협상, 최종 점수): [docs/agents/agent_evaluation_and_scoring.md](./docs/agents/agent_evaluation_and_scoring.md)
 - Evaluation: [docs/evaluation/evaluation_plan.md](./docs/evaluation/evaluation_plan.md), [docs/evaluation/evaluation_results.md](./docs/evaluation/evaluation_results.md)
 - Golden alignment: [docs/evaluation/golden_set_alignment.md](./docs/evaluation/golden_set_alignment.md)
 
