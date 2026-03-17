@@ -1,4 +1,4 @@
-"""Load job filter options from config/job_filters.yml and merge current ontology (skill_taxonomy.yml)."""
+"""Load job filter options from config/job_filters.yml only (no ontology merge)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ import yaml
 from backend.core.providers import CONFIG_DIR
 
 _FILTERS_PATH = CONFIG_DIR / "job_filters.yml"
-_TAXONOMY_PATH = CONFIG_DIR / "skill_taxonomy.yml"
 
 
 def _load_yaml(path: Path) -> Any:
@@ -42,27 +41,8 @@ def _ensure_dict_of_dicts(value: Any) -> dict[str, dict[str, list[str]]]:
     return out
 
 
-def _collect_taxonomy_domains_and_families() -> tuple[set[str], set[str]]:
-    """Collect unique domain and family values from skill_taxonomy.yml (current ontology)."""
-    doc = _load_yaml(_TAXONOMY_PATH)
-    domains: set[str] = set()
-    families: set[str] = set()
-    if not isinstance(doc, dict):
-        return domains, families
-    for _skill, payload in doc.items():
-        if not isinstance(payload, dict):
-            continue
-        d = payload.get("domain")
-        if isinstance(d, str) and d.strip():
-            domains.add(d.strip().lower().replace(" ", "_"))
-        f = payload.get("family")
-        if isinstance(f, str) and f.strip():
-            families.add(f.strip().lower().replace(" ", "_"))
-    return domains, families
-
-
 def _minimal_entry(token: str) -> dict[str, list[str]]:
-    """One-off entry for ontology-derived options (key as alias and category_term)."""
+    """Minimal dict entry for a single key (used in fallback defaults)."""
     return {"aliases": [token], "category_terms": [token]}
 
 
@@ -73,15 +53,6 @@ def _load() -> tuple[dict[str, dict[str, list[str]]], dict[str, dict[str, list[s
         job_families = _ensure_dict_of_dicts(data.get("job_families"))
         educations = _ensure_list(data.get("educations"))
         regions = _ensure_list(data.get("regions"))
-
-        # Merge current ontology: add taxonomy domains as industries, families as job_families if missing
-        ontology_domains, ontology_families = _collect_taxonomy_domains_and_families()
-        for domain in ontology_domains:
-            if domain and domain not in industries:
-                industries[domain] = _minimal_entry(domain)
-        for family in ontology_families:
-            if family and family not in job_families:
-                job_families[family] = _minimal_entry(family)
 
         if not educations:
             educations = ["Bachelor", "Master", "PhD"]
@@ -109,7 +80,7 @@ def _load() -> tuple[dict[str, dict[str, list[str]]], dict[str, dict[str, list[s
 
 
 def get_filter_options() -> dict[str, list[str]]:
-    """Return job_families, educations, regions, industries as sorted lists for the API (curated + ontology)."""
+    """Return job_families, educations, regions, industries as sorted lists for the API (from job_filters.yml only)."""
     def to_display_label(key: Any) -> str:
         token = str(key).strip().lower().replace("-", " ").replace("_", " ")
         if not token:

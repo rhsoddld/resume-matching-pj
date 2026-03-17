@@ -61,17 +61,13 @@ def get_collection(name: str):
 
 
 def ensure_indexes() -> None:
-    """Create basic indexes for candidates/jobs collections."""
+    """Create basic indexes for candidates collection."""
     db = get_db()
     candidates = db["candidates"]
-    jobs = db["jobs"]
 
     candidates.create_index("candidate_id", unique=True)
     candidates.create_index("category")
     candidates.create_index("parsed.seniority_level")
-
-    jobs.create_index("job_id", unique=True)
-    jobs.create_index("parsed_requirements.seniority")
 
 
 def close_mongo_clients() -> None:

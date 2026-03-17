@@ -741,4 +741,74 @@ class MatchingService:
             )
         return adjusted
 
+    @traceable_op(name="matching.evaluate_candidate_on_demand", run_type="chain", tags=["matching", "agents"])
+    def evaluate_candidate_on_demand(
+        self,
+        *,
+        job_description: str,
+        candidate_id: str,
+        top_k: int = 100,
+        category: str | None = None,
+        min_experience_years: float | None = None,
+        education: str | None = None,
+        region: str | None = None,
+        industry: str | None = None,
+    ) -> JobMatchCandidate:
+        """
+        Run agent evaluation for a single candidate (e.g. one marked Deterministic only).
+        Retrieves shortlist with top_k, finds the candidate, runs agent, returns updated match.
+        """
+        job_profile = self._build_query_profile(
+            job_description=job_description,
+            category_override=category,
+            min_experience_years=min_experience_years,
+            education_override=education,
+            region_override=region,
+            industry_override=industry,
+        )
+        retrieval_top_n = resolve_retrieval_top_n(top_k)
+        hits = self._retrieve_candidates(
+            job_description=job_description,
+            job_profile=job_profile,
+            top_k=retrieval_top_n,
+            category=category,
+            min_experience_years=min_experience_years,
+        )
+        enriched_hits = self._enrich_candidates(
+            hits=hits,
+            min_experience_years=min_experience_years,
+            education=education,
+            region=region,
+            industry=industry,
+        )
+        shortlisted_hits = self._shortlist_candidates(
+            job_description=job_description,
+            job_profile=job_profile,
+            enriched_hits=enriched_hits,
+            top_k=top_k,
+        )
+        candidate_id_str = str(candidate_id).strip()
+        for hit, candidate_doc in shortlisted_hits:
+            if str(hit.get("candidate_id", "")).strip() == candidate_id_str:
+                agent_result = agent_orchestration_service.run_for_candidate(
+                    job_description=job_description,
+                    job_profile=job_profile,
+                    hit=hit,
+                    candidate_doc=candidate_doc,
+                    category_filter=category,
+                )
+                return build_match_candidate(
+                    hit=hit,
+                    candidate_doc=candidate_doc,
+                    job_profile=job_profile,
+                    category=category,
+                    agent_result=agent_result,
+                    agent_evaluation_applied=True,
+                )
+        raise ValueError(
+            f"Candidate {candidate_id_str!r} not found in top_{top_k} results for this job. "
+            "Run a match first and open a candidate from the list to evaluate."
+        )
+
+
 matching_service = MatchingService()

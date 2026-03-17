@@ -135,7 +135,21 @@ def ingest_resumes_endpoint(
             completed_at=None,
         )
 
-    _execute_ingestion(payload)
+    try:
+        _execute_ingestion(payload)
+    except FileNotFoundError as e:
+        raise AppError(
+            f"Ingestion data or config not found: {e}. Ensure data/ and config/ are available from the server (e.g. mount volumes if running in Docker).",
+            status_code=503,
+            error_code="ingestion_data_unavailable",
+        ) from e
+    except OSError as e:
+        raise AppError(
+            f"Cannot read ingestion data or config: {e}.",
+            status_code=503,
+            error_code="ingestion_data_unavailable",
+        ) from e
+
     return IngestionRunResponse(
         request_id=request_id,
         status="completed",

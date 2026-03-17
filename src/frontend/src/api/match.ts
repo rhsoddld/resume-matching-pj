@@ -1,4 +1,14 @@
-import type { JobFilterOptions, JobMatchRequest, JobMatchResponse } from "../types";
+import type { JobFilterOptions, JobMatchCandidate, JobMatchRequest, JobMatchResponse } from "../types";
+
+export interface EvaluateCandidateRequest {
+  job_description: string;
+  candidate_id: string;
+  category?: string | null;
+  min_experience_years?: number | null;
+  education?: string | null;
+  region?: string | null;
+  industry?: string | null;
+}
 
 const BASE_URL = "/api";
 
@@ -44,6 +54,37 @@ export async function matchCandidates(request: JobMatchRequest): Promise<JobMatc
   }
 
   return response.json() as Promise<JobMatchResponse>;
+}
+
+export async function evaluateCandidate(request: EvaluateCandidateRequest): Promise<JobMatchCandidate> {
+  const response = await fetch(`${BASE_URL}/jobs/match/evaluate-candidate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      job_description: request.job_description,
+      candidate_id: request.candidate_id,
+      category: request.category ?? null,
+      min_experience_years: request.min_experience_years ?? null,
+      education: request.education ?? null,
+      region: request.region ?? null,
+      industry: request.industry ?? null,
+    }),
+  });
+
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`;
+    try {
+      const data = await response.json();
+      const detail = data?.detail;
+      if (typeof detail === "string") message = detail;
+    } catch {
+      // ignore
+    }
+    throw new Error(message);
+  }
+
+  const body = (await response.json()) as { match: JobMatchCandidate };
+  return body.match;
 }
 
 export async function streamMatchCandidates(

@@ -124,6 +124,12 @@ export default function App() {
         jobDescription={lastJobDescription}
         sessionId={sessionId}
         onClose={() => setSelectedCandidate(null)}
+        onCandidateUpdated={(updated) => {
+          setCandidates((prev) =>
+            prev.map((c) => (c.candidate_id === updated.candidate_id ? updated : c))
+          );
+          setSelectedCandidate(updated);
+        }}
       />
     </div>
   );

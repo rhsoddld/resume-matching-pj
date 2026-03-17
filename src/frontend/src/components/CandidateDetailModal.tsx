@@ -4,6 +4,7 @@ import BiasGuardrailBanner from "./BiasGuardrailBanner";
 import ExplainabilityPanel from "./ExplainabilityPanel";
 import { isFastProfileCandidate } from "../utils/agentEvaluation";
 import { submitFeedback, draftInterviewEmail } from "../api/feedback";
+import { evaluateCandidate } from "../api/match";
 
 interface CandidateDetailModalProps {
   candidate: JobMatchCandidate | null;
@@ -11,6 +12,8 @@ interface CandidateDetailModalProps {
   jobDescription: string;
   sessionId?: string;
   onClose: () => void;
+  /** When agent evaluation is run for a Deterministic-only candidate, call with the updated match. */
+  onCandidateUpdated?: (candidate: JobMatchCandidate) => void;
 }
 
 function toRecord(value: unknown): Record<string, unknown> | null {
@@ -80,7 +83,7 @@ const AGENT_SECTIONS: Array<{ key: string; label: string }> = [
   { key: "culture", label: "Culture" },
 ];
 
-export default function CandidateDetailModal({ candidate, queryProfile, jobDescription, sessionId, onClose }: CandidateDetailModalProps) {
+export default function CandidateDetailModal({ candidate, queryProfile, jobDescription, sessionId, onClose, onCandidateUpdated }: CandidateDetailModalProps) {
   const negotiationPack = toRecord(candidate?.agent_scores?.["weight_negotiation"]);
   const negotiationRationale = typeof negotiationPack?.rationale === "string"
     ? negotiationPack.rationale.trim()
@@ -126,6 +129,11 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
   const [emailError, setEmailError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Agent evaluation for Deterministic-only candidates
+  const [evaluateLoading, setEvaluateLoading] = useState(false);
+  const [evaluateError, setEvaluateError] = useState<string | null>(null);
+  const isDeterministicOnly = runtimeMode === "deterministic_only";
+
   const handleFeedback = useCallback(async (rating: FeedbackRating) => {
     if (!candidate || !sessionId) return;
     setFeedbackLoading(true);
@@ -165,12 +173,30 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
     });
   }, [emailDraft]);
 
+  const handleRunAgentEvaluation = useCallback(async () => {
+    if (!candidate || !jobDescription.trim()) return;
+    setEvaluateLoading(true);
+    setEvaluateError(null);
+    try {
+      const updated = await evaluateCandidate({
+        job_description: jobDescription.trim(),
+        candidate_id: candidate.candidate_id,
+      });
+      onCandidateUpdated?.(updated);
+    } catch (err) {
+      setEvaluateError(err instanceof Error ? err.message : "Agent evaluation failed.");
+    } finally {
+      setEvaluateLoading(false);
+    }
+  }, [candidate, jobDescription, onCandidateUpdated]);
+
   // Reset email draft and feedback when candidate changes
   useEffect(() => {
     setEmailDraft(null);
     setEmailError(null);
     setActiveFeedback(null);
     setCopied(false);
+    setEvaluateError(null);
   }, [candidate?.candidate_id]);
 
   const requirementInfo = useMemo(() => {
@@ -464,6 +490,28 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
               </div>
             )}
           </div>
+
+          {isDeterministicOnly && (
+            <div className="action-bar__evaluate">
+              <button
+                type="button"
+                id="agent-evaluate-btn"
+                disabled={evaluateLoading || !jobDescription.trim()}
+                onClick={handleRunAgentEvaluation}
+                className="agent-evaluate-btn"
+                title="Run full agent evaluation (Skill, Experience, Technical, Culture) for this candidate"
+              >
+                {evaluateLoading ? (
+                  <><span className="spinner" /> Agent 평가 중…</>
+                ) : (
+                  <>Agent 평가</>
+                )}
+              </button>
+              {evaluateError && (
+                <p className="evaluate-error">{evaluateError}</p>
+              )}
+            </div>
+          )}
 
           <div className="action-bar__email">
             <button

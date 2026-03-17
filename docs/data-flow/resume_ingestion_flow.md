@@ -28,7 +28,7 @@ Raw CSV
 
 ## Ingestion API Surface (Code-Aligned)
 
-`POST /api/ingestion/resumes`로 ingestion을 트리거할 수 있다.
+`POST /api/ingestion/resumes`로 ingestion을 트리거할 수 있다. **이 API는 배치 적재용이며, 리얼타임 이력서 등록 API가 아니다.**
 
 요청 스키마 핵심 필드:
 - `source`: `sneha | suri | all`

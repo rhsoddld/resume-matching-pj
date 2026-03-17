@@ -82,6 +82,21 @@ class JobMatchRequest(BaseModel):
     industry: Optional[str] = Field(default=None, max_length=64)
 
 
+class EvaluateCandidateRequest(BaseModel):
+    """Request to run agent evaluation for a single candidate (e.g. Deterministic only)."""
+    job_description: str = Field(..., min_length=20, max_length=10_000)
+    candidate_id: str = Field(..., min_length=1, max_length=128)
+    category: Optional[str] = Field(default=None, max_length=64)
+    min_experience_years: Optional[float] = Field(default=None, ge=0, le=60)
+    education: Optional[str] = Field(default=None, max_length=64)
+    region: Optional[str] = Field(default=None, max_length=64)
+    industry: Optional[str] = Field(default=None, max_length=64)
+
+
+class EvaluateCandidateResponse(BaseModel):
+    match: "JobMatchCandidate"
+
+
 class JobFilterOptions(BaseModel):
     job_families: List[str] = Field(default_factory=list)
     educations: List[str] = Field(default_factory=list)

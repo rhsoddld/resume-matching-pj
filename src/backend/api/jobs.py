@@ -5,7 +5,13 @@ import shutil
 import os
 from pathlib import Path
 
-from backend.schemas.job import JobFilterOptions, JobMatchRequest, JobMatchResponse
+from backend.schemas.job import (
+    EvaluateCandidateRequest,
+    EvaluateCandidateResponse,
+    JobFilterOptions,
+    JobMatchRequest,
+    JobMatchResponse,
+)
 from backend.schemas.feedback import InterviewEmailRequest, InterviewEmailResponse
 from backend.services.matching_service import matching_service
 from backend.services.resume_parsing import extract_text_from_pdf
@@ -81,6 +87,32 @@ def _stream_with_error_logging(inner_gen):
     except Exception as exc:
         logger.exception("match/stream failed: %s", exc, exc_info=exc)
         raise
+
+
+@router.post("/match/evaluate-candidate", response_model=EvaluateCandidateResponse)
+def evaluate_candidate(request: EvaluateCandidateRequest):
+    """
+    Run agent evaluation for a single candidate (e.g. one shown as Deterministic only).
+    The candidate must appear in the job's match shortlist (top 100); otherwise 404.
+    """
+    if scan_for_prompt_injection(request.job_description):
+        raise HTTPException(status_code=400, detail="Security Guardrail Blocked: Prompt injection detected.")
+    safe_jd = optimize_jd_tokens(request.job_description)
+    try:
+        match = matching_service.evaluate_candidate_on_demand(
+            job_description=safe_jd,
+            candidate_id=request.candidate_id,
+            category=request.category,
+            min_experience_years=request.min_experience_years,
+            education=request.education,
+            region=request.region,
+            industry=request.industry,
+        )
+    except ValueError as exc:
+        if "not found" in str(exc).lower():
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return EvaluateCandidateResponse(match=match)
 
 
 @router.post("/match/stream")

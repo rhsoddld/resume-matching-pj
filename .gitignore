@@ -49,19 +49,8 @@ data/
 # Eval golden backups (local-only artifacts)
 src/eval/*.backup.jsonl
 
-# Eval outputs and run artifacts
-src/eval/outputs/runs/
-src/eval/outputs/latest/
-src/eval/outputs/latest-10/
-src/eval/outputs/latest-debug/
-src/eval/outputs/small-5/
-src/eval/outputs/small-5-v2/
-src/eval/outputs/short_eval/manual/hybrid/
-src/eval/outputs/short_eval/manual/rerank/
-src/eval/outputs/short_eval/manual/agent6_livejson_baseline/
-src/eval/outputs/short_eval/manual/agent6_livejson_top3/
-src/eval/outputs/short_eval/manual/agent6_livejson_top4_v4/
-src/eval/outputs/short_eval/manual/*.json
+# Eval outputs and run artifacts (all run dirs under outputs)
+src/eval/outputs/
 
 # Node / Frontend
 node_modules/
