@@ -46,21 +46,6 @@ function toNumber(value: unknown): number | null {
   return null;
 }
 
-function formatWeightLine(label: string, value: unknown): string | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-  const row = value as Record<string, unknown>;
-  const skill = toNumber(row.skill);
-  const experience = toNumber(row.experience);
-  const technical = toNumber(row.technical);
-  const culture = toNumber(row.culture);
-  if ([skill, experience, technical, culture].some((v) => v == null)) {
-    return null;
-  }
-  return `${label} (S:${(skill as number).toFixed(2)}, E:${(experience as number).toFixed(2)}, T:${(technical as number).toFixed(2)}, C:${(culture as number).toFixed(2)})`;
-}
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -112,10 +97,6 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
         : runtimeMode === "deterministic_only"
           ? "Deterministic only"
         : "";
-  const recruiterLine = formatWeightLine("Recruiter proposal", negotiationPack?.recruiter);
-  const hiringLine = formatWeightLine("Hiring manager proposal", negotiationPack?.hiring_manager);
-  const finalLine = formatWeightLine("Final policy", negotiationPack?.final);
-
   const warnings = useMemo(() => {
     if (!candidate) {
       return [];
@@ -292,6 +273,7 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
         <header className="candidate-modal__header">
           <div>
             <h2>
+              <span className="candidate-id-label">ID </span>
               {candidate.candidate_id}
             </h2>
             <p>
@@ -388,13 +370,6 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
               <h3>Final Agent Comment</h3>
               {runtimeLabel && <p className="runtime-status-line">{runtimeLabel}</p>}
               {runtimeReason && <p className="runtime-reason-line">Reason: {runtimeReason}</p>}
-              {(recruiterLine || hiringLine || finalLine) && (
-                <ul className="detail-list">
-                  {recruiterLine && <li>{recruiterLine}</li>}
-                  {hiringLine && <li>{hiringLine}</li>}
-                  {finalLine && <li>{finalLine}</li>}
-                </ul>
-              )}
               {negotiationRationale && (
                 <>
                   <strong>Negotiation rationale</strong>
@@ -429,13 +404,16 @@ export default function CandidateDetailModal({ candidate, queryProfile, jobDescr
                     : (Array.isArray(evidenceList) && evidenceList.length > 0
                       ? String(evidenceList[0])
                       : ((confidence ?? 0) >= 60 ? "Strong signal from profile content" : "Limited explicit evidence"));
+                  const isSystemMessage = notEvaluated || /outside_agent_eval|deterministic-only|Not evaluated in this run|No agent outputs available/i.test(evidenceText);
                   return (
                     <article key={section.key} className="agent-card">
                       <div>
                         <strong>{section.label}</strong>
                         <p>Confidence {notEvaluated ? "N/A" : `${confidence ?? 0}%`}</p>
                       </div>
-                      <p className="agent-evidence">Evidence: {evidenceText}</p>
+                      {!isSystemMessage && (
+                        <p className="agent-evidence">Evidence: {evidenceText}</p>
+                      )}
                     </article>
                   );
                 })}

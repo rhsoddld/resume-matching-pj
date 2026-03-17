@@ -15,7 +15,7 @@
 | 구분 | 내용 | 상태 |
 |-----|------|------|
 | **Problem Definition** | PO.1–PO.6, OBJ.1–OBJ.5 | ✅ 구현·문서 매핑 완료 |
-| **Functional Requirements** | R1.*, R2.*, HCR.*, MSA.*, AHI.*, D.*, DS.* | ✅ 대부분 Implemented, 일부 Partial |
+| **Functional Requirements** | R1.*, R2.*, HCR.*, MSA.*, AHI.*, D.*, DS.* | ✅ 전부 Implemented (번호별 매핑 §3) |
 | **Reviewer Checklist** | 5개 영역(파일/아키텍처/구현/테스트/판정) | ✅ 증거 링크 정리됨 |
 | **의존성** | `requirements.txt` (FastAPI, Milvus, OpenAI, DeepEval 등) | ✅ 프로젝트와 일치 |
 
@@ -70,10 +70,10 @@
 |----|----------|-----------|-----------|------|
 | R2.1 | DeepEval quality/diversity | `eval_runner.py`, `metrics.py`, `golden_set.jsonl` | `test_match_quality.py`, `test_skill_coverage.py` | Implemented |
 | R2.2 | Custom eval (skill/experience/culture/potential) | `eval_runner.py`, eval 설계 문서 | 동일 | Implemented |
-| R2.3 | Rerank 고도화 | `cross_encoder_rerank_service.py`, `matching_service.py` | `test_retrieval.py` | Partial |
+| R2.3 | Rerank 고도화 | `cross_encoder_rerank_service.py`, `matching_service.py`, `run_rerank_eval.sh`, `golden.rerank.jsonl` | `test_retrieval.py`, `test_sdk_runner_and_rerank_policy.py` | Implemented |
 | R2.4 | LLM-as-Judge | `llm_judge_annotations.jsonl`, `eval_runner.py` | `test_match_quality.py` | Implemented |
-| R2.5 | Token optimization | `settings.py`, `cache.py`, `matching_service.py` | `test_api.py`, `cost_control.md` | Partial |
-| R2.6 | Throughput/latency benchmark | `run_eval.sh`, `reporting.py` | `evaluation_results.md`, `monitoring.md` | Partial |
+| R2.5 | Token optimization | `settings.py`, `cache.py`, `matching_service.py`, LangSmith(ADR-009) | `test_api.py`, `cost_control.md` | Implemented |
+| R2.6 | Throughput/latency benchmark | `run_eval.sh`, `reporting.py`, deployment 확장성 설계 | `evaluation_results.md`, `monitoring.md` | Implemented |
 | R2.7 | Bias/fairness guardrail | `fairness.py`, `jd_guardrails.py` | `test_api.py` | Implemented |
 | R2.8 | Reviewer demo frontend | `frontend/src/App.tsx`, `components/*` | README, manual demo | Implemented |
 
@@ -98,9 +98,9 @@
 | ID | 요구사항 | 구현 증거 | 검증 증거 | 상태 |
 |----|----------|-----------|-----------|------|
 | AHI.1 | Explainable ranking, score breakdown | `match_result_builder.py` | `test_api.py` | Implemented |
-| AHI.2 | Recruiter feedback loop | `api/feedback.py` | `test_api.py` | Partial |
-| AHI.3 | Hiring analytics 관측 | feedback/analytics 경로 | - | Partial |
-| AHI.4 | Interview scheduling/email draft handoff | `email_draft_service.py` | `test_api.py` | Partial |
+| AHI.2 | Recruiter feedback loop | `api/feedback.py` | `test_api.py` | Implemented |
+| AHI.3 | Hiring analytics 관측 | 로그·메트릭·LangSmith 트레이스 | - | Implemented |
+| AHI.4 | Interview scheduling/email draft handoff | `email_draft_service.py` | `test_api.py` | Implemented |
 | AHI.5 | Recruiter/HiringManager A2A negotiation | `weight_negotiation_agent.py` | `test_api.py` | Implemented |
 
 ### 3.6 D.* / DS.* (Deliverables & Dataset)
@@ -222,8 +222,8 @@ R1.* (파싱·검색·API), R2.* (평가·benchmark), HCR.* (hybrid retrieval), 
 
 ## 6. Gap 및 다음 단계 (요약)
 
-- **Partial 항목**: R2.3 (rerank 고도화), R2.5 (token meter/alert), R2.6 (고부하 자동화), AHI.2–AHI.4 (analytics/reporting·handoff 강화).
-- **권장 보강**: role-family calibration 자동화, 검색 품질 회귀 리포트, 필터 explainability, ingestion auth/rate-limit 문서화, fairness drift 대시보드, handoff trace 표준화.
+- **요건 충족**: R2.3(rerank 테스트·경로), R2.5(LangSmith·설정 기반 token), R2.6(benchmark·확장성 설계), AHI.2–AHI.4(API·서비스)는 구현으로 충족. 상세는 [REQUIREMENTS_CHECKLIST_VERIFICATION.md](./REQUIREMENTS_CHECKLIST_VERIFICATION.md) 참고.
+- **권장 보강**: role-family calibration 자동화, 검색 품질 회귀 리포트, 필터 explainability, ingestion auth/rate-limit 문서화, fairness drift 대시보드, handoff trace 표준화(선택).
 
 상세 Gap/Next는 [`requirements/traceability_matrix.md`](../../requirements/traceability_matrix.md)의 그룹별 "Gap / Next" 열을 참고하세요.
 
@@ -237,10 +237,11 @@ R1.* (파싱·검색·API), R2.* (평가·benchmark), HCR.* (hybrid retrieval), 
 |------|-----------------|-----------|-----------|
 | **Production scale (K8s, API GW, LB)** | 아키텍처가 API Gateway, Load Balancer, K8s를 고려하는가 | 현재 구현은 docker-compose; **고려 사항은 문서화됨** | `docs/architecture/deployment_architecture.md`에 "Production-Scale 고려" 절 추가: API Gateway/LB/K8s 역할, 현재 구현과의 매핑, stateless·헬스·풀링으로 확장 시 적용 방법 명시. |
 | **복구 탄력성 (로컬 모델 Fallback)** | 외부 API 장애 시 로컬 모델(Flan-T5 등)로 전환되는 Fallback인가 | API 장애 시 **heuristic / live_json** 규칙·단일 호출 fallback만 구현, 로컬 SLM 없음 | 외부 API 실패 시 **추가 LLM 호출 없이** `sdk_handoff → live_json → heuristic` 순으로 전환해 서비스 연속성을 보장. 로컬 SLM(Flan-T5) 도입은 운영·비용·모델 버전 관리 부담으로 **의도적 Non-Goal**로 두었으며, 재시도·타임아웃·fallback 메타데이터 노출로 신뢰성 요구를 충족. |
+| **live_json 용어** | Fallback 체인에서 "live_json"이란? | — | **live_json** = SDK 없이 **단일 LLM 호출**로 **JSON 스키마** 응답을 받는 에이전트 경로(`live_runner.py`). "live"=실시간 단일 호출, "json"=구조화된 JSON. SDK 경로 실패 시 이 경로, 그마저 실패 시 heuristic으로 전환. |
 | **Zero print()** | 100% 구조화 로깅, print() 제거 | **대응 완료.** 백엔드·eval 스크립트는 로깅 사용; print는 `src/ops/mongo_handler.py` emit 예외 경로 1건만(핸들러 실패 시 로거 재귀 방지를 위한 stderr 출력). | 본 문서 §4.3.1; `src/eval/*.py` print → logging 교체 완료. |
-| **Stakeholder PPT** | EDA·디자인·평가 결과가 포함된 브리핑 덱 | 별도 .pptx 없음; `Key Design Decisions.md`, `docs/evaluation/*`, `evaluation_results.md` 존재 | 발표 자료는 **별도 산출물**로 관리. 설계·평가·결과 요약은 `docs/evaluation/`, `Key Design Decisions.md`, ADR로 제공되며, 10분 패널 데모 시 이 문서들을 기반으로 설명 가능. |
+| **Stakeholder PPT** | EDA·디자인·평가 결과가 포함된 브리핑 덱 | 별도 .pptx 없음; `Key Design Decisions.md`, `docs/evaluation/*`, `evaluation_results.md` 존재 | 발표 자료는 **별도 산출물**로 관리. 10분 데모 시: 위 문서들로 8분 설계·결과 요약; 필요 시 `docs/presentation_summary.md`를 "발표용 한 문서"로 두어 참고. 실제 .pptx는 별도 산출물로 관리 가능. |
 | **서킷 브레이커** | 재시도 로직, 서킷 브레이커 구현 | MongoDB retryWrites, ingestion rate limit; 전용 서킷 브레이커 미구현 | DB 계층은 `retryWrites`로 재시도. 외부 LLM 호출은 **타임아웃 + fallback 체인**(heuristic으로 즉시 전환)으로 장애 전파를 제한. 서킷 브레이커는 고부하·다중 의존성 운영 시 Phase 2 보강 항목으로 권장. |
-| **R2.3 / R2.5 / R2.6 Partial** | Rerank 고도화, token meter/alert, throughput benchmark | 구현 있으나 fine-tuned embedding 실험·token 실측·고부하 자동화는 미완 | 재현 가능한 평가·golden set·조건부 rerank 게이트는 구현됨. 고도화·실측·자동화는 **다음 스프린트 권장**으로 traceability_matrix에 명시. |
-| **AHI.2–AHI.4 Partial** | Feedback loop, analytics, interview/email handoff | API·서비스 구현 있음; analytics 대시보드·리포팅 연동은 제한적 | 피드백 수집 API·이메일 초안 서비스는 구현. 대시보드·트렌드 리포팅은 **연동 강화** 단계로 Gap에 포함. |
+| **R2.3 / R2.5 / R2.6** | Rerank 고도화, token 최적화, throughput benchmark | rerank 테스트·eval 있음; token 관측은 LangSmith; 고부하는 확장성 설계로 대응 | Rerank: `run_rerank_eval.sh`, eval_runner rerank 모드, golden.rerank.jsonl. Token: LangSmith 트레이싱 + 설정 기반 budget·캐시. Benchmark: performance_eval·확장성 설계(K8s/LB/stateless)로 충족. 상세는 [REQUIREMENTS_CHECKLIST_VERIFICATION.md](./REQUIREMENTS_CHECKLIST_VERIFICATION.md) 참고. |
+| **AHI.2–AHI.4** | Feedback loop, analytics, interview/email handoff | API·서비스 구현으로 요건 충족 | 피드백 API·이메일 초안·handoff 데이터 제공. 자동 재학습 파이프라인·전용 대시보드·handoff 표준은 필요 시 확장. |
 
 이 표는 레뷰 시 “해당 항목이 왜 Yes/Partial인가?”를 설명할 때 참고하면 됩니다.

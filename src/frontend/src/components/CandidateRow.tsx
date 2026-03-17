@@ -1,5 +1,6 @@
 import type { JobMatchCandidate } from "../types";
 import MatchScorePill from "./MatchScorePill";
+import { isFastProfileCandidate } from "../utils/agentEvaluation";
 
 interface CandidateRowProps {
   candidate: JobMatchCandidate;
@@ -20,15 +21,17 @@ function formatExperienceYears(years: number | undefined): string {
 
 export default function CandidateRow({ candidate, onOpen }: CandidateRowProps) {
   const score = normalize(candidate.score);
+  const isFastProfile = isFastProfileCandidate(candidate);
 
   return (
     <button type="button" className="candidate-row" onClick={() => onOpen(candidate)}>
       <span>
+        <span className="candidate-id-label">ID </span>
         {candidate.candidate_id}
       </span>
       <span>{candidate.category ?? "General"}</span>
       <span>{formatExperienceYears(candidate.experience_years)}</span>
-      <MatchScorePill score={score} />
+      <MatchScorePill score={score} scoreKind={isFastProfile ? "profile" : "agent"} />
     </button>
   );
 }

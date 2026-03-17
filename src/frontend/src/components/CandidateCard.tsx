@@ -31,7 +31,7 @@ function cultureFitPercent(candidate: JobMatchCandidate, isFastProfile: boolean)
 }
 
 function stateLabel(score: number): "Stable" | "Risk" {
-  return score >= 65 ? "Stable" : "Risk";
+  return score >= 70 ? "Stable" : "Risk";
 }
 
 function formatExperienceYears(years: number | undefined): string {
@@ -64,11 +64,12 @@ export default function CandidateCard({ candidate, onOpen }: CandidateCardProps)
         <div className="candidate-topline">
           <div>
             <h3>
+              <span className="candidate-id-label">ID </span>
               {candidate.candidate_id}
             </h3>
             <p>{role}</p>
           </div>
-          <MatchScorePill score={score} />
+          <MatchScorePill score={score} scoreKind={isFastProfile ? "profile" : "agent"} />
         </div>
 
         <div className="candidate-meta">
