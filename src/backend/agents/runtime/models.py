@@ -38,7 +38,7 @@ class NegotiationOutput(BaseModel):
 
 class HandoffConstraints(BaseModel):
     disagreement_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
-    max_turns: int = Field(default=6, ge=1, le=12)
+    max_turns: int = Field(default=3, ge=1, le=12)  # Recruiter→HM→Negotiation = 3 steps; 6 was overkill and costly
 
 
 class HandoffRunContext(BaseModel):

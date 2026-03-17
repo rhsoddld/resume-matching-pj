@@ -5,7 +5,8 @@
 | 영역 | 소스 |
 |---|---|
 | Agent prompts | `src/backend/agents/runtime/prompts.py` |
-| Prompt version | `PROMPT_VERSION` |
+| Prompt version | `PROMPT_VERSION` (현재 v5: evidence 역할 구분 반영) |
+| Evidence 역할 구분 (v5) | [agent_evaluation_and_scoring.md § 2.5](../agents/agent_evaluation_and_scoring.md#25-evidence-역할-구분-evidence-rule-prompt-v5-이상) |
 | Judge rubric reference | `docs/evaluation/evaluation_results.md` (rubric snapshot) |
 
 ## Prompt Change Rules

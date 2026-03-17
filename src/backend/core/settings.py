@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     rerank_gate_unknown_ratio_threshold: float = 0.5
     rerank_require_ab_proof: bool = True
     rerank_ab_proven: bool = False
-    agent_eval_top_n: int = 5
+    agent_eval_top_n: int = 4
     eval_judge_model: str = "gpt-4o"
     eval_judge_model_version: str = "judge-v1"
     fairness_guardrails_enabled: bool = True

@@ -41,6 +41,40 @@ flowchart LR
 | `TechnicalEvaluationAgent` | 기술 깊이/아키텍처 신호 평가 | stack depth, project/role signal | technical strength score |
 | `CultureFitAgent` | 협업/도메인 적합성 평가 | capabilities, role context | culture fit score/warnings |
 
+에이전트별 **evidence**는 역할이 구분되어 있다(Skill=정렬, Technical=커버리지·깊이, Experience=연차·임팩트, Culture=협업·소통). 상세: [agent_evaluation_and_scoring.md § 2.5 Evidence 역할 구분](./agent_evaluation_and_scoring.md#25-evidence-역할-구분-evidence-rule-prompt-v5-이상).
+
+## Evidence Retrieval (RAG as a Tool)
+
+평가 에이전트는 **필요할 때만** 후보 이력서 안에서 추가 증거를 찾기 위해 `search_candidate_evidence` 도구를 호출한다. 검색(Retrieval)을 파이프라인 고정 단계가 아니라 **에이전트의 도구 한 개**로 두는 설계를 **RAG-as-a-Tool**이라고 부른다.
+
+### 도구와 사용 조건
+
+| 도구 | 설명 | 사용 제한 (프롬프트) |
+|------|------|----------------------|
+| `search_candidate_evidence(query: str)` | 현재 후보의 구조화된 이력서 데이터 안에서 `query`와 매칭되는 문장/문구를 검색해 문자열로 반환 | 각 에이전트당 **필요 시 최대 1회**; 정보 부족은 가능하면 주어진 요약/문맥으로 추론 |
+
+에이전트별 호출 유도 조건:
+
+- **Skill:** 필수 요구 스킬이 정말 누락되었다고 판단될 때만
+- **Experience:** 핵심 성과 지표나 필수 경력 기간이 불분명할 때만
+- **Technical:** 핵심 필수 기술 스택의 실제 활용 여부를 파악할 수 없을 때만
+- **Culture:** 협업/소통 등 정성 평가 단서가 전무해 심각한 감점이 예상될 때만
+
+### 검색 대상 데이터(컬럼)
+
+도구는 MongoDB `candidates` 컬렉션에서 `candidate_id`로 1건 조회하며, 아래 **projection 필드만** 사용한다. (원문 `raw.resume_text`는 검색하지 않음.)
+
+| 필드 | 용도 |
+|------|------|
+| `parsed.experience_items` | 경력 항목(title, company, description) — query 단어와 문장/역할 매칭 |
+| `parsed.capability_phrases` | 역량 문구 |
+| `parsed.abilities` | 역량 |
+| `parsed.summary` | 요약 문장 |
+
+매칭은 query를 단어 단위로 쪼갠 뒤 각 필드 텍스트에 **term 포함 여부**로 수행한다(임베딩/벡터 검색 아님).
+
+*구현:* `src/backend/agents/runtime/sdk_runner.py` (도구 정의·에이전트에 전달), `src/backend/services/hybrid_retriever.py` (`search_within_candidate`).
+
 ## Runtime Modes and Fallback
 
 | Mode | 설명 | 사용 시점 |
@@ -52,6 +86,18 @@ flowchart LR
 Fallback contract:
 - 응답에는 반드시 runtime mode와 fallback reason을 남긴다.
 - 실패 시에도 후보 리스트와 최소 점수 설명을 반환한다.
+
+## Handoff 제한 (HandoffConstraints)
+
+A2A(Recruiter → HiringManager → WeightNegotiation) handoff 시 **턴 수·비용**을 제어하기 위해 아래 제한을 둔다.
+
+| 항목 | 설명 | 기본값 | 범위 | 구현 |
+|------|------|--------|------|------|
+| **max_turns** | handoff 체인에서 허용하는 최대 턴 수. Recruiter → HM → Negotiation 3단계에 맞춤. | 3 | 1~12 | `HandoffConstraints.max_turns` (`src/backend/agents/runtime/models.py`) |
+| **disagreement_threshold** | Recruiter/HM 제안 차이가 이 값을 넘으면 Negotiation 에이전트로 handoff. | 0.35 | 0.0~1.0 | `HandoffConstraints.disagreement_threshold` |
+
+- 기본값 3: 실제 플로우(Recruiter → HM → Negotiation)에 필요한 최소 턴으로 설정해 토큰·비용을 줄인다. 필요 시 설정으로 1~12 유지 가능.
+- handoff 입력은 `_build_slim_payload_for_handoff`로 슬림화하여 턴당 전송량을 제한한다. (상세: [cost_control.md](../governance/cost_control.md))
 
 ## Negotiation Policy
 

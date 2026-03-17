@@ -193,6 +193,18 @@ _GENERIC_NON_SKILL_TERMS = {
     "become",
     "mere",
     "literacy",
+    # JD 메타/보일러플레이트 — 스킬이 아닌 표현 (Core requirements 노이즈 제거)
+    "understandable",
+    "qualifications",
+    "user-centric",
+    "usability",
+    "interfaces",
+    "responsive",
+    "frameworks",
+    "performance",
+    "integration",
+    "ai-driven",
+    "visualization",
 }
 _SENIORITY_KEYWORDS = ("intern", "junior", "mid", "senior", "lead", "staff", "principal")
 _SINGLE_TERM_WHITELIST = {
@@ -620,6 +632,30 @@ def _sentences(job_description: str) -> list[str]:
     return parts or [job_description.lower()]
 
 
+def _fallback_related_from_jd(job_description: str, required_skills: list[str]) -> list[str]:
+    """Related가 비었을 때만 사용: JD를 구간으로 나눠 required에 없는 2~4단어 구문을 related 후보로 씀."""
+    if not job_description or not job_description.strip():
+        return []
+    lowered = job_description.lower()
+    chunks = [p.strip() for p in _SKILL_SPLIT_RE.split(lowered) if p.strip()]
+    required_set = {s.strip().lower() for s in required_skills if isinstance(s, str) and s.strip()}
+    candidates: list[str] = []
+    for chunk in chunks:
+        cleaned = re.sub(r"[^\w\s+#.-]", " ", chunk).strip()
+        cleaned = re.sub(r"\s+", " ", cleaned).strip(" .,-")
+        words = [w for w in cleaned.split(" ") if w]
+        if len(words) < 2 or len(words) > _MAX_PHRASE_WORDS:
+            continue
+        if cleaned in required_set:
+            continue
+        stopword_count = sum(1 for w in words if w in _SKILL_STOPWORDS)
+        if stopword_count > 1:
+            continue
+        candidates.append(cleaned)
+    filtered = _filter_noisy_terms(dedupe_preserve(candidates))
+    return [t for t in filtered if t not in required_set][:_MAX_RELATED_SKILLS]
+
+
 def _infer_strength_from_sentence(sentence: str) -> str:
     if any(cue in sentence for cue in _MUST_CUES):
         return "must have"
@@ -900,10 +936,17 @@ def build_job_profile(
             ontology=None,
             max_terms=_MAX_REQUIRED_SKILLS,
         )
+        # Related 후보는 required에 이미 포함된 항목을 제외한 풀에서 선정 (그렇지 않으면 우선순위 상위가 required와 겹쳐 related가 비게 됨)
+        expansion_pool = [t for t in filtered_candidates if t not in set(required_skills)]
+        # 짧은 JD는 filtered만 쓰면 전부 required로 가서 related가 비므로, 비었을 때는 raw → literal 순으로 추가
+        if not expansion_pool:
+            expansion_pool = [t for t in raw_candidates if t not in set(required_skills)]
+        if not expansion_pool:
+            expansion_pool = [t for t in literal_raw_candidates if t not in set(required_skills)]
         expanded_skills = dedupe_preserve(
             [
                 *required_skills,
-                *_compress_skill_terms(filtered_candidates, ontology=None, max_terms=_MAX_REQUIRED_SKILLS + _MAX_RELATED_SKILLS),
+                *_compress_skill_terms(expansion_pool, ontology=None, max_terms=_MAX_RELATED_SKILLS),
             ]
         )
     else:
@@ -927,14 +970,19 @@ def build_job_profile(
         )
 
         expanded_base = normalized.expanded_skills or base_required or required_skills
+        # Related 후보는 required를 제외한 풀에서 선정 (동일 풀에서 우선순위만 쓰면 required와 겹쳐 related가 비게 됨)
+        expansion_pool = [
+            t for t in dedupe_preserve([*expanded_base, *filtered_candidates])
+            if t not in set(required_skills)
+        ]
+        if not expansion_pool:
+            expansion_pool = [t for t in raw_candidates if t not in set(required_skills)]
+        if not expansion_pool:
+            expansion_pool = [t for t in literal_raw_candidates if t not in set(required_skills)]
         expanded_skills = dedupe_preserve(
             [
                 *required_skills,
-                *_compress_skill_terms(
-                    dedupe_preserve([*expanded_base, *filtered_candidates]),
-                    ontology=ontology,
-                    max_terms=_MAX_REQUIRED_SKILLS + _MAX_RELATED_SKILLS,
-                ),
+                *_compress_skill_terms(expansion_pool, ontology=ontology, max_terms=_MAX_RELATED_SKILLS),
             ]
         )
 
@@ -989,6 +1037,9 @@ def build_job_profile(
         ontology=ontology,
         max_terms=_MAX_RELATED_SKILLS,
     )
+    # 캐시/짧은 JD 등으로 related가 비었을 때 JD 구문에서 직접 채움
+    if not related_skills:
+        related_skills = _fallback_related_from_jd(job_description, required_skills)
     expanded_skills = dedupe_preserve([*required_skills, *related_skills])
     lexical_query = _build_lexical_query(
         roles=roles,

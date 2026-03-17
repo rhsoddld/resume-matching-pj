@@ -169,6 +169,26 @@ def _as_model_data(raw_output: Any) -> dict[str, Any]:
     return {}
 
 
+def _build_slim_payload_for_handoff(payload: dict[str, Any]) -> dict[str, Any]:
+    """Build a minimal payload for A2A handoff to cut token cost.
+
+    Recruiter/HM/Negotiation only need job_profile, retrieval context, and a short
+    candidate summary. Excludes job_description and full candidate inputs (including
+    raw_resume_text) which are the main cost drivers when sent on every handoff turn.
+    """
+    candidate = payload.get("candidate") or {}
+    skill_input = candidate.get("skill_input") or {}
+    experience_input = candidate.get("experience_input") or {}
+    return {
+        "job_profile": payload.get("job_profile") or {},
+        "retrieval_context": payload.get("retrieval_context") or {},
+        "candidate": {
+            "candidate_id": skill_input.get("candidate_id") or experience_input.get("candidate_id") or "",
+            "candidate_summary": (skill_input.get("candidate_summary") or experience_input.get("candidate_summary") or "")[:2000],
+        },
+    }
+
+
 def _coerce_skill_output(raw_output: Any) -> SkillAgentOutput:
     if isinstance(raw_output, SkillAgentOutput):
         return raw_output
@@ -497,9 +517,11 @@ def run_agents_sdk(
         if "handoffs" not in recruit_sig.parameters and not accepts_var_kwargs:
             raise RuntimeError("Agents SDK handoffs are not supported by installed runtime.")
 
+        # Use slim payload (no job_description, no raw_resume_text) to reduce A2A token cost.
+        slim_payload = _build_slim_payload_for_handoff(payload)
         handoff_input = json.dumps(
             {
-                "payload": payload,
+                "payload": slim_payload,
                 "score_pack": score_pack.model_dump(),
                 "constraints": handoff_context.constraints.model_dump(),
                 "instruction": (
@@ -510,11 +532,16 @@ def run_agents_sdk(
             },
             ensure_ascii=False,
         )
+        run_context_slim = {
+            "payload": slim_payload,
+            "score_pack": handoff_context.score_pack.model_dump(),
+            "constraints": handoff_context.constraints.model_dump(),
+        }
         run_result = _run_sync_with_context(
             runner_cls,
             start_agent=recruiter_agent,
             input_text=handoff_input,
-            run_context=handoff_context.model_dump(),
+            run_context=run_context_slim,
             max_turns=handoff_context.constraints.max_turns,
         )
         raw_negotiation = getattr(run_result, "final_output", run_result)

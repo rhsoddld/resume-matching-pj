@@ -19,6 +19,8 @@
 
 ## 2. 4개 차원: 무엇을 보고, 어떻게 점수 내는가
 
+4개 에이전트는 공통으로 **`search_candidate_evidence`** 도구(RAG-as-a-Tool)를 갖고 있으며, 주어진 입력만으로 판단이 어려울 때만 **선택적으로** 호출해 후보의 구조화된 이력서(parsed 필드) 안에서 추가 증거를 검색한다. 도구 사용 조건·검색 대상 컬럼·구현 위치는 [multi_agent_pipeline.md § Evidence Retrieval (RAG as a Tool)](./multi_agent_pipeline.md#evidence-retrieval-rag-as-a-tool) 참고.
+
 ### 2.1 Skill (SkillEvalAgent)
 
 | 항목 | 내용 |
@@ -64,6 +66,22 @@
 | **Heuristic** | category_filter와 hit category 일치 시 0.75, 불일치 시 0.6. risk_flags는 불일치 시 `["indirect-domain-signal"]`. |
 
 *구현:* `contracts/culture_agent.py`, `runtime/heuristics.py`, `runtime/prompts.py` (culture_eval)
+
+### 2.5 Evidence 역할 구분 (EVIDENCE RULE, prompt v5 이상)
+
+각 에이전트의 **evidence**는 서로 겹치지 않도록 역할이 나뉜다. UI에서 Skill/Technical 등 카드가 비슷한 문장으로 나오지 않도록 프롬프트에 명시되어 있다.
+
+| 에이전트 | evidence에 넣을 내용 | 넣지 말아야 할 내용 |
+|----------|----------------------|----------------------|
+| **Skill** | **정렬(alignment)**만: 어떤 필수/선호 스킬이 매칭(또는 동등)인지, 어떤 게 부족·약한지. 예: "JD required X; candidate has X (or equivalent Y)", "Missing: A, B" | 후보 기술 나열만 (Technical 역할) |
+| **Technical** | **스택 커버리지·깊이**만: 어떤 도구/플랫폼을 쓰는지, breadth(영역) 또는 depth(아키텍처·규모·ownership)를 어떻게 보여주는지. 기술은 컨텍스트로 인용 | 스킬 정렬/매칭/부족 표현 (Skill 역할) |
+| **Experience** | **경력·시니어리티**만: 연차, 임팩트, 스코프, 레벨. 예: "N years in X roles; senior/lead scope" | 스킬·기술 나열 (Skill/Technical 역할) |
+| **Culture** | **소프트 시그널**만: 협업, 소통, 오너십, 팀워크 | 스킬·기술·연차 (다른 3개 에이전트 역할) |
+
+- **ScorePack**: 통합 시에도 위 역할을 유지하고, Skill=정렬 / Technical=커버리지·깊이 / Experience / Culture 를 섞거나 흐리게 하지 않는다.
+- **ranking_explanation**: 기술 적합성이 결정 요인일 때는 Technical 에이전트의 스택 커버리지·깊이도 인용한다.
+
+*구현:* `runtime/prompts.py` (각 에이전트 EVIDENCE RULE, score_pack, negotiation, live_orchestrator_system)
 
 ---
 
@@ -122,10 +140,11 @@ rank_score = rank_score_before_penalty * (1 - must_have_penalty)
 ## 5. 설명(Explanation) 생성 관점
 
 - **목표:** “왜 이 점수/순위인가”를 **evidence-token 중심**으로 설명. 일반적 문구(“strong experience”)보다 **JD/후보에 나온 리터럴 스킬·증거 토큰**을 넣는다.
-- **템플릿 (prompt v4 / live_orchestrator):**
+- **템플릿 (prompt v5 / live_orchestrator):**
   - `Matched required skills: <literal tokens>.`
   - `Candidate evidence tokens: <literal tokens>; missing or weaker skills: <literal tokens or none>.`
   - `Scores/weights: skill=..., experience=..., technical=..., culture=...; final weights skill=..., ...`
+  - 기술 fit이 결정 요인일 때는 Technical 에이전트의 stack coverage/depth도 인용.
 - **Heuristic 설명:** `build_grounded_ranking_explanation`이 job_profile required_skills, candidate skill_input/technical_input, 각 에이전트의 matched/missing, final_weights를 넣어 동일 구조로 문자열을 만든다.
 
 이렇게 하면 eval의 groundedness 휴리스틱(설명 문장과 스킬/evidence 토큰 overlap)과 맞고, 리뷰어가 “어떤 스킬로 매칭/갭이 판단됐는지” 추적하기 쉽다.
@@ -142,7 +161,8 @@ rank_score = rank_score_before_penalty * (1 - must_have_penalty)
 | **스코어링 관점** | 각 차원 0~1; 동등 기술/transferable 인정, 과도한 exact-match 감점 지양; culture는 부정 시그널 있을 때만 낮춤. |
 | **가중치** | Recruiter(파이프라인·transferable) vs Hiring Manager(기술·must-have)·협상 → final. 기술 역할은 culture로 기술 부족 보상 금지. |
 | **최종 점수** | agent_weighted = 4차원 가중합; rank_score = `rank_deterministic_weight`·deterministic + `rank_agent_weight`·agent_weighted 후 must_have_penalty 적용. |
-| **설명** | Evidence-token 중심 템플릿(Matched / Candidate evidence / missing; Scores/weights). |
+| **설명** | Evidence-token 중심 템플릿(Matched / Candidate evidence / missing; Scores/weights). 기술 결정 시 Technical stack/depth 인용. |
+| **Evidence 역할** | Skill=정렬, Technical=커버리지·깊이, Experience=연차·임팩트, Culture=협업·소통 (v5 EVIDENCE RULE). |
 
 **코드 위치 요약**
 
