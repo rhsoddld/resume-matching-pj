@@ -5,7 +5,7 @@
 - Run ID: `eval-20260316T210104Z-d1928143`
 - Started at (UTC): `2026-03-16T21:01:04Z`
 - Finished at (UTC): `2026-03-16T21:04:00Z`
-- Golden set: `/Users/lee/Desktop/resume-matching-pj/src/eval/subsets/golden.agent.jsonl`
+- Golden set: `src/eval/subsets/golden.agent.jsonl`
 - Total queries: `6`
 - Successful queries: `6`
 

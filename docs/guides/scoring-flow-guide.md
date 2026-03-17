@@ -104,10 +104,11 @@
   semantic_similarity = (raw_similarity + 1) / 2   # 벡터 점수 [0,1]로
   experience_fit      = 경력 연차 적합도 (요구연차 대비, 과다 시 소폭 페널티)
   seniority_fit      = 시니어리티 레벨 거리 기반 0~1
-  category_fit       = category 일치 시 0.03, 아니면 0
+  category_fit       = category 일치 시 category_bonus, 아니면 0
 
-  final_score = 0.42×semantic_similarity + 0.33×skill_overlap + 0.18×experience_fit + 0.07×seniority_fit + category_fit
+  final_score = w_sem×semantic_similarity + w_skill×skill_overlap + w_exp×experience_fit + w_seniority×seniority_fit + category_fit
   ```
+  - \(w_\*\) 및 `category_bonus`는 **deterministic scoring policy(versioned)** 로 관리한다: `src/backend/services/scoring_policies.py` (기본 v1).
   - 위 값을 0~1로 clip한 것이 **deterministic_score**.
 
 이 **deterministic_score**로 10명을 **정렬**한 뒤, **상위 agent_eval_top_n명(기본 5명)**만 다음 단계(에이전트)로 넘깁니다.
@@ -129,7 +130,7 @@
 
 - **에이전트 평가 받은 5명:**
   ```
-  rank_score = 0.30 × deterministic_score + 0.70 × agent_weighted_score
+  rank_score = rank_deterministic_weight × deterministic_score + rank_agent_weight × agent_weighted_score
   rank_score = rank_score × (1 - must_have_penalty)   # 0~1 클립
   ```
   - `must_have_penalty`: JD must-have 스킬 미충족 시 최대 0.12까지 감점 (adjacent 스킬로 일부 상쇄 가능).
@@ -158,9 +159,9 @@
 |------|-----------|
 | **Skill overlap (표시·deterministic 입력)** | JD 스킬 상위 10개만 분모 사용. core 있음: `0.45×core + 0.35×expanded + 0.2×normalized` / core 없음: `0.5×normalized + 0.5×expanded`. 에이전트 O면 위 값과 agent 스킬 점수 50:50 블렌딩. |
 | **Retrieval fusion** | `fusion = 0.48×vector + 0.37×keyword + 0.15×metadata` |
-| **Deterministic score** | `0.42×semantic + 0.33×skill_overlap + 0.18×experience_fit + 0.07×seniority_fit + category_fit` |
+| **Deterministic score** | `w_sem×semantic + w_skill×skill_overlap + w_exp×experience_fit + w_seniority×seniority_fit + category_bonus(if matched)` (policy v1: `scoring_policies.py`) |
 | **Agent weighted score** | `skill×w_s + experience×w_e + technical×w_t + culture×w_c` (가중치 합=1, 협상으로 결정) |
-| **최종 rank_score (에이전트 O)** | `(0.30×deterministic + 0.70×agent) × (1 - must_have_penalty)` |
+| **최종 rank_score (에이전트 O)** | `(rank_deterministic_weight×deterministic + rank_agent_weight×agent) × (1 - must_have_penalty)` |
 | **최종 rank_score (에이전트 X)** | `deterministic × (1 - must_have_penalty)` |
 
 ---
@@ -174,6 +175,9 @@
 | `agent_eval_top_n` | 5 | 에이전트 평가할 상위 인원 (나머지는 deterministic만) |
 | `rerank_top_n` / `rerank_gate_max_top_n` | 50 / 8 | rerank 풀 크기 상한 |
 | `token_budget_enabled` | False | True면 agent_eval_top_n이 토큰 예산에 맞게 줄어들 수 있음 |
+| `rank_deterministic_weight` / `rank_agent_weight` | 0.30 / 0.70 | 최종 rank_score에서 deterministic vs agent_weighted 블렌딩 비율 (env/Settings로 관리) |
+| `fallback_recruiter_weights` / `fallback_hiring_manager_weights` | (문서 기본값) | LLM 협상 실패 시 fallback 협상 가중치(Recruiter/HM) 및 조정폭 (env/Settings로 관리) |
+| `deterministic scoring policy` | v1 | deterministic 내부 가중치/보너스는 env가 아니라 **repo-managed 정책 버전**으로 관리 (`scoring_policies.py`) |
 
 ---
 
@@ -185,7 +189,7 @@
 | Retrieval fusion, 인원 수 | `src/backend/services/hybrid_retriever.py`, `src/backend/services/matching/rerank_policy.py` |
 | Enrichment·메타 필터 | `src/backend/services/candidate_enricher.py` |
 | Shortlist·rerank 게이트 | `src/backend/services/matching_service.py` (`_shortlist_candidates`), `src/backend/services/matching/rerank_policy.py` |
-| Deterministic·skill overlap·최종 blend | `src/backend/services/scoring_service.py`, `src/backend/services/match_result_builder.py` |
+| Deterministic·skill overlap·최종 blend | `src/backend/services/scoring_service.py`, `src/backend/services/scoring_policies.py`, `src/backend/services/match_result_builder.py` |
 | 에이전트 4개 + 가중치 협상 + agent_weighted_score | `src/backend/agents/runtime/service.py`, `src/backend/agents/runtime/helpers.py` |
 | 에이전트 평가할 인덱스 선택 | `src/backend/services/matching/evaluation.py` (`select_agent_eval_indices`) |
 

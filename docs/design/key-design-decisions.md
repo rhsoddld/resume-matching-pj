@@ -3,7 +3,7 @@
 **Project:** `resume-matching-pj` | **Version:** MVP / Capstone baseline | **Date:** March 2026  
 **Goal:** JD(Job Description) → 구조화된 쿼리 → Hybrid Retrieval → Multi-Agent 평가 → Explainable Candidate Recommendation
 
-**설계 근거 요약 (온톨로지·비용·평가):** [design_rationale_ontology_eval_cost.md](./design_rationale_ontology_eval_cost.md) — 왜 스킬 온톨로지(Agentic AI 친화성), 장기 비용 구조(에이전트 작업 집중), eval 수치·관점 정리.
+**설계 근거 요약 (온톨로지·비용·평가):** [rationale-ontology-eval-cost.md](./rationale-ontology-eval-cost.md) — 왜 스킬 온톨로지(Agentic AI 친화성), 장기 비용 구조(에이전트 작업 집중), eval 수치·관점 정리.
 
 ## 1. Vector DB & Document Store → Milvus + MongoDB
 
@@ -13,7 +13,7 @@
 | **MongoDB** (document source) | Candidate profiles, resume text, structured fields; single source of truth | PostgreSQL + pgvector, Elasticsearch |
 | **Dual-store sync** | Ingestion pipeline upserts to both; retrieval uses Milvus for vector, MongoDB for fallback/lexical path | Single store with vector extension |
 
-*Ref: [ADR-001-vector-db.md](./adr/ADR-001-vector-db.md)*
+*Ref: [ADR-001-vector-db.md](../adr/ADR-001-vector-db.md)*
 
 ## 2. Embedding Strategy → OpenAI text-embedding-3-small
 
@@ -23,7 +23,7 @@
 | **Model configurable via env** | Easy upgrade path without code change | Hardcoded model |
 | **Future: fine-tuned embedding** | R2.3 fine-tuned embedding rerank intentionally deferred until A/B evidence | Fine-tune from day one |
 
-*Ref: [ADR-002-embedding-model.md](./adr/ADR-002-embedding-model.md)*
+*Ref: [ADR-002-embedding-model.md](../adr/ADR-002-embedding-model.md)*
 
 ## 3. Query Understanding → Deterministic (No LLM for JD Parsing)
 
@@ -34,7 +34,7 @@
 | **Signal quality & confidence** | `signal_quality`, `confidence` 출력으로 retrieval/rerank 게이트 및 평가 추적 가능 | Opaque query object |
 | **Query fallback (optional)** | Low confidence / high unknown_ratio 시 LLM query fallback 옵션 제공 | Always LLM or never LLM |
 
-*Ref: [ADR-005-deterministic-query-understanding.md](./adr/ADR-005-deterministic-query-understanding.md)*  
+*Ref: [ADR-005-deterministic-query-understanding.md](../adr/ADR-005-deterministic-query-understanding.md)*  
 *Implementation:* `src/backend/services/job_profile_extractor.py`, `src/backend/core/filter_options.py`, `config/*.yml`
 
 **설명 vs 코드:** 필터 옵션 API(`/api/jobs/filters`)는 `repositories.mongo_repo.get_filter_options()`를 호출하지만, 현재 구현에서는 **MongoDB를 읽지 않고** `core.filter_options.get_filter_options()`(YAML: `job_filters.yml` + `skill_taxonomy.yml` 병합)만 사용한다. 즉 필터 옵션 소스는 100% 설정 파일이다.
@@ -47,7 +47,7 @@
 | **Fusion scoring** | `hybrid_scoring.fusion_score`로 vector similarity, keyword score, metadata score 결합 | Single-score ranking |
 | **Mongo fallback** | Milvus 불가 시 Mongo 기반 lexical path로 후보 풀 생성 | Fail fast |
 
-*Ref: [ADR-003-hybrid-retrieval.md](./adr/ADR-003-hybrid-retrieval.md)*  
+*Ref: [ADR-003-hybrid-retrieval.md](../adr/ADR-003-hybrid-retrieval.md)*  
 *Implementation:* `src/backend/services/hybrid_retriever.py`, `src/backend/services/retrieval/hybrid_scoring.py`
 
 ## 5. Rerank Layer → Conditional Gate + Embedding/LLM Modes
@@ -60,7 +60,7 @@
 | **Timeout & fallback** | `RERANK_TIMEOUT_SEC` 적용, 실패 시 baseline shortlist 반환 | Block until rerank completes |
 | **R2.3 fine-tuned embedding rerank** | Intentionally deferred; baseline 이상 주장하지 않음 | Implement from start |
 
-*Ref: [ADR-006-rerank-policy.md](./adr/ADR-006-rerank-policy.md)*  
+*Ref: [ADR-006-rerank-policy.md](../adr/ADR-006-rerank-policy.md)*  
 *Implementation:* `src/backend/services/matching/rerank_policy.py`, `src/backend/services/cross_encoder_rerank_service.py`, `src/backend/core/model_routing.py`
 
 **설명 vs 코드:** Rerank 서비스 파일명은 `cross_encoder_rerank_service.py`이지만, 실제 구현은 **embedding 기반** rerank와 **LLM** rerank 두 모드만 지원한다. Cross-Encoder 모델(예: ms-marco-MiniLM-L-6-v2)은 사용하지 않으며, `rerank_mode`가 `embedding`일 때는 쿼리+후보 텍스트를 embedding한 뒤 유사도로 재정렬한다.
@@ -74,9 +74,9 @@
 | **Runtime fallback chain** | SDK handoff → live_json → heuristic; 응답에 `runtime_mode` 및 fallback reason 포함 | Single path only |
 | **RAG-as-a-Tool** | 에이전트가 `search_candidate_evidence`로 증거 탐색 가능 | No tool use |
 
-**Agent 지연 트레이드오프와 대응:** OpenAI SDK 경로에서는 후보당 다중 에이전트가 순차·handoff로 동작해 **멀티에이전트 통신이 다발하고 처리 시간이 길어짐**. 이에 대한 대응으로 **(1) 후보 단위 병렬 처리**(ThreadPoolExecutor로 shortlist 동시 평가), **(2) 스트리밍(SSE)** 으로 profile → thought_process → candidate 순차 전달해 **UX 개선**, **(3) agent_eval_top_n 상한** 및 **(4) live_json/heuristic fallback**으로 지연·비용·장애를 완화한다. 상세: [design_tradeoffs.md](./tradeoffs/design_tradeoffs.md) § Agent 설계 트레이드오프.
+**Agent 지연 트레이드오프와 대응:** OpenAI SDK 경로에서는 후보당 다중 에이전트가 순차·handoff로 동작해 **멀티에이전트 통신이 다발하고 처리 시간이 길어짐**. 이에 대한 대응으로 **(1) 후보 단위 병렬 처리**(ThreadPoolExecutor로 shortlist 동시 평가), **(2) 스트리밍(SSE)** 으로 profile → thought_process → candidate 순차 전달해 **UX 개선**, **(3) agent_eval_top_n 상한** 및 **(4) live_json/heuristic fallback**으로 지연·비용·장애를 완화한다. 상세: [design_tradeoffs.md](../tradeoffs/design_tradeoffs.md) § Agent 설계 트레이드오프.
 
-*Ref: [ADR-004-agent-orchestration.md](./adr/ADR-004-agent-orchestration.md)*  
+*Ref: [ADR-004-agent-orchestration.md](../adr/ADR-004-agent-orchestration.md)*  
 *Implementation:* `src/backend/agents/contracts/*.py`, `src/backend/agents/runtime/service.py`, `sdk_runner.py`, `live_runner.py`, `heuristics.py`
 
 ## 7. LLM Usage (Default Models)
@@ -100,7 +100,7 @@ All model names and versions are configurable via `backend.core.settings` (env).
 | **Must-have vs culture gate** | must-have 미달 + culture 고신뢰 조합 시 경고 | No gate |
 | **Top-K seniority distribution** | JD seniority 미지정 시 상위 K명 seniority 쏠림 검사 | No check |
 
-*Ref: [ADR-008-bias-fairness-guardrails.md](./adr/ADR-008-bias-fairness-guardrails.md)*  
+*Ref: [ADR-008-bias-fairness-guardrails.md](../adr/ADR-008-bias-fairness-guardrails.md)*  
 *Implementation:* `src/backend/services/matching/fairness.py`, `src/backend/core/jd_guardrails.py`  
 *Frontend:* `BiasGuardrailBanner.tsx`로 경고 노출
 
@@ -114,8 +114,8 @@ All model names and versions are configurable via `backend.core.settings` (env).
 | **Health** | `/api/health` (liveness), `/api/ready` (Mongo + Milvus readiness) |
 | **Deployment** | Docker Compose (local); GKE/Helm-ready (see deployment_architecture.md) |
 
-*Ref: [ADR-009-observability-strategy.md](./adr/ADR-009-observability-strategy.md)*  
-*Ref: [docs/observability/logging_metrics.md](./observability/logging_metrics.md), [docs/observability/monitoring.md](./observability/monitoring.md)*
+*Ref: [ADR-009-observability-strategy.md](../adr/ADR-009-observability-strategy.md)*  
+*Ref: [docs/observability/logging_metrics.md](../observability/logging_metrics.md), [docs/observability/monitoring.md](../observability/monitoring.md)*
 
 ## 10. Tech Stack Summary (Final)
 
@@ -145,4 +145,4 @@ Evaluation:      DeepEval, LLM-as-Judge, golden set; Bias guardrails v1
 | Explainability 품질 | DeepEval/LLM-as-Judge로 문장 품질·근거 일관성 자동 평가 고도화 |
 | Fairness 운영 | v1 구현됨; fairness metrics 대시보드 및 정책 튜닝 고도화 |
 
-*상세: [docs/architecture/system_architecture.md](./architecture/system_architecture.md) § 구현 갭*
+*상세: [docs/architecture/system_architecture.md](../architecture/system_architecture.md) § 구현 갭*

@@ -2,7 +2,7 @@
 
 **목적:** 에이전트가 **무엇을 평가하는지**, **어떤 관점으로 점수를 내는지**, **최종 랭킹 점수가 어떻게 합성되는지**를 한 문서에 정리한다.
 
-**관련 문서:** [multi_agent_pipeline.md](./multi_agent_pipeline.md), [ADR-004](../adr/ADR-004-agent-orchestration.md), [design_rationale_ontology_eval_cost.md](../design_rationale_ontology_eval_cost.md)
+**관련 문서:** [multi_agent_pipeline.md](./multi_agent_pipeline.md), [ADR-004](../adr/ADR-004-agent-orchestration.md), [design/rationale-ontology-eval-cost.md](../design/rationale-ontology-eval-cost.md)
 
 ---
 
@@ -12,7 +12,7 @@
    → Skill, Experience, Technical, Culture
 2. **ScorePack**이 네 출력을 한 덩어리로 정리하고, 설명을 evidence-token 중심으로 맞춘다.
 3. **Recruiter / Hiring Manager**가 각각 가중치 제안(proposal)을 내고, **WeightNegotiation**이 최종 가중치를 정한다.
-4. **가중 합**으로 `agent_weighted_score`를 계산하고, deterministic 점수와 **blend(0.30 / 0.70)** 해서 최종 `rank_score`를 만든다.
+4. **가중 합**으로 `agent_weighted_score`를 계산하고, deterministic 점수와 **blend(rank_deterministic_weight / rank_agent_weight)** 해서 최종 `rank_score`를 만든다.
 5. 에이전트 실패 시 **heuristic fallback**으로 동일 스키마의 점수·설명을 규칙 기반으로 채운다.
 
 ---
@@ -79,9 +79,8 @@
 
 **Fallback 가중치 (heuristic):**
 
-- Recruiter: skill 0.30, experience 0.35, technical 0.20, culture 0.15 (경력/문화 쪽 조금 높음).
-- Hiring Manager: skill 0.40, experience 0.20, technical 0.30, culture 0.10 (스킬/기술 쪽 높음).
-- 요구 연차 ≥5년이면 recruiter experience +0.10 등 미세 조정; required_skills ≥6이면 hiring_manager technical +0.10 등.
+- Recruiter 기본값 / Hiring Manager 기본값은 **환경 변수(Settings)** 로 관리한다. (예: `FALLBACK_RECRUITER_WEIGHTS`, `FALLBACK_HIRING_MANAGER_WEIGHTS`)
+- 요구 연차 ≥ threshold이면 recruiter experience boost 등 **미세 조정 폭도 Settings** 로 관리한다.
 - **Final** = 두 제안의 (정규화된) 중간값.
 
 *구현:* `contracts/weight_negotiation_agent.py`, `runtime/helpers.py` (build_fallback_weight_negotiation), `runtime/prompts.py` (recruiter_view, hiring_manager_view, negotiation)
@@ -106,17 +105,17 @@ agent_weighted_score = skill_score * w_skill + experience_score * w_exp + techni
 ### 4.2 최종 랭킹 점수 (rank_score)
 
 ```text
-rank_score_before_penalty = 0.30 * deterministic_score + 0.70 * agent_weighted_score
+rank_score_before_penalty = rank_deterministic_weight * deterministic_score + rank_agent_weight * agent_weighted_score
 rank_score = rank_score_before_penalty * (1 - must_have_penalty)
 ```
 
-- **deterministic_score**: semantic_similarity, skill_overlap, experience_fit, seniority_fit, category_fit 등으로 이미 계산된 0~1 점수. skill_overlap은 JD 스킬 상위 10개만 분모에 사용하며, 에이전트가 있으면 결정론 값과 에이전트 스킬 점수를 50:50 블렌딩한 값이 사용된다.
+- **deterministic_score**: semantic_similarity, skill_overlap, experience_fit, seniority_fit, category_fit 등으로 계산된 0~1 점수. 내부 가중치는 **버전 관리되는 deterministic scoring policy**(`src/backend/services/scoring_policies.py`)로 관리된다. skill_overlap은 JD 스킬 상위 10개만 분모에 사용하며, 에이전트가 있으면 결정론 값과 에이전트 스킬 점수를 50:50 블렌딩한 값이 사용된다.
 - **agent_weighted_score**가 없으면(에이전트 미적용) `rank_score = deterministic_score`만 사용.
 - **must_have_penalty**: must-have 미충족 시 적용되는 최대 0.12 수준 페널티.
 
-즉, **에이전트가 있으면** 랭킹은 30% deterministic, 70% 에이전트 가중 점수로 결정되고, must-have 미달 시 그 위에 페널티가 곱해진다.
+즉, **에이전트가 있으면** 랭킹은 `RANK_DETERMINISTIC_WEIGHT`/`RANK_AGENT_WEIGHT` 비율로 결정되고, must-have 미달 시 그 위에 페널티가 곱해진다.
 
-*구현:* `services/scoring_service.py` (`compute_final_ranking_score`), `services/match_result_builder.py` (rank_score 계산 및 `rank_policy` 문자열).
+*구현:* `services/scoring_service.py` (`compute_final_ranking_score`, `compute_deterministic_match_score`), `services/scoring_policies.py` (deterministic policy), `services/match_result_builder.py` (rank_score 계산 및 `rank_policy` 문자열).
 
 ---
 
@@ -142,7 +141,7 @@ rank_score = rank_score_before_penalty * (1 - must_have_penalty)
 | **평가 차원** | Skill(필수/선호·transferable), Experience(영향·시니어리티), Technical(스택·깊이), Culture(협업·리스크). |
 | **스코어링 관점** | 각 차원 0~1; 동등 기술/transferable 인정, 과도한 exact-match 감점 지양; culture는 부정 시그널 있을 때만 낮춤. |
 | **가중치** | Recruiter(파이프라인·transferable) vs Hiring Manager(기술·must-have)·협상 → final. 기술 역할은 culture로 기술 부족 보상 금지. |
-| **최종 점수** | agent_weighted = 4차원 가중합; rank_score = 0.30·deterministic + 0.70·agent_weighted 후 must_have_penalty 적용. |
+| **최종 점수** | agent_weighted = 4차원 가중합; rank_score = `rank_deterministic_weight`·deterministic + `rank_agent_weight`·agent_weighted 후 must_have_penalty 적용. |
 | **설명** | Evidence-token 중심 템플릿(Matched / Candidate evidence / missing; Scores/weights). |
 
 **코드 위치 요약**
@@ -151,4 +150,5 @@ rank_score = rank_score_before_penalty * (1 - must_have_penalty)
 - 프롬프트: `src/backend/agents/runtime/prompts.py`.
 - 휴리스틱·가중합·설명: `src/backend/agents/runtime/helpers.py`, `heuristics.py`.
 - 오케스트레이션·ranking_output: `src/backend/agents/runtime/service.py`.
+- deterministic policy: `src/backend/services/scoring_policies.py`
 - 최종 rank_score: `src/backend/services/scoring_service.py`, `match_result_builder.py`.

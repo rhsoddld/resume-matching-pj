@@ -7,6 +7,7 @@ from typing import Any
 
 from backend.agents.contracts.ranking_agent import AgentWeights, RankingAgentInput
 from backend.agents.contracts.weight_negotiation_agent import WeightNegotiationOutput, WeightProposal
+from backend.core.settings import settings
 
 
 SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
@@ -29,18 +30,18 @@ def normalize_weight_payload(payload: dict[str, Any]) -> dict[str, float]:
 
 
 def build_fallback_weight_negotiation(required_experience_years: float | None, required_skills: list[str]) -> WeightNegotiationOutput:
-    recruiter = {"skill": 0.30, "experience": 0.35, "technical": 0.20, "culture": 0.15}
-    hiring_manager = {"skill": 0.40, "experience": 0.20, "technical": 0.30, "culture": 0.10}
+    recruiter = dict(settings.fallback_recruiter_weights)
+    hiring_manager = dict(settings.fallback_hiring_manager_weights)
 
-    if required_experience_years and required_experience_years >= 5.0:
-        recruiter["experience"] += 0.10
-        recruiter["technical"] -= 0.05
-        recruiter["culture"] -= 0.05
+    if required_experience_years and required_experience_years >= settings.fallback_recruiter_experience_years_threshold:
+        recruiter["experience"] += settings.fallback_recruiter_experience_boost
+        recruiter["technical"] -= settings.fallback_recruiter_technical_reduction
+        recruiter["culture"] -= settings.fallback_recruiter_culture_reduction
 
-    if len(required_skills) >= 6:
-        hiring_manager["technical"] += 0.10
-        hiring_manager["experience"] -= 0.05
-        hiring_manager["culture"] -= 0.05
+    if len(required_skills) >= settings.fallback_hm_required_skills_threshold:
+        hiring_manager["technical"] += settings.fallback_hm_technical_boost
+        hiring_manager["experience"] -= settings.fallback_hm_experience_reduction
+        hiring_manager["culture"] -= settings.fallback_hm_culture_reduction
 
     recruiter = normalize_weight_payload(recruiter)
     hiring_manager = normalize_weight_payload(hiring_manager)

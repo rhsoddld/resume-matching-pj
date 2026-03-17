@@ -77,7 +77,10 @@
 - **`evaluation/`**: evaluation_plan.md, evaluation_results.md, llm_judge_design.md, golden_set_alignment.md 등
 - **`observability/`**: logging_metrics.md, monitoring.md
 - **`governance/`**: cost_control.md
-- **`Key Design Decisions.md`**: 핵심 설계 결정 요약 (본 문서와 쌍으로 참고)
+- **`design/`**: 설계 결정/근거 문서 (key decisions, rationale)
+- **`guides/`**: 온보딩/흐름 가이드 (core flows, scoring)
+- **`deep-dive/`**: 상세 레퍼런스 (codebase meaning 등)
+- **`docs/design/key-design-decisions.md`**: 핵심 설계 결정 요약 (본 문서와 쌍으로 참고)
 - **`CODE_STRUCTURE.md`**: 본 문서
 
 ### `scripts/` Directory
@@ -172,7 +175,11 @@
 ## 문서 진입점 (README와의 연결)
 
 - 아키텍처: [docs/architecture/system_architecture.md](./architecture/system_architecture.md)
-- 설계 결정 요약: [docs/Key Design Decisions.md](./Key%20Design%20Decisions.md)
+- 설계 결정 요약: [docs/design/key-design-decisions.md](./design/key-design-decisions.md)
+- 설계 근거(ontology/cost/eval): [docs/design/rationale-ontology-eval-cost.md](./design/rationale-ontology-eval-cost.md)
+- 핵심 흐름 가이드: [docs/guides/codebase-core-flows.md](./guides/codebase-core-flows.md)
+- 스코어링 전체 흐름: [docs/guides/scoring-flow-guide.md](./guides/scoring-flow-guide.md)
+- 전체 코드 의미(상세): [docs/deep-dive/codebase-meaning-reference.md](./deep-dive/codebase-meaning-reference.md)
 - 코드 구조 및 확장: **docs/CODE_STRUCTURE.md** (본 문서)
 - 배포: [docs/architecture/deployment_architecture.md](./architecture/deployment_architecture.md)
 - 데이터 플로우: [docs/data-flow/resume_ingestion_flow.md](./data-flow/resume_ingestion_flow.md), [docs/data-flow/candidate_retrieval_flow.md](./data-flow/candidate_retrieval_flow.md)

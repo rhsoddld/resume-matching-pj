@@ -101,6 +101,33 @@ class Settings(BaseSettings):
     retrieval_keyword_weight: float = 0.37  # MongoDB lexical keyword score weight
     retrieval_metadata_weight: float = 0.15 # Metadata filter match weight
 
+    # Ranking score blend (Deterministic vs Agent-weighted)
+    rank_deterministic_weight: float = 0.30
+    rank_agent_weight: float = 0.70
+
+    # Fallback weight negotiation (when LLM negotiation fails/unavailable)
+    fallback_recruiter_weights: dict[str, float] = {
+        "skill": 0.30,
+        "experience": 0.35,
+        "technical": 0.20,
+        "culture": 0.15,
+    }
+    fallback_hiring_manager_weights: dict[str, float] = {
+        "skill": 0.40,
+        "experience": 0.20,
+        "technical": 0.30,
+        "culture": 0.10,
+    }
+    fallback_recruiter_experience_years_threshold: float = 5.0
+    fallback_recruiter_experience_boost: float = 0.10
+    fallback_recruiter_technical_reduction: float = 0.05
+    fallback_recruiter_culture_reduction: float = 0.05
+
+    fallback_hm_required_skills_threshold: int = 6
+    fallback_hm_technical_boost: float = 0.10
+    fallback_hm_experience_reduction: float = 0.05
+    fallback_hm_culture_reduction: float = 0.05
+
     # Misc
     log_level: str = "INFO"
 

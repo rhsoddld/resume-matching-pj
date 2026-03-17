@@ -4,7 +4,7 @@
 
 - Previous unstable short-agent run:
   - artifact status: no completed `agent_eval.json` was produced in the earlier short-eval summary
-  - evidence: `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/summary.md`
+  - evidence: `src/eval/outputs/short_eval/manual/summary.md`
   - observed runtime failures during execution:
     - `ScorePackOutput` missing `technical_output` / `culture_output`
     - `WeightNegotiationOutput` vs `ViewpointProposalOutput` mismatch
@@ -13,17 +13,17 @@
 
 - Current stable baseline:
   - run id: `eval-20260316T201425Z-3e437923`
-  - path: `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent6_livejson_baseline`
+  - path: `src/eval/outputs/short_eval/manual/agent6_livejson_baseline`
   - mode: eval-only SDK bypass (`live_json -> heuristic`)
 
 - Top-3 latency experiment:
   - run id: `eval-20260316T201847Z-1e08f138`
-  - path: `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent6_livejson_top3`
+  - path: `src/eval/outputs/short_eval/manual/agent6_livejson_top3`
   - mode: eval-only SDK bypass + `AGENT_EVAL_TOP_N=3`
 
 - Top-4 prompt-v4 experiment:
   - run id: `eval-20260316T202755Z-b273f110`
-  - path: `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent6_livejson_top4_v4`
+  - path: `src/eval/outputs/short_eval/manual/agent6_livejson_top4_v4`
   - mode: eval-only SDK bypass + `AGENT_EVAL_TOP_N=4` + evidence-token explanation template
 
 ## What Stabilized

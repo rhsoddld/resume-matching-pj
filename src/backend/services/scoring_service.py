@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Iterable, Mapping
 import re
 
+from backend.services.scoring_policies import DEFAULT_DETERMINISTIC_POLICY_VERSION, get_deterministic_scoring_policy
+
 
 _WHITESPACE = re.compile(r"\s+")
 _SKILL_TOKEN_RE = re.compile(r"[a-z0-9+#.-]+")
@@ -144,22 +146,25 @@ def compute_deterministic_match_score(
     candidate_seniority: str | None,
     preferred_seniority: str | None,
     category_matched: bool,
+    policy_version: str = DEFAULT_DETERMINISTIC_POLICY_VERSION,
 ) -> tuple[float, dict[str, float]]:
+    policy = get_deterministic_scoring_policy(policy_version)
     semantic_similarity = _normalize_similarity(raw_similarity)
     experience_fit = _experience_fit(candidate_experience_years, required_experience_years)
     seniority_fit = _seniority_fit(candidate_seniority, preferred_seniority)
-    category_fit = 0.03 if category_matched else 0.0
+    category_fit = float(policy.category_bonus) if category_matched else 0.0
 
     final_score = (
-        (0.42 * semantic_similarity)
-        + (0.33 * _clip_01(skill_overlap))
-        + (0.18 * experience_fit)
-        + (0.07 * seniority_fit)
+        (float(policy.semantic_weight) * semantic_similarity)
+        + (float(policy.skill_overlap_weight) * _clip_01(skill_overlap))
+        + (float(policy.experience_weight) * experience_fit)
+        + (float(policy.seniority_weight) * seniority_fit)
         + category_fit
     )
     final_score = _clip_01(final_score)
 
     detail = {
+        "policy_version": policy.version,
         "semantic_similarity": semantic_similarity,
         "skill_overlap": _clip_01(skill_overlap),
         "experience_fit": experience_fit,

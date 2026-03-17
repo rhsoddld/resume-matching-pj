@@ -369,5 +369,3 @@ Refinement 원칙:
    - `python3 scripts/ingest_resumes.py --source all --target milvus --milvus-from-mongo --force-reembed`
 5. API smoke:
    - `POST /api/jobs/match` 결과 및 fallback/fairness metadata 확인
-
-**실행 증거**: runbook 실행 시 테스트 결과는 [Runbook Evidence](../../runbooks/README.md) 규칙에 따라 `docs/runbooks/evidence/clean_rebuild_YYYY-MM-DD.md`에 기록한다. 예시: [clean_rebuild_EXAMPLE.md](../runbooks/evidence/clean_rebuild_EXAMPLE.md).

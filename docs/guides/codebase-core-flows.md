@@ -2,7 +2,7 @@
 
 전체 코드베이스를 구조적으로 이해하고, **특히 중요한 포인트**를 흐름도와 함께 파악하기 위한 가이드입니다.
 
-- **스코어링(필터 → 계산 → 최종 점수)만 따로 보고 싶다면:** [스코어링 전체 흐름 가이드](./스코어링_전체_흐름_가이드.md) 참고.
+- **스코어링(필터 → 계산 → 최종 점수)만 따로 보고 싶다면:** [스코어링 전체 흐름 가이드](./scoring-flow-guide.md) 참고.
 
 ---
 
@@ -449,8 +449,8 @@ flowchart LR
 
 ## 9. 참고 문서
 
-- **아키텍처:** [docs/architecture/system_architecture.md](architecture/system_architecture.md)
-- **코드 구조·확장:** [docs/CODE_STRUCTURE.md](CODE_STRUCTURE.md)
-- **이력서 수집 플로우:** [docs/data-flow/resume_ingestion_flow.md](data-flow/resume_ingestion_flow.md)
-- **후보 검색·매칭 플로우:** [docs/data-flow/candidate_retrieval_flow.md](data-flow/candidate_retrieval_flow.md)
-- **에이전트 파이프라인:** [docs/agents/multi_agent_pipeline.md](agents/multi_agent_pipeline.md)
+- **아키텍처:** [docs/architecture/system_architecture.md](../architecture/system_architecture.md)
+- **코드 구조·확장:** [docs/CODE_STRUCTURE.md](../CODE_STRUCTURE.md)
+- **이력서 수집 플로우:** [docs/data-flow/resume_ingestion_flow.md](../data-flow/resume_ingestion_flow.md)
+- **후보 검색·매칭 플로우:** [docs/data-flow/candidate_retrieval_flow.md](../data-flow/candidate_retrieval_flow.md)
+- **에이전트 파이프라인:** [docs/agents/multi_agent_pipeline.md](../agents/multi_agent_pipeline.md)

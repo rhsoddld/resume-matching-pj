@@ -1,21 +1,23 @@
 # Deployment Architecture
 
-이 문서는 **런타임 토폴로지**, **POC vs Production 범위**, **운영 규모(API Gateway, Load Balancer, K8s) 고려**를 정의합니다.  
+![Architecture](../assets/Architecture.png)
+
+이 문서는 **런타임 토폴로지**, **MVP vs Production 범위**, **운영 규모(API Gateway, Load Balancer, K8s) 고려**를 정의합니다.  
 소프트웨어 컴포넌트 구조는 [system_architecture.md](system_architecture.md), 논리적 데이터 이동은 [../data-flow/](../data-flow/)를 참고하세요.
 
 ---
 
-## POC vs Production 범위
+## MVP vs Production 범위
 
-| 구분 | 현재 범위 (POC / Capstone) | Production 확장 시 적용 범위 |
+| 구분 | 현재 범위 (MVP / Capstone) | Production 확장 시 적용 범위 |
 |------|----------------------------|------------------------------|
 | **배포 단위** | 단일 호스트 `docker-compose` (frontend, backend, mongodb, milvus) | Kubernetes(K8s) 네이티브 배포, 다중 replica |
 | **트래픽 제어** | Backend 단일 인스턴스, 선택적 ingestion rate limit | API Gateway(인증/라우팅/rate limit), Load Balancer로 다중 backend 분산 |
 | **가용성** | 단일 AZ, 수동 복구 | 다중 AZ, 자동 복구, 헬스체크 기반 재시작 |
-| **관측성** | 구조화 로그, 헬스 엔드포인트, 평가 아카이브 | 중앙 로그/메트릭, 대시보드, 알림 정책 (docs/observability 참고) |
+| **관측성** | 구조화 로그, 헬스 엔드포인트, 평가 아카이브, LangSmith(SaaS) 트레이싱(설정 기반); 로그는 MongoDB에 일시 저장(MVP) | 중앙 로그/메트릭, 대시보드, 알림 정책 + 트레이싱 통합 (Grafana/Prometheus/Datadog 등은 재검토; docs/observability 참고) |
 | **ML 파이프라인** | 평가 스크립트·golden set 기반 품질 검증 | MLOps: 모델 버전, A/B, 재학습 트리거 (후속 고도화) |
 
-POC와 Production의 차이는 [problem_definition.md](../../requirements/problem_definition.md) Non-Goals(ingestion LLM 기본 경로 미사용, fine-tuned embedding 후속, full ATS 미포함)와 정합됩니다.
+MVP와 Production의 차이는 [problem_definition.md](../../requirements/problem_definition.md) Non-Goals(ingestion LLM 기본 경로 미사용, fine-tuned embedding 후속, full ATS 미포함)와 정합됩니다.
 
 ---
 
@@ -44,6 +46,15 @@ POC와 Production의 차이는 [problem_definition.md](../../requirements/proble
 2. Ingestion and matching APIs share the same backend service with config-based guards.
 3. Retrieval can degrade gracefully to Mongo lexical fallback if vector retrieval fails.
 4. Observability is centralized through structured logs and request-id propagation.
+
+### Logs (MVP)
+
+현재 MVP 구현에서는 운영 편의상 **구조화 로그를 MongoDB에 일시 저장**하는 경로를 사용합니다. Production 환경에서는 로그/메트릭 파이프라인을 **Grafana/Prometheus/Datadog 등으로 재검토**하여 중앙 수집·보관 정책에 맞게 교체하는 것을 전제로 합니다.
+
+### LLM / Agent Tracing (LangSmith SaaS)
+
+현재 구현은 **LangSmith(SaaS)** 를 이용해 LLM 호출·에이전트 실행 흐름을 트레이싱할 수 있도록 구성되어 있습니다(환경변수/설정으로 on/off 가능).  
+관련 설정은 `src/backend/core/settings.py`의 `langsmith_*` 항목과 `.env.example`의 `LANGSMITH_*` 값을 참고하세요.
 
 ### Ingestion Security and Traffic Controls
 
@@ -83,6 +94,6 @@ POC와 Production의 차이는 [problem_definition.md](../../requirements/proble
 
 - **ADR (Architecture Decision Records):** 주요 기술 선택의 장단점·근거(왜)는 [../adr/](../adr/)에 정리되어 있습니다.  
   예: [ADR-001 Vector DB](../adr/ADR-001-vector-db.md), [ADR-002 Embedding Model](../adr/ADR-002-embedding-model.md), [ADR-003 Hybrid Retrieval](../adr/ADR-003-hybrid-retrieval.md), [ADR-004 Agent Orchestration](../adr/ADR-004-agent-orchestration.md), [ADR-005 Deterministic Query Understanding](../adr/ADR-005-deterministic-query-understanding.md), [ADR-006 Rerank Policy](../adr/ADR-006-rerank-policy.md), [ADR-007 Ingestion Parsing (Rule-based)](../adr/ADR-007-ingestion-parsing-rule-based.md), [ADR-008 Bias & Fairness Guardrails](../adr/ADR-008-bias-fairness-guardrails.md), [ADR-009 Observability Strategy](../adr/ADR-009-observability-strategy.md).  
-  상위 수준 tradeoff는 [../tradeoffs/design_tradeoffs.md](../tradeoffs/design_tradeoffs.md), [Key Design Decisions.md](../../Key Design Decisions.md)를 참고하세요.
+  상위 수준 tradeoff는 [../tradeoffs/design_tradeoffs.md](../tradeoffs/design_tradeoffs.md), [key-design-decisions.md](../design/key-design-decisions.md)를 참고하세요.
 - **결합도 분리 (Decoupling):** 벡터 저장소는 repository 추상화 뒤에 두어, 코어 API 수정 없이 Vector DB를 교체할 수 있는 구조입니다.  
   자세한 결정 이유는 [ADR-001 Vector DB](../adr/ADR-001-vector-db.md)를 참고하세요.

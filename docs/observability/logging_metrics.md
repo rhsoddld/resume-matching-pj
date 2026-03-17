@@ -11,6 +11,7 @@ The application uses **structured JSON logging** provided by `structlog`. System
 To facilitate persistent storage and future querying of logs, an asynchronous `MongoLogHandler` has been introduced. This handler seamlessly intercepts structured application logs and inserts them as BSON documents into the `application_logs` MongoDB collection.
 
 **Key Design Decisions:**
+- See also: [docs/design/key-design-decisions.md](../design/key-design-decisions.md)
 - **Non-blocking (Asynchronous) Execution**: Given that each log insertion requires a database operation, we route logs via Python's native `logging.handlers.QueueHandler` to a background `QueueListener`. This ensures the application (e.g., FastAPI HTTP requests) is never blocked by logging IO.
 - **Native JSON Serialization**: The JSON dict records created by `structlog` are parsed and stored natively within MongoDB, which perfectly aligns with BSON formatting, allowing powerful query capabilities on metric fields (e.g., `event`, `latency_ms`, `level`, `request_id`).
 

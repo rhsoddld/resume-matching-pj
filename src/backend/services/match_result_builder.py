@@ -5,6 +5,7 @@ from typing import Any
 
 from backend.agents.contracts.orchestrator import CandidateAgentResult
 from backend.core.providers import get_skill_ontology
+from backend.core.settings import settings
 from backend.schemas.job import JobMatchCandidate
 from backend.services.job_profile_extractor import JobProfile
 from backend.services.scoring_service import (
@@ -12,6 +13,7 @@ from backend.services.scoring_service import (
     compute_final_ranking_score,
     compute_skill_overlap,
 )
+from backend.services.scoring_policies import DEFAULT_DETERMINISTIC_POLICY_VERSION, get_deterministic_scoring_policy
 
 
 def _normalized_token_list(values: list[Any], *, limit: int) -> list[str]:
@@ -287,6 +289,7 @@ def build_match_candidate(
         candidate_seniority=hit.get("seniority_level"),
         preferred_seniority=job_profile.preferred_seniority,
         category_matched=bool(category and hit.get("category") == category),
+        policy_version=DEFAULT_DETERMINISTIC_POLICY_VERSION,
     )
     agent_weighted_score = agent_result.ranking_output.final_score if agent_result is not None else None
     relevant_experience = _extract_relevant_experience(parsed, experience_years=hit.get("experience_years"))
@@ -310,6 +313,8 @@ def build_match_candidate(
     rank_score = compute_final_ranking_score(
         deterministic_score=float(final_score),
         agent_weighted_score=agent_weighted_score,
+        deterministic_weight=float(settings.rank_deterministic_weight),
+        agent_weight=float(settings.rank_agent_weight),
     )
     rank_score = max(0.0, min(1.0, rank_score * (1.0 - must_have_penalty)))
     parsing_score = _compute_parsing_score(parsed)
@@ -407,9 +412,19 @@ def build_match_candidate(
             "adjacent_skill_score": adjacent_skill_score,
             "agent_weighted": round(float(agent_weighted_score), 4) if agent_weighted_score is not None else None,
             "rank_policy": (
-                "hybrid(deterministic:0.30,agent:0.70,must-have-penalty:max0.12,adjacent-credit:0.50)"
+                (
+                    "hybrid("
+                    f"deterministic:{float(settings.rank_deterministic_weight):.2f},"
+                    f"agent:{float(settings.rank_agent_weight):.2f},"
+                    f"det_policy:{get_deterministic_scoring_policy(DEFAULT_DETERMINISTIC_POLICY_VERSION).version},"
+                    "must-have-penalty:max0.12,adjacent-credit:0.50)"
+                )
                 if agent_weighted_score is not None
-                else "deterministic-only(must-have-penalty:max0.12,adjacent-credit:0.50)"
+                else (
+                    "deterministic-only("
+                    f"det_policy:{get_deterministic_scoring_policy(DEFAULT_DETERMINISTIC_POLICY_VERSION).version},"
+                    "must-have-penalty:max0.12,adjacent-credit:0.50)"
+                )
             ),
         },
         skill_overlap_detail={

@@ -1,5 +1,7 @@
 # Team Eval Snapshot (2026-03-17)
 
+> **Source of truth**: `short_eval_status_2026-03-17.md` (this doc is a 1-page snapshot).
+
 ## Bottom Line
 
 - hybrid retrieval stays
@@ -38,6 +40,7 @@
 - [short_eval_status_2026-03-17.md](short_eval_status_2026-03-17.md)
 - [llm_judge_design.md](llm_judge_design.md)
 - [agent_baseline_comparison.md](../../src/eval/outputs/short_eval/manual/agent_baseline_comparison.md)
+- Archive (2026-03-15): [evaluation_results_2026-03-15.md](archive/evaluation_results_2026-03-15.md)
 
 ## Artifact Commit Policy
 

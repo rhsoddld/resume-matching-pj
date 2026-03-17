@@ -6,9 +6,9 @@ AI-powered Resume Intelligence & Candidate Matching — JD를 입력하면 의�
 
 ## Table of Contents
 
-1. [Setup & Usage Instructions](#setup--usage-instructions)
-2. [MongoDB & Milvus Setup (Docker)](#mongodb--milvus-setup-docker)
-3. [Python Virtual Environment & Install Dependencies](#python-virtual-environment--install-dependencies)
+1. [Setup & Usage Instructions](#setup-usage-instructions)
+2. [MongoDB & Milvus Setup (Docker)](#mongodb-milvus-setup-docker)
+3. [Python Virtual Environment & Install Dependencies](#python-virtual-environment-install-dependencies)
 4. [.env Configuration](#env-configuration)
 5. [Ingest Data (CLI)](#ingest-data-cli)
 6. [Start API Server](#start-api-server)
@@ -17,8 +17,8 @@ AI-powered Resume Intelligence & Candidate Matching — JD를 입력하면 의�
    - [Option B: API Request](#option-b-api-request)
    - [Option C: Web Frontend](#option-c-web-frontend)
 8. [Success Criteria Verification](#success-criteria-verification)
-9. [Code Structure & Extensibility](#code-structure--extensibility)
-10. [Caching & Performance](#caching--performance)
+9. [Code Structure & Extensibility](#code-structure-extensibility)
+10. [Caching & Performance](#caching-performance)
 11. [Documentation Entry Points](#documentation-entry-points)
 
 ---
@@ -194,10 +194,14 @@ curl -X POST "http://localhost:8000/api/jobs/match" \
 
 ## Documentation Entry Points
 
-- **Key Design Decisions:** [docs/Key Design Decisions.md](docs/Key%20Design%20Decisions.md)
-- **Design rationale (ontology, cost, eval):** [docs/design_rationale_ontology_eval_cost.md](docs/design_rationale_ontology_eval_cost.md)
+- **Architecture diagram (single source):** `docs/assets/Architecture.png`
+- **Codebase meaning (deep-dive):** [docs/deep-dive/codebase-meaning-reference.md](docs/deep-dive/codebase-meaning-reference.md) — 각 디렉터리·파일이 무엇을 의미하는지 비즈니스/기술 관점 정리
+- **Key Design Decisions:** [docs/design/key-design-decisions.md](docs/design/key-design-decisions.md)
+- **Design rationale (ontology, cost, eval):** [docs/design/rationale-ontology-eval-cost.md](docs/design/rationale-ontology-eval-cost.md)
+- **Core flows guide:** [docs/guides/codebase-core-flows.md](docs/guides/codebase-core-flows.md)
+- **Scoring end-to-end:** [docs/guides/scoring-flow-guide.md](docs/guides/scoring-flow-guide.md)
 - **Code Structure & Extensibility:** [docs/CODE_STRUCTURE.md](docs/CODE_STRUCTURE.md)
-- **Architecture:** [docs/architecture/system_architecture.md](docs/architecture/system_architecture.md), [docs/architecture/deployment_architecture.md](docs/architecture/deployment_architecture.md)
+- **Architecture (one-page Mermaid diagram 포함):** [docs/architecture/system_architecture.md](docs/architecture/system_architecture.md), [docs/architecture/deployment_architecture.md](docs/architecture/deployment_architecture.md)
 - **Data flow:** [docs/data-flow/resume_ingestion_flow.md](docs/data-flow/resume_ingestion_flow.md), [docs/data-flow/candidate_retrieval_flow.md](docs/data-flow/candidate_retrieval_flow.md)
 - **테스트용 데이터셋 & 커맨드:** [docs/data-flow/test_datasets_and_commands.md](docs/data-flow/test_datasets_and_commands.md)
 - **Agent pipeline & scoring:** [docs/agents/multi_agent_pipeline.md](docs/agents/multi_agent_pipeline.md), [docs/agents/agent_evaluation_and_scoring.md](docs/agents/agent_evaluation_and_scoring.md)

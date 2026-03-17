@@ -696,7 +696,14 @@ class MatchingService:
 
         pool_n = resolve_rerank_pool_n(top_k)
         rerank_pool = enriched_hits[:pool_n]
-        rerank_selection = resolve_rerank_model(high_quality=(reason == "ambiguous_query_profile"))
+        # Route to a higher-quality rerank model only when the query profile is ambiguous.
+        # (Aligns with rerank gate logic: low confidence or high unknown_ratio.)
+        unknown_ratio = float(job_profile.signal_quality.get("unknown_ratio", 0.0))
+        ambiguous_query = (
+            float(job_profile.confidence) < float(settings.rerank_gate_confidence_threshold)
+            or unknown_ratio > float(settings.rerank_gate_unknown_ratio_threshold)
+        )
+        rerank_selection = resolve_rerank_model(high_quality=ambiguous_query)
 
         reranked = self.rerank_service.rerank(
             job_description=job_description,

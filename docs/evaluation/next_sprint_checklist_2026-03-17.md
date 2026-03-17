@@ -1,5 +1,7 @@
 # Next Sprint Checklist (2026-03-17)
 
+> Derived from `short_eval_status_2026-03-17.md` (Task Backlog). Treat that doc as the source of truth.
+
 ## Must Do
 
 - [ ] compare `agent_eval_top_n=4` vs `5` under the same prompt version

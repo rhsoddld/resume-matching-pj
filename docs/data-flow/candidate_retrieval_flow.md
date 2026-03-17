@@ -48,6 +48,10 @@ flowchart TD
   build --> sort["Current impl: agent-evaluated first,\nthen score"]
   sort --> cacheStore["Token cache store"]
   cacheStore --> response
+
+  match -.-> lang["LangSmith (traces)"]
+  rerank -.-> lang
+  agent -.-> lang
 ```
 
 ---
@@ -108,6 +112,9 @@ flowchart TD
 - miss 경로에서 최종 `JobMatchResponse`를 캐시에 저장한다.
 - `stream_match_jobs`는 조기 종료(후보 0명) 분기도 fairness 포함 응답을 저장한다.
 - 캐시는 backend 프로세스 로컬 인메모리이며 TTL 만료는 접근 시 정리(lazy expiration)된다.
+
+### LangSmith runtime tracing
+- env 활성화 시 `match_jobs` 전체 span, rerank 및 agent orchestration child span이 LangSmith로 전송된다. 실패·timeout 시에도 태깅된다.
 
 ---
 

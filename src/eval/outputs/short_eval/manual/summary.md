@@ -1,7 +1,7 @@
 # Eval Mode Summary
 
 - generated_at_utc: `2026-03-16T19:39:26Z`
-- run_dir: `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual`
+- run_dir: `src/eval/outputs/short_eval/manual`
 
 | mode | run_id | recall@10 | recall@20 | mrr | ndcg@5 | mrr_delta | top1_imp_rate | groundedness | consistency | e2e_p95_ms |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|

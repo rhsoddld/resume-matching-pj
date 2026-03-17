@@ -1,5 +1,8 @@
 # Short Eval Status (2026-03-17)
 
+> **Source of truth**: this document is the current evaluation status and recommendation baseline.  
+> Older, non-current snapshots live under `docs/evaluation/archive/`.
+
 ## Scope
 
 This document summarizes the recent short-path evaluation work across hybrid retrieval, rerank, and agent evaluation.
@@ -13,12 +16,16 @@ It captures:
 
 Primary retained artifacts:
 
-- hybrid / rerank summary: `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/summary.md`
-- agent stability and tuning comparison: `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent_baseline_comparison.md`
-- stable agent baseline: `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent6_livejson_baseline`
-- top-3 latency experiment: `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent6_livejson_top3`
-- top-4 prompt-v4 experiment: `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent6_livejson_top4_v4`
-- LLM judge design: `/Users/lee/Desktop/resume-matching-pj/docs/evaluation/llm_judge_design.md`
+- hybrid / rerank summary: `src/eval/outputs/short_eval/manual/summary.md`
+- agent stability and tuning comparison: `src/eval/outputs/short_eval/manual/agent_baseline_comparison.md`
+- stable agent baseline: `src/eval/outputs/short_eval/manual/agent6_livejson_baseline`
+- top-3 latency experiment: `src/eval/outputs/short_eval/manual/agent6_livejson_top3`
+- top-4 prompt-v4 experiment: `src/eval/outputs/short_eval/manual/agent6_livejson_top4_v4`
+- LLM judge design: `docs/evaluation/llm_judge_design.md`
+
+Related archives:
+
+- `docs/evaluation/archive/evaluation_results_2026-03-15.md`
 
 Cleanup performed:
 
@@ -46,9 +53,9 @@ Before this cleanup:
 Current state:
 
 - a stage-aware generation loop now exists at:
-  - `/Users/lee/Desktop/resume-matching-pj/src/eval/generate_llm_judge_annotations.py`
+  - `src/eval/generate_llm_judge_annotations.py`
 - schema/design is documented at:
-  - `/Users/lee/Desktop/resume-matching-pj/docs/evaluation/llm_judge_design.md`
+  - `docs/evaluation/llm_judge_design.md`
 - first generated run:
   - run id: `judge-20260316T205123Z-ff8954f7`
   - records: `6`
@@ -64,7 +71,7 @@ Important note:
 ### Hybrid
 
 Reference run:
-- `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/hybrid`
+- `src/eval/outputs/short_eval/manual/hybrid`
 
 Key metrics:
 - `recall@10 = 0.525`
@@ -80,7 +87,7 @@ Interpretation:
 ### Rerank
 
 Reference run:
-- `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/rerank`
+- `src/eval/outputs/short_eval/manual/rerank`
 
 Key metrics:
 - `ndcg@5 = 0.3229`
@@ -111,7 +118,7 @@ Interpretation:
 ### Agent: stable baseline
 
 Reference run:
-- `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent6_livejson_baseline`
+- `src/eval/outputs/short_eval/manual/agent6_livejson_baseline`
 
 Configuration:
 - eval-only SDK bypass
@@ -135,7 +142,7 @@ Interpretation:
 ### Agent: top-3 latency experiment
 
 Reference run:
-- `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent6_livejson_top3`
+- `src/eval/outputs/short_eval/manual/agent6_livejson_top3`
 
 Key metrics:
 - explanation presence: `0.3000`
@@ -151,7 +158,7 @@ Interpretation:
 ### Agent: top-4 prompt-v4 experiment
 
 Reference run:
-- `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent6_livejson_top4_v4`
+- `src/eval/outputs/short_eval/manual/agent6_livejson_top4_v4`
 
 Configuration:
 - eval-only SDK bypass
@@ -175,7 +182,7 @@ Interpretation:
 ### Agent: top-4 prompt-v4 re-run with LLM judge annotations
 
 Reference run:
-- `/Users/lee/Desktop/resume-matching-pj/src/eval/outputs/short_eval/manual/agent6_livejson_top4_v4_judged`
+- `src/eval/outputs/short_eval/manual/agent6_livejson_top4_v4_judged`
 
 Key metrics:
 - `llm_as_judge_agreement = 0.4000`

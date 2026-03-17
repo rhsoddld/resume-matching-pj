@@ -2,7 +2,7 @@
 
 **목적:** 이 문서는 “왜 스킬 온톨로지인가”, “장기 비용 구조”, “평가 수치와 관점”을 한곳에 정리해 설계 의사결정과 운영 방향을 설명한다.
 
-**관련 문서:** [Key Design Decisions](./Key%20Design%20Decisions.md), [evaluation_plan.md](./evaluation/evaluation_plan.md), [cost_control.md](./governance/cost_control.md), [ADR-004](./adr/ADR-004-agent-orchestration.md). **에이전트 평가·스코어링 상세:** [agents/agent_evaluation_and_scoring.md](./agents/agent_evaluation_and_scoring.md).
+**관련 문서:** [Key Design Decisions](./key-design-decisions.md), [evaluation_plan.md](../evaluation/evaluation_plan.md), [cost_control.md](../governance/cost_control.md), [ADR-004](../adr/ADR-004-agent-orchestration.md). **에이전트 평가·스코어링 상세:** [agents/agent_evaluation_and_scoring.md](../agents/agent_evaluation_and_scoring.md).
 
 ---
 
@@ -70,7 +70,7 @@
 - **장기적으로 비용이 좋은 이유:** 고비용 LLM(에이전트)을 **꼭 필요한 경우·상위 N명**에만 쓰고, 나머지는 온톨로지 기반 deterministic + 캐시로 처리하기 때문이다.
 - **에이전트에 의한 작업 처리**가 “많은 후보를 다 LLM으로 보는 것”이 아니라 **“정제된 입력 + 제한된 수의 후보”**에만 적용되므로 비용 효과가 크다.
 
-상세 제어 항목은 [cost_control.md](./governance/cost_control.md) 참고.
+상세 제어 항목은 [cost_control.md](../governance/cost_control.md) 참고.
 
 ---
 
@@ -130,7 +130,7 @@
 | **왜 (일부) 수치가 적어 보이나?** | (1) Agent 설명 품질(groundedness)은 예전에 일반적 설명·evidence 부족으로 낮았고, prompt v4·evidence-token 정렬로 개선 중이다. (2) Rerank는 수치상 기본 경로 채택이 타당하지 않아 꺼둔 상태다. (3) Short-eval은 샘플 수를 적게 써서 빠른 검증에 초점을 둔다. |
 | **무엇을 우선 보나?** | Retrieval recall을 1순위로 두고, 그 다음에 rerank/agent의 증분 이득과 비용을 본다. |
 
-상세 메트릭·아티팩트·체크리스트는 [evaluation_plan.md](./evaluation/evaluation_plan.md), [short_eval_status_2026-03-17.md](./evaluation/short_eval_status_2026-03-17.md), [llm_judge_design.md](./evaluation/llm_judge_design.md) 참고.
+상세 메트릭·아티팩트·체크리스트는 [evaluation_plan.md](../evaluation/evaluation_plan.md), [short_eval_status_2026-03-17.md](../evaluation/short_eval_status_2026-03-17.md), [llm_judge_design.md](../evaluation/llm_judge_design.md) 참고.
 
 ---
 
@@ -161,7 +161,7 @@
 | **문제** | **Agents SDK handoff 경로가 불안정**했음. short_eval에서 관측된 현상: `ScorePackOutput`/negotiation **스키마 불일치**, handoff 구간 **event-loop·연결 불안정**, long idle tails로 eval run이 끝까지 완료되지 않음. |
 | **결과** | 에이전트 **품질**을 평가하려면 eval이 안정적으로 끝나야 하는데, SDK handoff를 쓰면 run 자체가 실패하거나 타임아웃에 걸려 품질 지표를 수집할 수 없었음. |
 | **대응** | Eval 모드에서는 **sdk_handoff를 사용하지 않고** `live_json → heuristic` 경로만 사용. “Agentic AI 전체가 불안정하다”가 아니라 **특정 런타임 경로(SDK handoff)가 불안정**하므로, 그 경로가 검증될 때까지 eval에서는 bypass하는 것이다. |
-| **문서** | [short_eval_status_2026-03-17.md](./evaluation/short_eval_status_2026-03-17.md), [RESULTS.md](../src/eval/RESULTS.md): “eval-only SDK bypass until Agents SDK handoff is proven stable”, “eval에서는 sdk_handoff를 다시 켜지 않습니다.” |
+| **문서** | [short_eval_status_2026-03-17.md](../evaluation/short_eval_status_2026-03-17.md), [RESULTS.md](../eval/RESULTS.md): “eval-only SDK bypass until Agents SDK handoff is proven stable”, “eval에서는 sdk_handoff를 다시 켜지 않습니다.” |
 
 정리: **Confident AI 미사용**은 “사용 불가” 단정 없이 미통합·미사용으로 두고, **sdk_handoff bypass**는 Agents SDK handoff 경로의 불안정(스키마·이벤트 루프) 때문에 eval 안정성을 위해 선택한 것으로 명시한다.
 

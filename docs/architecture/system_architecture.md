@@ -1,11 +1,13 @@
 # System Architecture — AI Resume Matching
 
+![Architecture](../assets/Architecture.png)
+
 **Architecture vs Data Flow 구분:** 이 문서는 **소프트웨어 컴포넌트와 레이어 구조**(아키텍처)만 다룹니다. **논리적 데이터 이동**(데이터가 어디서 어디로 흐르는지, 단계별 결정·fallback)은 별도 문서로 구분합니다.
 
 - [Resume Ingestion Flow](../data-flow/resume_ingestion_flow.md) — 이력서 수집·파싱·정규화·임베딩 흐름
 - [Candidate Retrieval Flow](../data-flow/candidate_retrieval_flow.md) — 쿼리 이해·하이브리드 검색·rerank·fallback 흐름
 
-배포 토폴로지·POC vs Production·API Gateway/LB/K8s 고려는 [deployment_architecture.md](deployment_architecture.md)를 참고하세요.
+배포 토폴로지·MVP vs Production·API Gateway/LB/K8s 고려는 [deployment_architecture.md](deployment_architecture.md)를 참고하세요.
 
 ---
 
@@ -69,6 +71,129 @@ L2 --> M
 K --> N
 M --> N
 N --> O
+```
+
+---
+
+## 1.1 하이레벨 컴포넌트 다이어그램 (이미지 스타일)
+
+> 발표/README에서 “한 장으로 보는 구조”가 필요할 때 쓰는 다이어그램이다.  
+> **초록 = MVP 구현**, **회색 = 확장/선택(Production 고려)** 로 표현한다.
+
+```mermaid
+flowchart LR
+
+%% ---------- Styles ----------
+classDef mvp fill:#2e7d32,stroke:#1b5e20,color:#ffffff,stroke-width:1px;
+classDef opt fill:#2b2b2b,stroke:#6b6b6b,color:#e6e6e6,stroke-width:1px,stroke-dasharray: 4 3;
+classDef box fill:#141414,stroke:#6b6b6b,color:#e6e6e6,stroke-width:1px;
+classDef store fill:#0b2533,stroke:#2aa3c2,color:#e6f7ff,stroke-width:1px;
+classDef model fill:#3a1b4a,stroke:#c07adf,color:#f7e9ff,stroke-width:1px;
+classDef edge stroke:#9aa0a6,color:#e6e6e6;
+
+%% ---------- Clients / Entry ----------
+CLI["CLI<br/>(scripts / curl)"]:::mvp
+WEB["Web Frontend<br/>(React)"]:::mvp
+
+GATEWAY["API Gateway / Reverse Proxy<br/>(nginx in compose)"]:::mvp
+
+CLI --> GATEWAY
+WEB --> GATEWAY
+
+%% ---------- Core Service ----------
+subgraph ENGINE["Resume Matching Engine"]
+direction LR
+
+API["Backend API<br/>(FastAPI + Uvicorn)"]:::mvp
+CACHE["Request Response Cache<br/>(LRU+TTL, in-memory)"]:::mvp
+
+subgraph CORE["Core Matching Pipeline"]
+direction LR
+JD["JD Query Understanding<br/>(deterministic)"]:::mvp
+RETR["Hybrid Retrieval<br/>(Milvus + keyword + metadata)"]:::mvp
+RERANK["Rerank (conditional)<br/>(embedding / optional LLM)"]:::mvp
+AGENTS["Multi-Agent Evaluation<br/>(skill/exp/tech/culture)"]:::mvp
+NEG["Weight Negotiation<br/>(recruiter ↔ hiring mgr)"]:::mvp
+SCORE["Scoring Policy + Ranking"]:::mvp
+BUILD["Result Builder<br/>(explainability)"]:::mvp
+end
+
+API --> CACHE
+CACHE --> API
+API --> JD --> RETR --> RERANK --> AGENTS --> NEG --> SCORE --> BUILD
+BUILD --> CACHE
+end
+
+GATEWAY --> API
+
+%% ---------- Data Stores ----------
+MONGO[("MongoDB<br/>candidate profiles")]:::store
+MILVUS[("Milvus<br/>candidate embeddings")]:::store
+
+RETR --> MONGO
+RETR --> MILVUS
+
+%% ---------- Model Providers ----------
+EMB["Embeddings API<br/>(OpenAI)"]:::model
+LLM["LLM API<br/>(OpenAI)"]:::model
+
+MILVUS --> EMB
+AGENTS --> LLM
+RERANK --> LLM
+
+%% ---------- Offline ingestion ----------
+subgraph OFFLINE["Offline Ingestion & Indexing"]
+direction LR
+DATA["Datasets<br/>(CSV/PDF/Text)"]:::mvp
+ING["Parsing + Normalization<br/>+ Incremental Upsert"]:::mvp
+DATA --> ING --> MONGO
+ING --> MILVUS
+end
+
+%% ---------- Observability / Eval ----------
+subgraph OBS["Evaluation & Monitoring"]
+direction TB
+EVAL["Eval Framework<br/>(DeepEval / LLM-as-Judge)"]:::mvp
+TRACE["Runtime Tracing<br/>(LangSmith, env on/off)"]:::mvp
+METRICS["Metrics Collection<br/>(Prometheus, future)"]:::opt
+DASH["Dashboards<br/>(Grafana, future)"]:::opt
+end
+
+API --> TRACE
+AGENTS --> TRACE
+RERANK --> TRACE
+API --> EVAL
+METRICS --> DASH
+
+%% Subgraph styling (Mermaid supports `style` by id)
+style ENGINE fill:#141414,stroke:#6b6b6b,color:#e6e6e6;
+style CORE fill:#141414,stroke:#6b6b6b,color:#e6e6e6;
+style OFFLINE fill:#141414,stroke:#6b6b6b,color:#e6e6e6;
+style OBS fill:#141414,stroke:#6b6b6b,color:#e6e6e6;
+```
+
+LangSmith는 env로 켜두면 **런타임 요청 전체**에 대해 LLM/Agent 호출 trace를 전송한다. 캐시 hit/miss 및 trace 수집 단계별 상세는 [Resume Matching & Agent Flow](../data-flow/candidate_retrieval_flow.md)를 참고한다.
+
+## 1.2 Local Dev (docker compose) 토폴로지
+
+> 로컬 개발 환경에서 `docker compose up` 시 뜨는 **컨테이너 구성**을 보여준다. (소프트웨어 레이어 구조는 1.1을 참고)
+
+```mermaid
+flowchart LR
+  dev["Developer Browser / CLI"] --> fe["frontend (nginx+reacht container)\n:80"]
+  fe --> be["backend (container)\nFastAPI :8000"]
+
+  be --> mongo["mongodb (container)\n:27017"]
+  be --> milvus["milvus (container)\n:19530"]
+
+  milvus --> etcd["etcd (container)\n:2379 (internal)"]
+  milvus --> minio["minio (container)\n:9000 (internal)"]
+
+  dev --> attu["attu (container)\n:3000 (Milvus UI)"]
+  attu --> milvus
+
+  be -. "env on/off traces" .-> langsmith["LangSmith (external SaaS)"]
+  be -. "LLM/Embedding calls" .-> openai["OpenAI APIs (external)"]
 ```
 
 ## 2. 레이어별 책임
