@@ -157,6 +157,10 @@ fusion_score =
 + 0.15 * metadata_score
 ```
 
+### Skill overlap (skill_overlap)
+- JD required/expanded 스킬 **상위 10개**만 분모 사용 (캡).
+- 가중치: core 있음 `0.45×core + 0.35×expanded + 0.2×normalized`, core 없음 `0.5×normalized + 0.5×expanded`. 에이전트 있을 때는 위 값과 agent 스킬 점수 50:50 블렌딩.
+
 ### Deterministic score
 
 ```text

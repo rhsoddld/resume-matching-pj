@@ -50,6 +50,12 @@ fusion_score =
 + 0.15 * metadata_score
 ```
 
+### Skill overlap (skill_overlap)
+- JD 쪽 스킬은 **상위 10개만** 분모에 사용 (분모 캡).
+- core 있음: `0.45×core_overlap + 0.35×expanded_overlap + 0.2×normalized_overlap`
+- core 없음: `0.5×normalized_overlap + 0.5×expanded_overlap`
+- 에이전트 평가가 있으면: 위 값과 에이전트 스킬 점수를 **50:50** 블렌딩한 값을 skill_overlap으로 사용.
+
 ### Deterministic score
 ```text
 deterministic_score =

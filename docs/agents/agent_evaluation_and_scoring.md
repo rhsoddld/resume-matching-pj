@@ -110,7 +110,7 @@ rank_score_before_penalty = 0.30 * deterministic_score + 0.70 * agent_weighted_s
 rank_score = rank_score_before_penalty * (1 - must_have_penalty)
 ```
 
-- **deterministic_score**: semantic_similarity, skill_overlap, experience_fit, seniority_fit, category_fit 등으로 이미 계산된 0~1 점수.
+- **deterministic_score**: semantic_similarity, skill_overlap, experience_fit, seniority_fit, category_fit 등으로 이미 계산된 0~1 점수. skill_overlap은 JD 스킬 상위 10개만 분모에 사용하며, 에이전트가 있으면 결정론 값과 에이전트 스킬 점수를 50:50 블렌딩한 값이 사용된다.
 - **agent_weighted_score**가 없으면(에이전트 미적용) `rank_score = deterministic_score`만 사용.
 - **must_have_penalty**: must-have 미충족 시 적용되는 최대 0.12 수준 페널티.
 
