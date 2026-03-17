@@ -12,9 +12,8 @@ Governance goals:
 
 | Document | Role |
 |---|---|
-| `requirements/problem_definition.md` | Problem definition / objectives |
-| `requirements/functional_requirements.md` | Requirement ID system (R1/R2/HCR/MSA/AHI/D/DS) |
-| `requirements/traceability_matrix.md` | Links implementation/verification/document evidence |
+| `requirements/functional_requirements.md` | Problem definition / objectives / Requirement ID system (R1/R2/HCR/MSA/AHI/D/DS) |
+| `docs/governance/TRACEABILITY.md` | Links implementation/verification/document evidence |
 | `docs/architecture/system_architecture.md` | Target architecture and layer responsibilities |
 | `docs/data-flow/*.md` | Ingestion/retrieval runtime flows |
 | `docs/evaluation/*.md` | Evaluation criteria/results |

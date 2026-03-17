@@ -3,9 +3,9 @@
 This document maps Problem Definition, Functional Requirements, implementation/verification evidence, and the Reviewer Checklist so **reviewers** can verify requirement satisfaction in one place.
 
 **Related documents**
-- Requirements: [`requirements/problem_definition.md`](../../requirements/problem_definition.md), [`requirements/functional_requirements.md`](../../requirements/functional_requirements.md)
-- Implementation matrix: [`requirements/traceability_matrix.md`](../../requirements/traceability_matrix.md)
-- Checklist: [`requirements/Reviewer_Checklist.md`](../../requirements/Reviewer_Checklist.md)
+- Requirements: [`requirements/functional_requirements.md`](../../requirements/functional_requirements.md)
+- Implementation matrix: [this document](./TRACEABILITY.md)
+- Checklist: [§4 Reviewer Checklist](./TRACEABILITY.md#4-reviewer-checklist--requirements--evidence-mapping)
 - Case study source: `requirements/case-study.pdf`
 
 ---
@@ -48,7 +48,7 @@ This document maps Problem Definition, Functional Requirements, implementation/v
 
 ## 3. Functional Requirements → implementation/verification evidence (detail)
 
-Code paths, docs, and status are synced with [`requirements/traceability_matrix.md`](../../requirements/traceability_matrix.md). Below is a group-level summary.
+Code paths, docs, and status are synced with [this document](./TRACEABILITY.md). Below is a group-level summary.
 
 ### 3.1 R1.* (Basic)
 
@@ -222,26 +222,7 @@ Dependencies used for R1.* (parsing, retrieval, API), R2.* (eval, benchmark), HC
 
 ## 6. Gaps and next steps (summary)
 
-- **Requirements satisfied**: R2.3 (rerank tests/path), R2.5 (LangSmith, config-based token), R2.6 (benchmark, scalability design), AHI.2–AHI.4 (API/services) are satisfied by implementation. See [REQUIREMENTS_CHECKLIST_VERIFICATION.md](./REQUIREMENTS_CHECKLIST_VERIFICATION.md) for detail.
+- **Requirements satisfied**: R2.3 (rerank tests/path), R2.5 (LangSmith, config-based token), R2.6 (benchmark, scalability design), AHI.2–AHI.4 (API/services) are satisfied by implementation. See [§6 Gaps and next steps](./TRACEABILITY.md#6-gaps-and-next-steps-summary) and §3 for detail.
 - **Recommended enhancements**: role-family calibration automation, retrieval quality regression report, filter explainability, ingestion auth/rate-limit documentation, fairness drift dashboard, handoff trace standardization (optional).
 
-For detailed gaps/next steps, see the per-group "Gap / Next" column in [`requirements/traceability_matrix.md`](../../requirements/traceability_matrix.md).
-
 ---
-
-## 7. Defense rationale — checklist/requirement issues
-
-Justification for checklist or case-study items where **satisfaction is ambiguous or a different choice was made intentionally**.
-
-| Item | Checklist/requirement | Current state | Defense rationale |
-|------|-----------------|-----------|-----------|
-| **Production scale (K8s, API GW, LB)** | Does architecture consider API Gateway, Load Balancer, K8s? | Current implementation is docker-compose; **considerations are documented** | Section in `docs/architecture/deployment_architecture.md` on production-scale considerations: role of API GW/LB/K8s, mapping to current implementation, how to apply when scaling (stateless, health, pooling). |
-| **Resilience (local model fallback)** | Is there fallback to a local model (e.g. Flan-T5) on external API failure? | Only **heuristic / live_json** rule-based/single-call fallback implemented; no local SLM | On external API failure we switch **without extra LLM calls** along `sdk_handoff → live_json → heuristic` to preserve service continuity. Local SLM (e.g. Flan-T5) is an **intentional Non-Goal** due to ops/cost/model-version burden; retry, timeout, and fallback metadata satisfy reliability needs. |
-| **live_json term** | What is "live_json" in the fallback chain? | — | **live_json** = agent path (`live_runner.py`) that gets a **JSON-schema** response via a **single LLM call** without the SDK. "live" = real-time single call, "json" = structured JSON. Used when SDK path fails; if this path also fails, switch to heuristic. |
-| **Zero print()** | 100% structured logging, no print() | **Addressed.** Backend and eval use logging; one print in `src/ops/mongo_handler.py` emit exception path only (stderr to avoid logger recursion on handler failure). | See §4.3.1; `src/eval/*.py` print → logging completed. |
-| **Stakeholder PPT** | Briefing deck with EDA, design, evaluation results | No separate .pptx; `docs/design/key-design-decisions.md`, `docs/evaluation/*`, `evaluation_results.md` exist | Presentation materials are **separate deliverables**. For a 10‑min demo: use the above docs for ~8 min design/results summary; optionally use `docs/presentation_summary.md` as a single reference. Actual .pptx can be a separate deliverable. |
-| **Circuit breaker** | Retry logic, circuit breaker implementation | MongoDB retryWrites, ingestion rate limit; no dedicated circuit breaker | DB layer retries via `retryWrites`. External LLM calls limit failure propagation via **timeout + fallback chain** (immediate switch to heuristic). Circuit breaker recommended as Phase 2 under high load/multiple dependencies. |
-| **R2.3 / R2.5 / R2.6** | Rerank enhancement, token optimization, throughput benchmark | Rerank tests/eval exist; token observability via LangSmith; scalability design for load | Rerank: `run_rerank_eval.sh`, eval_runner rerank mode, golden.rerank.jsonl. Token: LangSmith tracing + config-based budget/cache. Benchmark: performance_eval and scalability design (K8s/LB/stateless). See [REQUIREMENTS_CHECKLIST_VERIFICATION.md](./REQUIREMENTS_CHECKLIST_VERIFICATION.md). |
-| **AHI.2–AHI.4** | Feedback loop, analytics, interview/email handoff | Requirements satisfied by API/service implementation | Feedback API, email draft, handoff data provided. Auto-retrain pipeline, dedicated dashboard, handoff standard can be added later if needed. |
-
-Use this table when explaining in review why an item is Yes or Partial.

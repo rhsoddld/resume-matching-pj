@@ -6,20 +6,30 @@ AI-powered Resume Intelligence & Candidate Matching — enter a job description 
 
 ## Table of Contents
 
-1. [Setup & Usage Instructions](#setup-usage-instructions)
-2. [MongoDB & Milvus Setup (Docker)](#mongodb-milvus-setup-docker)
-3. [Python Virtual Environment & Install Dependencies](#python-virtual-environment-install-dependencies)
-4. [.env Configuration](#env-configuration)
-5. [Ingest Data (CLI)](#ingest-data-cli)
-6. [Start API Server](#start-api-server)
-7. [Get Recommendations](#get-recommendations)
+1. [Prerequisites](#prerequisites)
+2. [Setup & Usage Instructions](#setup-usage-instructions)
+3. [MongoDB & Milvus Setup (Docker)](#mongodb-milvus-setup-docker)
+4. [Python Virtual Environment & Install Dependencies](#python-virtual-environment-install-dependencies)
+5. [.env Configuration](#env-configuration)
+6. [Ingest Data (CLI)](#ingest-data-cli)
+7. [Start API Server](#start-api-server)
+8. [Get Recommendations](#get-recommendations)
    - [Option A: CLI (curl)](#option-a-cli-curl)
    - [Option B: API Request](#option-b-api-request)
    - [Option C: Web Frontend](#option-c-web-frontend)
-8. [Success Criteria Verification](#success-criteria-verification)
-9. [Code Structure & Extensibility](#code-structure-extensibility)
-10. [Caching & Performance](#caching-performance)
-11. [Documentation Entry Points](#documentation-entry-points)
+9. [Success Criteria Verification](#success-criteria-verification)
+10. [Running Tests](#running-tests)
+11. [Code Structure & Extensibility](#code-structure-extensibility)
+12. [Caching & Performance](#caching-performance)
+13. [Documentation Entry Points](#documentation-entry-points)
+
+---
+
+## Prerequisites
+
+- **Python 3.10** — for backend, ingestion, and evaluation scripts
+- **Docker & Docker Compose** — for MongoDB, Milvus, backend, and frontend
+- **OpenAI API key** — for embeddings, matching, and agent evaluation
 
 ---
 
@@ -85,6 +95,10 @@ cp .env.example .env
 - `MILVUS_URI` — local example: `http://localhost:19530`
 
 When running the backend via Docker Compose, you can use `DOCKER_MONGODB_URI` and `DOCKER_MILVUS_URI` with container hostnames (`mongodb`, `milvus`). See `.env.example` comments for full variable descriptions.
+
+**Optional — LangSmith (tracing & observability):**
+
+If you set `LANGSMITH_API_KEY` and `LANGSMITH_ENDPOINT` (and optionally `LANGSMITH_PROJECT`) in `.env`, the app will send traces to LangSmith so you can inspect agent runs, latency, and token usage. Set `LANGSMITH_TRACING=true` to enable. No LangSmith config is required for local development; the system runs without it.
 
 ---
 
@@ -169,6 +183,19 @@ Open **http://localhost** (Docker default) or the URL where the frontend is serv
 
 ---
 
+## Running Tests
+
+From the project root (with venv activated and dependencies installed):
+
+```bash
+pytest
+# or: pytest tests/ -v
+```
+
+Tests cover API endpoints, retrieval, scoring, ingestion, and agent flows. For evaluation scripts (golden set, LLM-as-Judge), see [Core Commands](#core-commands-quick-reference) and [docs/data-flow/test_datasets_and_commands.md](docs/data-flow/test_datasets_and_commands.md).
+
+---
+
 ## Code Structure & Extensibility
 
 | Path | Description |
@@ -208,12 +235,16 @@ For changing the embedding model, swapping the vector DB, extending query unders
 - **Evaluation:** [docs/evaluation/evaluation_plan.md](docs/evaluation/evaluation_plan.md), [docs/evaluation/evaluation_results.md](docs/evaluation/evaluation_results.md), [docs/evaluation/golden_set_alignment.md](docs/evaluation/golden_set_alignment.md)
 - **Current eval snapshot:** [docs/evaluation/short_eval_status_2026-03-17.md](docs/evaluation/short_eval_status_2026-03-17.md), [docs/evaluation/team_eval_snapshot_2026-03-17.md](docs/evaluation/team_eval_snapshot_2026-03-17.md), [docs/evaluation/next_sprint_checklist_2026-03-17.md](docs/evaluation/next_sprint_checklist_2026-03-17.md)
 - **LLM-as-Judge:** [docs/evaluation/llm_judge_design.md](docs/evaluation/llm_judge_design.md)
+- **Governance (requirements, traceability, cost, model, prompts):** [docs/governance/ai_governance.md](docs/governance/ai_governance.md), [docs/governance/TRACEABILITY.md](docs/governance/TRACEABILITY.md), [docs/governance/cost_control.md](docs/governance/cost_control.md), [docs/governance/model_policy.md](docs/governance/model_policy.md), [docs/governance/prompt_governance.md](docs/governance/prompt_governance.md)
 
 ---
 
 ## Core Commands (Quick Reference)
 
 ```bash
+# Unit/integration tests
+pytest
+
 # Ingestion (Suri 3000 example: apply --suri-limit only for the mongo step)
 python3 scripts/ingest_resumes.py --source all --target mongo --suri-limit 3000
 python3 scripts/ingest_resumes.py --source all --target milvus --milvus-from-mongo
@@ -236,7 +267,7 @@ resume-matching-pj/
 ├── .env.example
 ├── requirements.txt
 ├── docker-compose.yml
-├── requirements/          # problem_definition, functional_requirements, traceability_matrix
+├── requirements/          # functional_requirements, case-study
 ├── docs/                  # architecture, data-flow, agents, evaluation, adr, governance, ...
 ├── config/                # skill_taxonomy, job_filters, skill_aliases, ...
 ├── src/
