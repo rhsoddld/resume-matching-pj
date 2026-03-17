@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,7 @@ from typing import Any
 from backend.services.skill_ontology import RuntimeSkillOntology
 from backend.services.skill_ontology.normalization import clean_token, dedupe_preserve
 
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT = ROOT / "src" / "eval" / "golden_set.jsonl"
@@ -201,14 +203,15 @@ def main() -> int:
     audit_payload = _audit(rows, ontology, include_soft=args.include_soft)
     _write_report(report_path, audit_payload)
 
-    print(
-        "[golden-maintenance] "
-        f"rows={audit_payload['rows_effective']} "
-        f"unique_skills={audit_payload['unique_expected_skills']} "
-        f"unmapped={audit_payload['unmapped_unique_skills']} "
-        f"mapped_ratio={audit_payload['mapped_ratio']}"
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+    logger.info(
+        "[golden-maintenance] rows=%s unique_skills=%s unmapped=%s mapped_ratio=%s",
+        audit_payload["rows_effective"],
+        audit_payload["unique_expected_skills"],
+        audit_payload["unmapped_unique_skills"],
+        audit_payload["mapped_ratio"],
     )
-    print(f"[golden-maintenance] report={report_path}")
+    logger.info("[golden-maintenance] report=%s", report_path)
 
     if args.mode in {"align", "all"}:
         aligned = _align_rows(
@@ -218,7 +221,7 @@ def main() -> int:
             drop_unknown=args.drop_unknown,
         )
         _write_rows(output_path, aligned)
-        print(f"[golden-maintenance] aligned_output={output_path}")
+        logger.info("[golden-maintenance] aligned_output=%s", output_path)
 
     return 0
 

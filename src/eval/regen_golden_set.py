@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -11,6 +12,7 @@ from backend.services.eval_adapter import MatchPipelineAdapter
 from backend.services.skill_ontology import RuntimeSkillOntology
 from backend.services.skill_ontology.normalization import clean_token, dedupe_preserve
 
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT = ROOT / "src" / "eval" / "golden_set.jsonl"
@@ -307,21 +309,22 @@ def main() -> int:
         include_families=include_families,
     )
 
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
     if not args.dry_run:
         if input_path == output_path and output_path.exists():
             stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
             backup_path = Path(f"{DEFAULT_BACKUP_PREFIX}.{stamp}.jsonl")
             output_path.replace(backup_path)
-            print(f"[regen] backup={backup_path}")
+            logger.info("[regen] backup=%s", backup_path)
         _write_rows(output_path, updated_rows)
-        print(f"[regen] wrote={output_path}")
+        logger.info("[regen] wrote=%s", output_path)
 
-    print(
-        "[regen] summary "
-        f"processed={summary['processed_rows']} "
-        f"kept_hard={summary['kept_hard_rows']} "
-        f"soft={summary['converted_to_soft_rows']} "
-        f"avg_selected={summary['avg_selected_candidates']}"
+    logger.info(
+        "[regen] summary processed=%s kept_hard=%s soft=%s avg_selected=%s",
+        summary["processed_rows"],
+        summary["kept_hard_rows"],
+        summary["converted_to_soft_rows"],
+        summary["avg_selected_candidates"],
     )
     return 0
 

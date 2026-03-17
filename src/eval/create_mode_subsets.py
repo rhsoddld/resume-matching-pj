@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from backend.services.eval_adapter import MatchPipelineAdapter
 from eval.metrics import mrr, must_have_coverage, ndcg_at_k, recall_at_k
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -281,10 +284,11 @@ def main() -> int:
     _write_manifest(output_dir / "subset_manifest.json", selections)
     _write_summary(output_dir / "README.md", selections)
 
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
     for mode, items in selections.items():
-        print(f"[create_mode_subsets] mode={mode} queries={len(items)} path={output_dir / f'golden.{mode}.jsonl'}")
-    print(f"[create_mode_subsets] manifest={output_dir / 'subset_manifest.json'}")
-    print(f"[create_mode_subsets] summary={output_dir / 'README.md'}")
+        logger.info("[create_mode_subsets] mode=%s queries=%s path=%s", mode, len(items), output_dir / f"golden.{mode}.jsonl")
+    logger.info("[create_mode_subsets] manifest=%s", output_dir / "subset_manifest.json")
+    logger.info("[create_mode_subsets] summary=%s", output_dir / "README.md")
     return 0
 
 

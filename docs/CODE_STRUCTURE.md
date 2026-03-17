@@ -71,7 +71,7 @@
 ### `docs/` Directory
 
 - **`architecture/`**: system_architecture.md, deployment_architecture.md
-- **`adr/`**: ADR-001 ~ ADR-004 (vector-db, embedding, hybrid-retrieval, agent-orchestration)
+- **`adr/`**: ADR-001 ~ ADR-009 (vector-db, embedding, hybrid-retrieval, agent-orchestration, deterministic-query-understanding, rerank-policy, ingestion-parsing-rule-based, bias-fairness-guardrails, observability-strategy)
 - **`data-flow/`**: resume_ingestion_flow.md, candidate_retrieval_flow.md
 - **`agents/`**: multi_agent_pipeline.md
 - **`evaluation/`**: evaluation_plan.md, evaluation_results.md, llm_judge_design.md, golden_set_alignment.md 등

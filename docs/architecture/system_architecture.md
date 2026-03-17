@@ -1,5 +1,14 @@
 # System Architecture — AI Resume Matching
 
+**Architecture vs Data Flow 구분:** 이 문서는 **소프트웨어 컴포넌트와 레이어 구조**(아키텍처)만 다룹니다. **논리적 데이터 이동**(데이터가 어디서 어디로 흐르는지, 단계별 결정·fallback)은 별도 문서로 구분합니다.
+
+- [Resume Ingestion Flow](../data-flow/resume_ingestion_flow.md) — 이력서 수집·파싱·정규화·임베딩 흐름
+- [Candidate Retrieval Flow](../data-flow/candidate_retrieval_flow.md) — 쿼리 이해·하이브리드 검색·rerank·fallback 흐름
+
+배포 토폴로지·POC vs Production·API Gateway/LB/K8s 고려는 [deployment_architecture.md](deployment_architecture.md)를 참고하세요.
+
+---
+
 ## 1. 목표 시스템 흐름
 
 ```mermaid
@@ -73,6 +82,7 @@ N --> O
 | Negotiation Layer | Recruiter / Hiring Manager weight proposal 조정 | weight negotiation agent |
 | Ranking Layer | 최종 점수 계산 및 explainable recommendation 생성 | ranking engine, result builder |
 | Evaluation & Guardrails | 품질 검증, 설명 검증, 편향 감시 | DeepEval, LLM-as-Judge, Bias guardrails |
+| **Observability & MLOps** | 로깅, 메트릭, 트레이싱, ML 평가·모델 라이프사이클 | [monitoring.md](../observability/monitoring.md): 구조화 로그, request-id, 헬스; `src/eval/` 평가·golden set; LangSmith(선택) |
 
 ## 3. Query Understanding 설계
 

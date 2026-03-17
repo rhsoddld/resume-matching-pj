@@ -34,6 +34,7 @@
 | **Signal quality & confidence** | `signal_quality`, `confidence` 출력으로 retrieval/rerank 게이트 및 평가 추적 가능 | Opaque query object |
 | **Query fallback (optional)** | Low confidence / high unknown_ratio 시 LLM query fallback 옵션 제공 | Always LLM or never LLM |
 
+*Ref: [ADR-005-deterministic-query-understanding.md](./adr/ADR-005-deterministic-query-understanding.md)*  
 *Implementation:* `src/backend/services/job_profile_extractor.py`, `src/backend/core/filter_options.py`, `config/*.yml`
 
 **설명 vs 코드:** 필터 옵션 API(`/api/jobs/filters`)는 `repositories.mongo_repo.get_filter_options()`를 호출하지만, 현재 구현에서는 **MongoDB를 읽지 않고** `core.filter_options.get_filter_options()`(YAML: `job_filters.yml` + `skill_taxonomy.yml` 병합)만 사용한다. 즉 필터 옵션 소스는 100% 설정 파일이다.
@@ -59,6 +60,7 @@
 | **Timeout & fallback** | `RERANK_TIMEOUT_SEC` 적용, 실패 시 baseline shortlist 반환 | Block until rerank completes |
 | **R2.3 fine-tuned embedding rerank** | Intentionally deferred; baseline 이상 주장하지 않음 | Implement from start |
 
+*Ref: [ADR-006-rerank-policy.md](./adr/ADR-006-rerank-policy.md)*  
 *Implementation:* `src/backend/services/matching/rerank_policy.py`, `src/backend/services/cross_encoder_rerank_service.py`, `src/backend/core/model_routing.py`
 
 **설명 vs 코드:** Rerank 서비스 파일명은 `cross_encoder_rerank_service.py`이지만, 실제 구현은 **embedding 기반** rerank와 **LLM** rerank 두 모드만 지원한다. Cross-Encoder 모델(예: ms-marco-MiniLM-L-6-v2)은 사용하지 않으며, `rerank_mode`가 `embedding`일 때는 쿼리+후보 텍스트를 embedding한 뒤 유사도로 재정렬한다.
@@ -98,6 +100,7 @@ All model names and versions are configurable via `backend.core.settings` (env).
 | **Must-have vs culture gate** | must-have 미달 + culture 고신뢰 조합 시 경고 | No gate |
 | **Top-K seniority distribution** | JD seniority 미지정 시 상위 K명 seniority 쏠림 검사 | No check |
 
+*Ref: [ADR-008-bias-fairness-guardrails.md](./adr/ADR-008-bias-fairness-guardrails.md)*  
 *Implementation:* `src/backend/services/matching/fairness.py`, `src/backend/core/jd_guardrails.py`  
 *Frontend:* `BiasGuardrailBanner.tsx`로 경고 노출
 
@@ -111,6 +114,7 @@ All model names and versions are configurable via `backend.core.settings` (env).
 | **Health** | `/api/health` (liveness), `/api/ready` (Mongo + Milvus readiness) |
 | **Deployment** | Docker Compose (local); GKE/Helm-ready (see deployment_architecture.md) |
 
+*Ref: [ADR-009-observability-strategy.md](./adr/ADR-009-observability-strategy.md)*  
 *Ref: [docs/observability/logging_metrics.md](./observability/logging_metrics.md), [docs/observability/monitoring.md](./observability/monitoring.md)*
 
 ## 10. Tech Stack Summary (Final)

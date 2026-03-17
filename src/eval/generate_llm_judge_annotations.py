@@ -316,19 +316,14 @@ def main() -> int:
         )
 
     _write_jsonl(output_path, annotations)
-    print(
-        json.dumps(
-            {
-                "run_id": run_id,
-                "golden_set": str(golden_path),
-                "output": str(output_path),
-                "records": len(annotations),
-                "live_llm_success_count": live_success,
-                "bootstrap_count": bootstrap_count,
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
+    logger.info(
+        "run_id=%s golden_set=%s output=%s records=%s live_llm_success_count=%s bootstrap_count=%s",
+        run_id,
+        str(golden_path),
+        str(output_path),
+        len(annotations),
+        live_success,
+        bootstrap_count,
     )
     return 0
 
